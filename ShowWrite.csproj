@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<UseWPF>true</UseWPF>
+		<UseWindowsForms>true</UseWindowsForms>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Title>ShowWrite视频展台</Title>
+		<Version>2.1.5</Version>
+		<ApplicationIcon>icon-d1tools.com.ico</ApplicationIcon>
+		<PackageProjectUrl>https://github.com/wwcrdrvf6u/ShowWrite/</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/wwcrdrvf6u/ShowWrite/</RepositoryUrl>
+		<Authors>wwcrdrvf6u</Authors>
+		<SelfContained>false</SelfContained>
+	</PropertyGroup>
+	<ItemGroup>
+	  <Content Include="icon-d1tools.com.ico" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="AForge.Imaging" Version="2.2.5" />
+		<PackageReference Include="AForge.Video" Version="2.2.5" />
+		<PackageReference Include="AForge.Video.DirectShow" Version="2.2.5" />
+		<PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.8.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="WPF-UI" Version="4.1.0" />
+		<PackageReference Include="ZXing.Net" Version="0.16.10" />
+	</ItemGroup>
+	<ItemGroup>
+		<Resource Include="icons\*.png" />
+	  
+	</ItemGroup>
+	<ItemGroup>
+	  <None Update="SWECL.png">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+</Project>
