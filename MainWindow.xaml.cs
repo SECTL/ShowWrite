@@ -255,6 +255,12 @@ namespace ShowWrite
             this.Topmost = true;
             this.Topmost = false;
             this.Focus();
+
+            // 初始化默认模式为移动模式
+            SetMode(DrawingManager.ToolMode.Move, true);
+
+            // 初始化画笔颜色
+            InitializePenColor();
         }
 
         private void SwitchTheme(bool useDarkTheme)
@@ -2936,9 +2942,9 @@ namespace ShowWrite
             }
         }
 
-
-
-        // 更新选中的对钩图标
+        /// <summary>
+        /// 更新选中的对钩图标
+        /// </summary>
         private void UpdateSelectedCheckIcon(Button selectedButton)
         {
             // 隐藏之前选中的按钮的对钩
@@ -2976,7 +2982,9 @@ namespace ShowWrite
             _currentSelectedColorButton = selectedButton;
         }
 
-        // 设置画笔颜色（已有方法，确保调用时更新UI）
+        /// <summary>
+        /// 设置画笔颜色
+        /// </summary>
         private void SetPenColor(string colorName)
         {
             System.Windows.Media.Color color;
@@ -3008,19 +3016,23 @@ namespace ShowWrite
             // 更新画笔颜色
             var brush = new SolidColorBrush(color);
             Ink.DefaultDrawingAttributes.Color = color;
+            _drawingManager.SetPenColor(color);
 
-            // 更新橡皮擦颜色（如果需要）
-            // Ink.EditingMode = InkCanvasEditingMode.Ink;
+            // 记录日志
+            Logger.Debug("MainWindow", $"画笔颜色设置为: {colorName}");
         }
 
-        // 初始化选中的颜色（在窗口加载时调用）
+        /// <summary>
+        /// 初始化画笔颜色
+        /// </summary>
         private void InitializePenColor()
         {
-            // 找到默认选中的黑色按钮
-            // 注意：这里假设PenSettingsPopup已经加载
-            if (PenSettingsPopup != null && PenSettingsPopup.IsOpen == false)
+            // 设置默认颜色为黑色
+            SetPenColor("Black");
+
+            // 找到黑色按钮并更新选中状态
+            if (PenSettingsPopup != null)
             {
-                // 延迟执行，确保Popup已加载
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     var border = PenSettingsPopup.Child as Border;
@@ -3048,29 +3060,29 @@ namespace ShowWrite
             }
         }
 
-        // 在窗口加载事件中添加初始化
-        private void Window_Loaded(object sender, RoutedEventArgs e)
-        {
-            InitializePenColor();
-        }
-
-        // 当打开画笔设置弹出窗口时，确保对钩显示正确
+        /// <summary>
+        /// 画笔按钮点击事件
+        /// </summary>
         private void PenBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button button && button.Tag is string colorName)
+            Logger.Debug("MainWindow", "PenBtn_Click 被调用");
+            Logger.Debug("MainWindow", $"当前模式: {_drawingManager.CurrentMode}");
+
+            // 切换到画笔模式
+            if (_drawingManager.CurrentMode != DrawingManager.ToolMode.Pen)
             {
-                var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(colorName);
-                _drawingManager.SetPenColor(color);
-                _panZoomManager.ApplyStrokeScaleCompensation();
-                Logger.Debug("MainWindow", $"笔迹颜色设置为: {colorName}");
+                SetMode(DrawingManager.ToolMode.Pen);
             }
 
+            // 打开画笔设置悬浮窗
+            PenSettingsPopup.IsOpen = true;
+
             // 确保颜色选择器显示正确的选中状态
-            if (PenSettingsPopup.IsOpen)
-            {
-                InitializePenColor();
-            }
+            InitializePenColor();
+
+            Logger.Debug("MainWindow", "切换到画笔模式并打开画笔设置");
         }
+
         private void MoveBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_drawingManager.CurrentMode != DrawingManager.ToolMode.Move)
@@ -3078,8 +3090,6 @@ namespace ShowWrite
             else
                 MoveBtn.IsChecked = true;
         }
-
-
 
         private void EraserBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -3107,6 +3117,9 @@ namespace ShowWrite
             }
         }
 
+        /// <summary>
+        /// 颜色按钮点击事件
+        /// </summary>
         private void ColorButton_Click(object sender, RoutedEventArgs e)
         {
             if (sender is System.Windows.Controls.Button button && button.Tag is string colorName)
