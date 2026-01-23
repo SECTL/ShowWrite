@@ -294,6 +294,12 @@ namespace ShowWrite
             {
                 InitializeCorrectionPoints();
             }
+
+            // 如果照片悬浮窗打开，重新定位
+            if (PhotoPopup != null && PhotoPopup.IsOpen)
+            {
+                RepositionPhotoPopup();
+            }
         }
 
         /// <summary>
@@ -399,6 +405,12 @@ namespace ShowWrite
                 this.Loaded -= MainWindow_Loaded;
                 this.SizeChanged -= MainWindow_SizeChanged;
 
+                // 取消照片悬浮窗事件
+                if (PhotoPopup != null)
+                {
+                    PhotoPopup.Opened -= PhotoPopup_Opened;
+                }
+
                 Logger.Info("MainWindow", "所有事件订阅已取消");
             }
             catch (Exception ex)
@@ -432,6 +444,7 @@ namespace ShowWrite
                 // 初始化UI组件
                 InitializePenSettingsPopup();
                 InitializeTouchInfoPopup();
+                InitializePhotoPopup(); // 新增
 
                 // 开始触控跟踪
                 _touchManager.StartTracking();
@@ -524,6 +537,24 @@ namespace ShowWrite
             catch (Exception ex)
             {
                 Logger.Error("MainWindow", $"初始化触控信息悬浮窗失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 初始化照片悬浮窗
+        /// </summary>
+        private void InitializePhotoPopup()
+        {
+            try
+            {
+                // 订阅Popup打开事件，动态设置位置
+                PhotoPopup.Opened += PhotoPopup_Opened;
+
+                Logger.Debug("MainWindow", "照片悬浮窗初始化完成");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"初始化照片悬浮窗失败: {ex.Message}", ex);
             }
         }
 
@@ -768,6 +799,70 @@ namespace ShowWrite
         {
             if (_isPerspectiveCorrectionMode) return;
             _panZoomManager.HandleManipulationDelta(e, _drawingManager.CurrentMode, VideoArea);
+        }
+
+        #endregion
+
+        #region 照片悬浮窗定位方法
+
+        /// <summary>
+        /// 照片悬浮窗打开事件
+        /// </summary>
+        private void PhotoPopup_Opened(object sender, EventArgs e)
+        {
+            RepositionPhotoPopup();
+        }
+
+        /// <summary>
+        /// 重新定位照片悬浮窗到右下角
+        /// </summary>
+        private void RepositionPhotoPopup()
+        {
+            try
+            {
+                if (PhotoPopup == null || !PhotoPopup.IsOpen) return;
+
+                // 获取屏幕工作区尺寸
+                double screenWidth = SystemParameters.WorkArea.Width;
+                double screenHeight = SystemParameters.WorkArea.Height;
+
+                // 获取窗口位置和尺寸
+                double windowLeft = this.Left;
+                double windowTop = this.Top;
+                double windowWidth = this.ActualWidth;
+                double windowHeight = this.ActualHeight;
+
+                // 如果窗口是最大化的，使用窗口的尺寸而不是屏幕尺寸
+                if (this.WindowState == WindowState.Maximized)
+                {
+                    windowLeft = 0;
+                    windowTop = 0;
+                    windowWidth = SystemParameters.PrimaryScreenWidth;
+                    windowHeight = SystemParameters.PrimaryScreenHeight;
+                }
+
+                // Popup尺寸
+                double popupWidth = 400; // 与XAML中Border的Width一致
+                double popupHeight = 500; // 与XAML中Border的Height一致
+
+                // 计算右下角位置
+                double left = windowLeft + windowWidth - popupWidth - 10; // 右侧留10像素边距
+                double top = windowTop + windowHeight - popupHeight - 70 - 10; // 底部留10像素边距，减去70像素的工具栏高度
+
+                // 确保不会超出屏幕边界
+                if (top < 0) top = 10;
+                if (left < 0) left = 10;
+
+                // 设置Popup位置
+                PhotoPopup.HorizontalOffset = left;
+                PhotoPopup.VerticalOffset = top;
+
+                Logger.Debug("MainWindow", $"照片悬浮窗位置已更新: ({left}, {top})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"重新定位照片悬浮窗失败: {ex.Message}", ex);
+            }
         }
 
         #endregion
@@ -2936,7 +3031,18 @@ namespace ShowWrite
 
         private void TogglePhotoPanel_Click(object sender, RoutedEventArgs e)
         {
-            PhotoPopup.IsOpen = !PhotoPopup.IsOpen;
+            if (PhotoPopup.IsOpen)
+            {
+                PhotoPopup.IsOpen = false;
+            }
+            else
+            {
+                // 先打开Popup，然后在Opened事件中定位
+                PhotoPopup.IsOpen = true;
+
+                // 如果需要立即定位，可以调用RepositionPhotoPopup
+                // 但Opened事件会处理它
+            }
             Logger.Debug("MainWindow", "切换照片面板显示状态");
         }
 

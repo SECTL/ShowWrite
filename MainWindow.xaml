@@ -60,7 +60,7 @@
 
             <!-- 左侧功能区（更多/最小化/扫一扫） -->
             <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="10,0" VerticalAlignment="Center">
-                <Button x:Name="MoreButton" Style="{DynamicResource MoreButtonStyle}" Margin="5,0,-2,0"
+                <Button x:Name="MoreButton" Style="{DynamicResource MoreButtonStyle}" Margin="5,0,5,0"
                         Click="MoreButton_Click">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Viewbox Width="30" Height="30">
@@ -196,8 +196,8 @@
                 </Button>
             </StackPanel>
 
-            <!-- 右侧照片功能 -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,10,0" VerticalAlignment="Center">
+            <!-- 右侧照片功能 - 修改：靠右对齐，紧贴右侧 -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,5,0" VerticalAlignment="Center">
                 <Button x:Name="PhotoBtn" Style="{DynamicResource PhotoButtonStyle}" Width="214" Click="TogglePhotoPanel_Click">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Viewbox Width="30" Height="30">
@@ -214,9 +214,13 @@
             </StackPanel>
         </Grid>
 
-        <!-- 照片悬浮窗 - 增加高度 -->
-        <Popup x:Name="PhotoPopup" PlacementTarget="{Binding ElementName=PhotoBtn}" Placement="Left" StaysOpen="False">
-            <Border Width="400" Height="800" Background="#2C3E50" CornerRadius="6" BorderBrush="White" BorderThickness="1">
+
+        <!-- 照片悬浮窗 - 显示在右下角 -->
+        <Popup x:Name="PhotoPopup" 
+       Placement="Absolute" 
+       StaysOpen="False"
+       AllowsTransparency="True">
+            <Border Width="400" Height="500" Background="#2C3E50" CornerRadius="6" BorderBrush="White" BorderThickness="1">
                 <DockPanel>
                     <TextBlock Text="拍摄记录" Foreground="White" FontSize="16" FontWeight="Bold" Margin="10" DockPanel.Dock="Top"/>
                     <ListBox x:Name="PhotoList" SelectionChanged="PhotoList_SelectionChanged">
@@ -397,34 +401,40 @@
             </Border>
         </Popup>
 
-        <!-- 更多菜单弹出窗口 -->
+        <!-- 更多菜单弹出窗口 - 修改：按钮内容居中 -->
         <Popup x:Name="MoreMenuPopup" PlacementTarget="{Binding ElementName=MoreButton}" Placement="Top" StaysOpen="False"
                AllowsTransparency="True" PopupAnimation="Fade" Closed="MoreMenuPopup_Closed">
             <Border Width="150" Background="{DynamicResource PopupBackground}" CornerRadius="6" BorderBrush="{DynamicResource PopupBorder}" BorderThickness="1">
-                <StackPanel>
+                <StackPanel HorizontalAlignment="Stretch">
                     <Button Click="SwitchCamera_Click" 
-                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40">
-                        <TextBlock Text="切换摄像头" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                        <TextBlock Text="切换摄像头" VerticalAlignment="Center"/>
                     </Button>
                     <Button Click="OpenAdjustVideo_Click" 
-                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40">
-                        <TextBlock Text="画面调节" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                        <TextBlock Text="画面调节" VerticalAlignment="Center"/>
                     </Button>
                     <Button Click="OpenPerspectiveCorrection_Click" 
-                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40">
-                        <TextBlock Text="梯形校正" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                        <TextBlock Text="梯形校正" VerticalAlignment="Center"/>
                     </Button>
                     <Button Click="ClearCorrection_Click" 
-                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40">
-                        <TextBlock Text="清除校正" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                        <TextBlock Text="清除校正" VerticalAlignment="Center"/>
                     </Button>
                     <Button Click="OpenSettings_Click" 
-                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40">
-                        <TextBlock Text="设置" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                        <TextBlock Text="设置" VerticalAlignment="Center"/>
                     </Button>
                     <Button Click="Exit_Click" 
-                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40">
-                        <TextBlock Text="退出" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" Height="40"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                        <TextBlock Text="退出" VerticalAlignment="Center"/>
                     </Button>
                 </StackPanel>
             </Border>
