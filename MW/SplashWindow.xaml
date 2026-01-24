@@ -11,7 +11,8 @@
         ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="CenterScreen"
-        SizeToContent="WidthAndHeight"
+        Width="875"
+        Height="475"
         SnapsToDevicePixels="True"
         UseLayoutRounding="True"
         ResizeMode="NoResize">
@@ -23,25 +24,84 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+
     </Window.Resources>
 
     <Grid>
-        <Border CornerRadius="8" Background="White">
-            <Image x:Name="SplashImage" 
-                   Stretch="Uniform" 
-                   SnapsToDevicePixels="True"
-                   UseLayoutRounding="True"
-                   RenderOptions.BitmapScalingMode="HighQuality"/>
-        </Border>
+        <Border CornerRadius="12" 
+                Background="#F0FFFF"
+                Width="875"
+                Height="475">
+            <Grid>
+                <!-- 主标题 -->
+                <TextBlock Text="ShowWrite"
+                          FontFamily="Segoe UI"
+                          FontSize="72"
+                          FontWeight="Bold"
+                          Foreground="#2F2F2F"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Top"
+                          Margin="37,42,0,0">
+                    <TextBlock.Effect>
+                        <DropShadowEffect ShadowDepth="2" Opacity="0.3" BlurRadius="5" Color="Black"/>
+                    </TextBlock.Effect>
+                </TextBlock>
 
-        <!-- 加载指示器（可选） -->
-        <Grid VerticalAlignment="Bottom" Height="30" Margin="0,0,0,10">
-            <ProgressBar x:Name="LoadingProgress" 
-                        Height="4" 
-                        Width="200" 
-                        HorizontalAlignment="Center"
-                        IsIndeterminate="True"
-                        Foreground="#007ACC"/>
-        </Grid>
+                <!-- 副标题 -->
+                <TextBlock Text="视频展台"
+                          FontFamily="Microsoft YaHei"
+                          FontSize="50"
+                          FontWeight="SemiBold"
+                          Foreground="#2F2F2F"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Top"
+                          Margin="37,121,0,0">
+                    <TextBlock.Effect>
+                        <DropShadowEffect ShadowDepth="1" Opacity="0.2" BlurRadius="3" Color="Black"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+
+                <TextBlock Text="正在启！动！"
+                          FontFamily="Segoe UI"
+                          FontSize="14"
+                          Foreground="Black"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Bottom"
+                          Margin="0,0,0,30"/>
+
+                <!-- 加载指示器 -->
+                <Border Background="#20000000" 
+                        CornerRadius="4" 
+                        HorizontalAlignment="Center" 
+                        VerticalAlignment="Bottom"
+                        Width="300"
+                        Height="4"
+                        Margin="0,0,0,60">
+                    <Border Width="0" x:Name="LoadingBar" HorizontalAlignment="Left">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Color="#00FFFFFF" Offset="0"/>
+                                <GradientStop Color="White" Offset="0.5"/>
+                                <GradientStop Color="#00FFFFFF" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Border.Triggers>
+                            <EventTrigger RoutedEvent="Border.Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation From="0" To="300" 
+                                                       Duration="0:0:2.5" 
+                                                       Storyboard.TargetProperty="Width"
+                                                       RepeatBehavior="Forever"
+                                                       AutoReverse="True"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Border.Triggers>
+                    </Border>
+                </Border>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

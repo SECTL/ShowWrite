@@ -1,8 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Windows;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using System.Windows.Media.Animation;
 
 namespace ShowWrite
 {
@@ -10,92 +8,95 @@ namespace ShowWrite
     {
         public DateTime? StartTime { get; private set; }
 
-        public SplashWindow(string imagePath)
+        public SplashWindow()
         {
             InitializeComponent();
             StartTime = DateTime.Now;
-            LoadImage(imagePath);
 
             // 设置窗口位置在屏幕中央
             this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            this.Left = (SystemParameters.PrimaryScreenWidth - this.Width) / 2;
+            this.Top = (SystemParameters.PrimaryScreenHeight - this.Height) / 2;
+
+            // 添加淡入动画
+            this.Opacity = 0;
+            this.Loaded += (s, e) =>
+            {
+                var fadeIn = new DoubleAnimation
+                {
+                    From = 0,
+                    To = 1,
+                    Duration = TimeSpan.FromMilliseconds(500),
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                };
+                this.BeginAnimation(OpacityProperty, fadeIn);
+            };
         }
 
-        private void LoadImage(string imagePath)
+        /// <summary>
+        /// 显示启动图
+        /// </summary>
+        public void ShowSplash()
         {
             try
             {
-                if (File.Exists(imagePath))
+                Logger.Debug("SplashWindow", "显示启动图");
+
+                // 显示窗口
+                this.Show();
+                this.Activate();
+                this.Topmost = true;
+
+                // 强制更新UI
+                this.UpdateLayout();
+
+                Logger.Debug("SplashWindow", "启动图显示成功");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("SplashWindow", $"显示启动图失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 关闭启动图（带淡出效果）
+        /// </summary>
+        public void CloseSplash()
+        {
+            try
+            {
+                // 添加淡出效果
+                var fadeOut = new DoubleAnimation
                 {
-                    // 使用BitmapImage以支持高DPI
-                    var bitmapImage = new BitmapImage();
-                    bitmapImage.BeginInit();
+                    From = 1.0,
+                    To = 0.0,
+                    Duration = TimeSpan.FromMilliseconds(300),
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                };
 
-                    // 设置高DPI相关属性
-                    bitmapImage.DecodePixelWidth = 800; // 限制最大宽度
-                    bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmapImage.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-
-                    // 支持高DPI缩放
-                    bitmapImage.DecodePixelWidth = (int)(SystemParameters.PrimaryScreenWidth * 0.5);
-
-                    // 设置URI
-                    bitmapImage.UriSource = new Uri(imagePath, UriKind.RelativeOrAbsolute);
-
-                    bitmapImage.EndInit();
-
-                    // 检查图像是否有效
-                    if (bitmapImage.Width > 0 && bitmapImage.Height > 0)
+                fadeOut.Completed += (s, e) =>
+                {
+                    try
                     {
-                        SplashImage.Source = bitmapImage;
-
-                        // 根据图像尺寸调整窗口大小
-                        AdjustWindowSize(bitmapImage.PixelWidth, bitmapImage.PixelHeight);
+                        this.Close();
+                        Logger.Debug("SplashWindow", "启动图已关闭");
                     }
-                }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("SplashWindow", $"关闭窗口失败: {ex.Message}", ex);
+                    }
+                };
+
+                this.BeginAnimation(OpacityProperty, fadeOut);
             }
             catch (Exception ex)
             {
-                Logger.Error("SplashWindow", $"加载启动图失败: {ex.Message}", ex);
-            }
-        }
-
-        private void AdjustWindowSize(int imageWidth, int imageHeight)
-        {
-            try
-            {
-                // 获取屏幕尺寸
-                double screenWidth = SystemParameters.PrimaryScreenWidth;
-                double screenHeight = SystemParameters.PrimaryScreenHeight;
-
-                // 计算最大尺寸（屏幕的80%）
-                double maxWidth = screenWidth * 0.8;
-                double maxHeight = screenHeight * 0.8;
-
-                // 计算缩放比例
-                double widthRatio = maxWidth / imageWidth;
-                double heightRatio = maxHeight / imageHeight;
-                double scaleRatio = Math.Min(widthRatio, heightRatio);
-
-                // 如果图像比屏幕小，保持原尺寸
-                if (scaleRatio > 1)
+                Logger.Error("SplashWindow", $"关闭启动图失败: {ex.Message}", ex);
+                try
                 {
-                    scaleRatio = 1;
+                    this.Close();
                 }
-
-                // 设置图像控件尺寸
-                SplashImage.Width = imageWidth * scaleRatio;
-                SplashImage.Height = imageHeight * scaleRatio;
-
-                // 设置窗口尺寸（包含边框和边距）
-                this.Width = SplashImage.Width + 40; // 边距
-                this.Height = SplashImage.Height + 60; // 边距和进度条高度
-
-                // 重新居中
-                this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("SplashWindow", $"调整窗口尺寸失败: {ex.Message}", ex);
+                catch { }
             }
         }
 

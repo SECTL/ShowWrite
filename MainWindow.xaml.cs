@@ -128,28 +128,19 @@ namespace ShowWrite
             {
                 Logger.Debug("MainWindow", "显示启动图");
 
-                // 检查启动图文件是否存在
-                string splashPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "SWECL.png");
-                if (File.Exists(splashPath))
-                {
-                    // 创建并显示启动窗口
-                    _splashWindow = new SplashWindow(splashPath);
-                    _splashWindow.Show();
-                    _isSplashShown = true;
+                // 创建并显示启动窗口
+                _splashWindow = new SplashWindow();
+                _splashWindow.Show();
+                _isSplashShown = true;
 
-                    // 让启动图窗口获得焦点并确保在前台
-                    _splashWindow.Activate();
-                    _splashWindow.Topmost = true;
+                // 让启动图窗口获得焦点并确保在前台
+                _splashWindow.Activate();
+                _splashWindow.Topmost = true;
 
-                    // 强制更新UI
-                    _splashWindow.UpdateLayout();
+                // 强制更新UI
+                _splashWindow.UpdateLayout();
 
-                    Logger.Debug("MainWindow", "启动图显示成功");
-                }
-                else
-                {
-                    Logger.Warning("MainWindow", "启动图文件不存在: SWECL.png");
-                }
+                Logger.Debug("MainWindow", "启动图显示成功");
             }
             catch (Exception ex)
             {
@@ -196,6 +187,7 @@ namespace ShowWrite
             }
         }
 
+
         /// <summary>
         /// 内部关闭启动图窗口
         /// </summary>
@@ -205,24 +197,10 @@ namespace ShowWrite
             {
                 if (_splashWindow != null)
                 {
-                    // 添加淡出效果
-                    var animation = new System.Windows.Media.Animation.DoubleAnimation
-                    {
-                        From = 1.0,
-                        To = 0.0,
-                        Duration = TimeSpan.FromMilliseconds(300),
-                        EasingFunction = new System.Windows.Media.Animation.QuadraticEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
-                    };
-
-                    animation.Completed += (s, e) =>
-                    {
-                        _splashWindow.Close();
-                        _splashWindow = null;
-                        _isSplashShown = false;
-                        Logger.Debug("MainWindow", "启动图已关闭");
-                    };
-
-                    _splashWindow.BeginAnimation(Window.OpacityProperty, animation);
+                    _splashWindow.CloseSplash();
+                    _splashWindow = null;
+                    _isSplashShown = false;
+                    Logger.Debug("MainWindow", "启动图已关闭");
                 }
             }
             catch (Exception ex)
