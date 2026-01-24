@@ -30,8 +30,10 @@ using WinBrushes = System.Windows.Media.Brushes;
 using WinBrush = System.Windows.Media.Brush;
 using Button = System.Windows.Controls.Button;
 using MessageBox = System.Windows.MessageBox;
-using Image = System.Drawing.Image;
-using Brushes = System.Drawing.Brushes;
+using SystemDrawingImage = System.Drawing.Image;  // 重命名 System.Drawing.Image
+using SystemDrawingBrushes = System.Drawing.Brushes;  // 重命名 System.Drawing.Brushes
+using WpfImage = System.Windows.Controls.Image;
+using Binding = System.Windows.Data.Binding;  // 为 WPF Image 添加别名
 
 namespace ShowWrite
 {
@@ -890,12 +892,12 @@ namespace ShowWrite
             stackPanelFactory.SetValue(StackPanel.OrientationProperty, System.Windows.Controls.Orientation.Horizontal);
             stackPanelFactory.SetValue(StackPanel.MarginProperty, new Thickness(6));
 
-            // 创建缩略图
-            var imageFactory = new FrameworkElementFactory(typeof(Image));
-            imageFactory.SetValue(Image.WidthProperty, 70.0);
-            imageFactory.SetValue(Image.HeightProperty, 52.0);
-            imageFactory.SetBinding(Image.SourceProperty, new System.Windows.Data.Binding("Thumbnail"));
-            imageFactory.SetValue(Image.StretchProperty, Stretch.UniformToFill);
+            // 创建缩略图 - 使用 WpfImage 别名
+            var imageFactory = new FrameworkElementFactory(typeof(WpfImage));
+            imageFactory.SetValue(WpfImage.WidthProperty, 70.0);
+            imageFactory.SetValue(WpfImage.HeightProperty, 52.0);
+            imageFactory.SetBinding(WpfImage.SourceProperty, new System.Windows.Data.Binding("Thumbnail"));
+            imageFactory.SetValue(WpfImage.StretchProperty, Stretch.UniformToFill);
 
             // 创建右侧信息面板
             var infoPanelFactory = new FrameworkElementFactory(typeof(StackPanel));
@@ -904,30 +906,30 @@ namespace ShowWrite
 
             // 时间戳
             var timestampFactory = new FrameworkElementFactory(typeof(TextBlock));
-            timestampFactory.SetValue(TextBlock.ForegroundProperty, Brushes.White);
+            timestampFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.White); // 使用 WPF Brushes
             timestampFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
             timestampFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("Timestamp"));
 
             // 笔迹数
             var strokesFactory = new FrameworkElementFactory(typeof(TextBlock));
-            strokesFactory.SetValue(TextBlock.ForegroundProperty, Brushes.LightGray);
+            strokesFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.LightGray); // 使用 WPF Brushes
             strokesFactory.SetValue(TextBlock.FontSizeProperty, 12.0);
-            strokesFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("Strokes.Count")
+            strokesFactory.SetBinding(TextBlock.TextProperty, new Binding("Strokes.Count")
             {
                 StringFormat = "笔迹数: {0}"
             });
 
             // 选中状态提示文字
             var selectedTipFactory = new FrameworkElementFactory(typeof(TextBlock));
-            selectedTipFactory.SetValue(TextBlock.ForegroundProperty, Brushes.Yellow);
+            selectedTipFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.Yellow); // 使用 WPF Brushes
             selectedTipFactory.SetValue(TextBlock.FontSizeProperty, 11.0);
             selectedTipFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
             selectedTipFactory.SetValue(TextBlock.MarginProperty, new Thickness(0, 5, 0, 0));
 
             // 使用多重绑定和值转换器来确定是否显示提示文字
             var multiBinding = new MultiBinding();
-            multiBinding.Bindings.Add(new System.Windows.Data.Binding(".")); // 当前项
-            multiBinding.Bindings.Add(new System.Windows.Data.Binding("CurrentPhoto") { Source = this });
+            multiBinding.Bindings.Add(new Binding(".")); // 当前项
+            multiBinding.Bindings.Add(new Binding("CurrentPhoto") { Source = this });
             multiBinding.Converter = new PhotoSelectedTipConverter();
 
             selectedTipFactory.SetBinding(TextBlock.TextProperty, multiBinding);
@@ -943,32 +945,6 @@ namespace ShowWrite
 
             dataTemplate.VisualTree = stackPanelFactory;
             return dataTemplate;
-        }
-
-        /// <summary>
-        /// 照片选择状态提示转换器
-        /// </summary>
-        public class PhotoSelectedTipConverter : IMultiValueConverter
-        {
-            public object Convert(object[] values, Type targetType, object parameter, System.Globalization.CultureInfo culture)
-            {
-                if (values.Length >= 2)
-                {
-                    var currentItem = values[0] as PhotoWithStrokes;
-                    var currentPhoto = values[1] as PhotoWithStrokes;
-
-                    if (currentItem != null && currentPhoto != null && currentItem == currentPhoto)
-                    {
-                        return "再次点击返回直播";
-                    }
-                }
-                return string.Empty;
-            }
-
-            public object[] ConvertBack(object value, Type[] targetTypes, object parameter, System.Globalization.CultureInfo culture)
-            {
-                throw new NotImplementedException();
-            }
         }
 
         /// <summary>
@@ -1072,7 +1048,7 @@ namespace ShowWrite
 
         #endregion
 
-        private void VideoArea_MouseMove(object sender, WinMouseEventArgs e)
+        private void VideoArea_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
             if (_isPerspectiveCorrectionMode) return;
             _panZoomManager.HandleMouseMove(e, _drawingManager.CurrentMode);
@@ -1129,70 +1105,6 @@ namespace ShowWrite
         {
             if (_isPerspectiveCorrectionMode) return;
             _panZoomManager.HandleManipulationDelta(e, _drawingManager.CurrentMode, VideoArea);
-        }
-
-        #endregion
-
-        #region 照片悬浮窗定位方法
-
-        /// <summary>
-        /// 照片悬浮窗打开事件
-        /// </summary>
-        private void PhotoPopup_Opened(object sender, EventArgs e)
-        {
-            RepositionPhotoPopup();
-        }
-
-        /// <summary>
-        /// 重新定位照片悬浮窗到右下角
-        /// </summary>
-        private void RepositionPhotoPopup()
-        {
-            try
-            {
-                if (PhotoPopup == null || !PhotoPopup.IsOpen) return;
-
-                // 获取屏幕工作区尺寸
-                double screenWidth = SystemParameters.WorkArea.Width;
-                double screenHeight = SystemParameters.WorkArea.Height;
-
-                // 获取窗口位置和尺寸
-                double windowLeft = this.Left;
-                double windowTop = this.Top;
-                double windowWidth = this.ActualWidth;
-                double windowHeight = this.ActualHeight;
-
-                // 如果窗口是最大化的，使用窗口的尺寸而不是屏幕尺寸
-                if (this.WindowState == WindowState.Maximized)
-                {
-                    windowLeft = 0;
-                    windowTop = 0;
-                    windowWidth = SystemParameters.PrimaryScreenWidth;
-                    windowHeight = SystemParameters.PrimaryScreenHeight;
-                }
-
-                // Popup尺寸
-                double popupWidth = 400; // 与XAML中Border的Width一致
-                double popupHeight = 500; // 与XAML中Border的Height一致
-
-                // 计算右下角位置
-                double left = windowLeft + windowWidth - popupWidth - 10; // 右侧留10像素边距
-                double top = windowTop + windowHeight - popupHeight - 70 - 10; // 底部留10像素边距，减去70像素的工具栏高度
-
-                // 确保不会超出屏幕边界
-                if (top < 0) top = 10;
-                if (left < 0) left = 10;
-
-                // 设置Popup位置
-                PhotoPopup.HorizontalOffset = left;
-                PhotoPopup.VerticalOffset = top;
-
-                Logger.Debug("MainWindow", $"照片悬浮窗位置已更新: ({left}, {top})");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("MainWindow", $"重新定位照片悬浮窗失败: {ex.Message}", ex);
-            }
         }
 
         #endregion
@@ -1683,7 +1595,7 @@ namespace ShowWrite
         /// <summary>
         /// 校正画布鼠标移动事件（修复版）
         /// </summary>
-        private void CorrectionCanvas_MouseMove(object sender, WinMouseEventArgs e)
+        private void CorrectionCanvas_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
         {
             try
             {
