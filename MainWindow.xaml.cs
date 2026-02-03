@@ -148,8 +148,6 @@ namespace ShowWrite
 
                 // 强制更新UI
                 _splashWindow.UpdateLayout();
-
-                Logger.Debug("MainWindow", "启动图显示成功");
             }
             catch (Exception ex)
             {
@@ -208,7 +206,6 @@ namespace ShowWrite
                     _splashWindow.CloseSplash();
                     _splashWindow = null;
                     _isSplashShown = false;
-                    Logger.Debug("MainWindow", "启动图已关闭");
                 }
             }
             catch (Exception ex)

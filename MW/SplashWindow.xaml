@@ -32,106 +32,145 @@
                 Width="875"
                 Height="475">
             <Grid>
-                <!-- 主标题 -->
-                <TextBlock Text="ShowWrite"
-                          FontFamily="Segoe UI"
-                          FontSize="72"
-                          FontWeight="Bold"
-                          Foreground="#2F2F2F"
-                          HorizontalAlignment="Left"
-                          VerticalAlignment="Top"
-                          Margin="37,42,0,0">
-                    <TextBlock.Effect>
-                        <DropShadowEffect ShadowDepth="2" Opacity="0.3" BlurRadius="5" Color="Black"/>
-                    </TextBlock.Effect>
-                </TextBlock>
+                <!-- 左侧内容区域 -->
+                <Grid Width="437.5" HorizontalAlignment="Left">
+                    <!-- 主标题 -->
+                    <TextBlock Text="ShowWrite"
+                              FontFamily="Segoe UI"
+                              FontSize="72"
+                              FontWeight="Bold"
+                              Foreground="#2F2F2F"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Top"
+                              Margin="37,42,0,0">
+                        <TextBlock.Effect>
+                            <DropShadowEffect ShadowDepth="2" Opacity="0.3" BlurRadius="5" Color="Black"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
 
-                <!-- 副标题 -->
-                <TextBlock Text="视频展台"
-                          FontFamily="Microsoft YaHei"
-                          FontSize="50"
-                          FontWeight="SemiBold"
-                          Foreground="#2F2F2F"
-                          HorizontalAlignment="Left"
-                          VerticalAlignment="Top"
-                          Margin="37,123,0,0">
-                    <TextBlock.Effect>
-                        <DropShadowEffect ShadowDepth="1" Opacity="0.2" BlurRadius="3" Color="Black"/>
-                    </TextBlock.Effect>
-                </TextBlock>
-                <TextBlock Text="开 源 视 频 展 台 行 业 跟 跑 者"
-                    FontFamily="Microsoft YaHei"
-                    FontSize="25"
-                    FontWeight="Light"
-                    Foreground="#2F2F2F"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Top"
-                    Margin="37,211,0,0" RenderTransformOrigin="0.5,0.5">
-                    <TextBlock.RenderTransform>
-                        <TransformGroup>
-                            <ScaleTransform/>
-                            <SkewTransform/>
-                            <RotateTransform Angle="0"/>
-                            <TranslateTransform/>
-                        </TransformGroup>
-                    </TextBlock.RenderTransform>
-                    <TextBlock.Effect>
-                        <DropShadowEffect ShadowDepth="1" Opacity="0.2" BlurRadius="3" Color="Black"/>
-                    </TextBlock.Effect>
-                </TextBlock>
-
-                <!-- 版本信息 -->
-                <TextBlock FontFamily="Microsoft YaHei"
-                        FontSize="18"
+                    <!-- 副标题 -->
+                    <TextBlock Text="视频展台"
+                              FontFamily="Microsoft YaHei"
+                              FontSize="50"
+                              FontWeight="SemiBold"
+                              Foreground="#2F2F2F"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Top"
+                              Margin="37,123,0,0">
+                        <TextBlock.Effect>
+                            <DropShadowEffect ShadowDepth="1" Opacity="0.2" BlurRadius="3" Color="Black"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
+                    <TextBlock Text="开 源 视 频 展 台 行 业 跟 跑 者"
+                        FontFamily="Microsoft YaHei"
+                        FontSize="25"
                         FontWeight="Light"
-                        Foreground="#555555"
+                        Foreground="#2F2F2F"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
-                        Margin="37,271,0,0">
-                    <TextBlock.Effect>
-                        <DropShadowEffect ShadowDepth="0.5" Opacity="0.1" BlurRadius="2" Color="Black"/>
-                    </TextBlock.Effect>
-                    <Run Text="软件版本 "/>
-                    <Run x:Name="VersionText" Text="v2.1.5.0"/> <!-- 这里可以在代码后台动态设置 -->
-                </TextBlock>
-                <TextBlock Text="正在启！动！"
-                          FontFamily="Segoe UI"
-                          FontSize="14"
-                          Foreground="Black"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Bottom"
-                          Margin="0,0,0,30"/>
+                        Margin="37,211,0,0" RenderTransformOrigin="0.5,0.5">
+                        <TextBlock.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform/>
+                                <SkewTransform/>
+                                <RotateTransform Angle="0"/>
+                                <TranslateTransform/>
+                            </TransformGroup>
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Effect>
+                            <DropShadowEffect ShadowDepth="1" Opacity="0.2" BlurRadius="3" Color="Black"/>
+                        </TextBlock.Effect>
+                    </TextBlock>
 
-                <!-- 加载指示器 -->
-                <Border Background="#20000000" 
-                        CornerRadius="4" 
-                        HorizontalAlignment="Center" 
-                        VerticalAlignment="Bottom"
-                        Width="300"
-                        Height="4"
-                        Margin="0,0,0,60">
-                    <Border Width="0" x:Name="LoadingBar" HorizontalAlignment="Left">
-                        <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                <GradientStop Color="#00FFFFFF" Offset="0"/>
-                                <GradientStop Color="White" Offset="0.5"/>
-                                <GradientStop Color="#00FFFFFF" Offset="1"/>
-                            </LinearGradientBrush>
-                        </Border.Background>
-                        <Border.Triggers>
-                            <EventTrigger RoutedEvent="Border.Loaded">
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation From="0" To="300" 
-                                                       Duration="0:0:2.5" 
-                                                       Storyboard.TargetProperty="Width"
-                                                       RepeatBehavior="Forever"
-                                                       AutoReverse="True"/>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </Border.Triggers>
+                    <!-- 版本信息 -->
+                    <TextBlock FontFamily="Microsoft YaHei"
+                            FontSize="18"
+                            FontWeight="Light"
+                            Foreground="#555555"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="37,271,0,0">
+                        <TextBlock.Effect>
+                            <DropShadowEffect ShadowDepth="0.5" Opacity="0.1" BlurRadius="2" Color="Black"/>
+                        </TextBlock.Effect>
+                        <Run Text="软件版本 "/>
+                        <Run x:Name="VersionText" Text="v2.1.5.0"/>
+                    </TextBlock>
+                    <TextBlock Text="正在启！动！"
+                              FontFamily="Segoe UI"
+                              FontSize="14"
+                              Foreground="Black"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Bottom"
+                              Margin="0,0,0,30"/>
+
+                    <!-- 加载指示器 -->
+                    <Border Background="#20000000" 
+                            CornerRadius="4" 
+                            HorizontalAlignment="Center" 
+                            VerticalAlignment="Bottom"
+                            Width="300"
+                            Height="4"
+                            Margin="0,0,0,60">
+                        <Border Width="0" x:Name="LoadingBar" HorizontalAlignment="Left">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#00FFFFFF" Offset="0"/>
+                                    <GradientStop Color="White" Offset="0.5"/>
+                                    <GradientStop Color="#00FFFFFF" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.Triggers>
+                                <EventTrigger RoutedEvent="Border.Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation From="0" To="300" 
+                                                           Duration="0:0:2.5" 
+                                                           Storyboard.TargetProperty="Width"
+                                                           RepeatBehavior="Forever"
+                                                           AutoReverse="True"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Border.Triggers>
+                        </Border>
                     </Border>
+                </Grid>
+
+                <!-- 右侧图片区域 -->
+                <Border Width="437.5" 
+                        Height="475"
+                        HorizontalAlignment="Right"
+                        CornerRadius="12"
+                        Background="White">
+                    <!-- 图片加载占位符和实际图片 -->
+                    <Grid>
+                        <!-- 加载占位符（初始显示） -->
+                        <Border Background="#F5F5F5" 
+                                CornerRadius="0"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch">
+                            <TextBlock Text="加载图片中..."
+                                      FontFamily="Microsoft YaHei"
+                                      FontSize="16"
+                                      Foreground="#888888"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- 在线图片（异步加载） -->
+                        <Image x:Name="OnlineImage"
+                               Width="437"
+                               Height="474"
+                               Stretch="UniformToFill"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Opacity="0">
+                            <Image.Effect>
+                                <DropShadowEffect ShadowDepth="2" Opacity="0.2" BlurRadius="10" Color="Black"/>
+                            </Image.Effect>
+                        </Image>
+                    </Grid>
                 </Border>
             </Grid>
         </Border>

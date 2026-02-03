@@ -1,12 +1,17 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.ComponentModel;
 
 namespace ShowWrite
 {
     public partial class SplashWindow : Window
     {
         public DateTime? StartTime { get; private set; }
+
+        // 在线图片URL
+        private const string OnlineImageUrl = "http://mhhuaji.web1337.net/picture/3.jpg";
 
         public SplashWindow()
         {
@@ -30,34 +35,65 @@ namespace ShowWrite
                     EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
                 };
                 this.BeginAnimation(OpacityProperty, fadeIn);
+
+                // 窗口加载完成后开始加载图片
+                LoadOnlineImage();
             };
         }
 
         /// <summary>
-        /// 显示启动图
+        /// 异步加载在线图片
         /// </summary>
-        public void ShowSplash()
+        private void LoadOnlineImage()
         {
             try
             {
-                Logger.Debug("SplashWindow", "显示启动图");
+                Logger.Debug("SplashWindow", "开始加载在线图片");
 
-                // 显示窗口
-                this.Show();
-                this.Activate();
-                this.Topmost = true;
+                // 创建BitmapImage
+                var bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.UriSource = new Uri(OnlineImageUrl, UriKind.Absolute);
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad; // 加载时缓存
+                bitmapImage.DecodePixelWidth = 438; // 设置解码宽度为右半部分宽度
+                bitmapImage.DecodePixelHeight = 475; // 设置解码高度
+                bitmapImage.EndInit();
 
-                // 强制更新UI
-                this.UpdateLayout();
+                // 设置图片源
+                OnlineImage.Source = bitmapImage;
 
-                Logger.Debug("SplashWindow", "启动图显示成功");
+                // 图片加载完成后的淡入动画
+                bitmapImage.DownloadCompleted += (s, e) =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        var imageFadeIn = new DoubleAnimation
+                        {
+                            From = 0,
+                            To = 1,
+                            Duration = TimeSpan.FromMilliseconds(800),
+                            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                        };
+                        OnlineImage.BeginAnimation(OpacityProperty, imageFadeIn);
+                        Logger.Debug("SplashWindow", "在线图片加载完成");
+                    });
+                };
+
+                // 图片加载失败的处理
+                bitmapImage.DownloadFailed += (s, e) =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        Logger.Error("SplashWindow", $"图片加载失败: {e.ErrorException?.Message}", e.ErrorException);
+                        // 可以在这里显示默认图片或错误提示
+                    });
+                };
             }
             catch (Exception ex)
             {
-                Logger.Error("SplashWindow", $"显示启动图失败: {ex.Message}", ex);
+                Logger.Error("SplashWindow", $"加载在线图片失败: {ex.Message}", ex);
             }
         }
-
         /// <summary>
         /// 关闭启动图（带淡出效果）
         /// </summary>

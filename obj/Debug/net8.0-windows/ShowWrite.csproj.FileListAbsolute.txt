@@ -25,7 +25,6 @@ C:\Users\vum\Source\Repos\ShowWrite\bin\Debug\net8.0-windows\runtimes\win-x64\na
 C:\Users\vum\Source\Repos\ShowWrite\bin\Debug\net8.0-windows\runtimes\win-x86\native\Magick.Native-Q8-x86.dll
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite.csproj.AssemblyReference.cache
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\AdjustVideoWindow.baml
-C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\MainWindow.baml
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\MW\SplashWindow.baml
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\PenSettingsWindow.baml
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\SettingsWindow.baml
@@ -39,7 +38,10 @@ C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\PenSettingsWindow.g
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\SettingsWindow.g.cs
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\App.g.cs
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite_Content.g.cs
+C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\GeneratedInternalTypeHelper.g.cs
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite_MarkupCompile.cache
+C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite_MarkupCompile.lref
+C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\MainWindow.baml
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite.g.resources
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite.AssemblyInfoInputs.cache
@@ -52,5 +54,3 @@ C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\refint\ShowWrite.dl
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite.pdb
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite.genruntimeconfig.cache
 C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ref\ShowWrite.dll
-C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\GeneratedInternalTypeHelper.g.cs
-C:\Users\vum\Source\Repos\ShowWrite\obj\Debug\net8.0-windows\ShowWrite_MarkupCompile.lref
