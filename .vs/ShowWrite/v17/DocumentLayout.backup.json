@@ -7,18 +7,6 @@
       "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\app.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:app.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\mw\\splashwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mw\\splashwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\mw\\splashwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mw\\splashwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
       "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     }
@@ -48,7 +36,7 @@
               "RelativeDocumentMoniker": "MainWindow.xaml.cs",
               "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.xaml.cs",
               "RelativeToolTip": "MainWindow.xaml.cs",
-              "ViewState": "AgIAAIcAAAAAAAAAAAAUwJUAAAAtAAAAAAAAAA==",
+              "ViewState": "AgIAAFYMAAAAAAAAAAAqwGoMAAAZAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-02-03T13:44:15.556Z",
               "EditorCaption": ""
@@ -56,44 +44,6 @@
             {
               "$type": "Document",
               "DocumentIndex": 1,
-              "Title": "App.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\App.xaml.cs",
-              "RelativeDocumentMoniker": "App.xaml.cs",
-              "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\App.xaml.cs",
-              "RelativeToolTip": "App.xaml.cs",
-              "ViewState": "AgIAAEQAAAAAAAAAAAAwwB8AAAAvAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-03T13:42:56.065Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "SplashWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MW\\SplashWindow.xaml.cs",
-              "RelativeDocumentMoniker": "MW\\SplashWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MW\\SplashWindow.xaml.cs",
-              "RelativeToolTip": "MW\\SplashWindow.xaml.cs",
-              "ViewState": "AgIAAIUAAAAAAAAAAAAcwFIAAAA3AAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-03T13:12:58.726Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "SplashWindow.xaml",
-              "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MW\\SplashWindow.xaml",
-              "RelativeDocumentMoniker": "MW\\SplashWindow.xaml",
-              "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MW\\SplashWindow.xaml",
-              "RelativeToolTip": "MW\\SplashWindow.xaml",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2026-02-03T13:12:31.313Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
               "Title": "MainWindow.xaml",
               "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.xaml",
               "RelativeDocumentMoniker": "MainWindow.xaml",

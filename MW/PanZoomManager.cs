@@ -2,9 +2,6 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
-using Application = System.Windows.Application;
-using Point = System.Windows.Point;
-
 
 namespace ShowWrite
 {
@@ -13,7 +10,6 @@ namespace ShowWrite
     /// </summary>
     public class PanZoomManager
     {
-
         private readonly ScaleTransform _zoomTransform;
         private readonly TranslateTransform _panTransform;
         private readonly UIElement _targetElement;
@@ -21,7 +17,7 @@ namespace ShowWrite
 
         private double _currentZoom = 1.0;
         private bool _isPanning = false;
-        private System.Windows.Point _lastMousePos; // 明确命名空间
+        private System.Windows.Point _lastMousePos; // 明确指定为 WPF 的 Point
 
         // 笔迹缩放补偿相关
         private double _originalPenWidth = 2.0;
@@ -107,20 +103,32 @@ namespace ShowWrite
         /// <summary>
         /// 鼠标按下事件处理
         /// </summary>
-        public void HandleMouseDown(MouseButtonEventArgs e, DrawingManager.ToolMode currentMode)
+        public void HandleMouseDown(System.Windows.Input.MouseButtonEventArgs e, DrawingManager.ToolMode currentMode)
         {
             if (!CheckEnabled()) return;
 
-            if (currentMode == DrawingManager.ToolMode.Move && e.ChangedButton == MouseButton.Left)
+            if (currentMode == DrawingManager.ToolMode.Move && e.ChangedButton == System.Windows.Input.MouseButton.Left)
             {
                 try
                 {
                     _isPanning = true;
-                    _lastMousePos = e.GetPosition(System.Windows.Application.Current.MainWindow);
+
+                    // 修复：使用 _targetElement 的父窗口来获取位置
+                    var window = Window.GetWindow(_targetElement);
+                    if (window != null)
+                    {
+                        _lastMousePos = e.GetPosition(window);
+                        window.Cursor = System.Windows.Input.Cursors.SizeAll;
+                    }
+                    else
+                    {
+                        // 备用方案：如果无法获取窗口，则使用 _targetElement
+                        _lastMousePos = e.GetPosition(_targetElement);
+                    }
+
                     _targetElement.CaptureMouse();
                     e.Handled = true;
 
-                    System.Windows.Application.Current.MainWindow.Cursor = System.Windows.Input.Cursors.SizeAll;
                     Console.WriteLine($"开始拖拽: 起始点=({_lastMousePos.X:F1}, {_lastMousePos.Y:F1})");
                 }
                 catch (Exception ex)
@@ -142,7 +150,19 @@ namespace ShowWrite
             {
                 try
                 {
-                    var currentPos = e.GetPosition(System.Windows.Application.Current.MainWindow);
+                    // 修复：使用相同的窗口获取方式
+                    var window = Window.GetWindow(_targetElement);
+                    System.Windows.Point currentPos;
+
+                    if (window != null)
+                    {
+                        currentPos = e.GetPosition(window);
+                    }
+                    else
+                    {
+                        currentPos = e.GetPosition(_targetElement);
+                    }
+
                     _panTransform.X += currentPos.X - _lastMousePos.X;
                     _panTransform.Y += currentPos.Y - _lastMousePos.Y;
                     _lastMousePos = currentPos;
@@ -158,17 +178,24 @@ namespace ShowWrite
         /// <summary>
         /// 鼠标释放事件处理
         /// </summary>
-        public void HandleMouseUp(MouseButtonEventArgs e, DrawingManager.ToolMode currentMode)
+        public void HandleMouseUp(System.Windows.Input.MouseButtonEventArgs e, DrawingManager.ToolMode currentMode)
         {
             if (!CheckEnabled()) return;
 
-            if (_isPanning && e.ChangedButton == MouseButton.Left)
+            if (_isPanning && e.ChangedButton == System.Windows.Input.MouseButton.Left)
             {
                 try
                 {
                     _isPanning = false;
                     _targetElement.ReleaseMouseCapture();
-                    Application.Current.MainWindow.Cursor = System.Windows.Input.Cursors.Arrow;
+
+                    // 修复：恢复光标
+                    var window = Window.GetWindow(_targetElement);
+                    if (window != null)
+                    {
+                        window.Cursor = System.Windows.Input.Cursors.Arrow;
+                    }
+
                     e.Handled = true;
                     Console.WriteLine($"结束拖拽: 最终平移=({_panTransform.X:F1}, {_panTransform.Y:F1})");
                 }
@@ -182,18 +209,18 @@ namespace ShowWrite
         /// <summary>
         /// 鼠标滚轮事件处理
         /// </summary>
-        public void HandleMouseWheel(MouseWheelEventArgs e, DrawingManager.ToolMode currentMode, UIElement zoomContainer)
+        public void HandleMouseWheel(System.Windows.Input.MouseWheelEventArgs e, DrawingManager.ToolMode currentMode, UIElement zoomContainer)
         {
             if (!CheckEnabled()) return;
 
             if (currentMode == DrawingManager.ToolMode.Move)
             {
-                Point mousePos = e.GetPosition(zoomContainer);
+                System.Windows.Point mousePos = e.GetPosition(zoomContainer);
                 double zoomFactor = e.Delta > 0 ? 1.1 : 0.9;
                 double newZoom = _currentZoom * zoomFactor;
                 newZoom = Math.Max(0.1, Math.Min(10, newZoom));
 
-                Point relative = new Point(
+                System.Windows.Point relative = new System.Windows.Point(
                     (mousePos.X - _panTransform.X) / _currentZoom,
                     (mousePos.Y - _panTransform.Y) / _currentZoom);
 
@@ -212,25 +239,30 @@ namespace ShowWrite
         /// <summary>
         /// 手势操作开始
         /// </summary>
-        public void HandleManipulationStarting(ManipulationStartingEventArgs e, DrawingManager.ToolMode currentMode)
+        public void HandleManipulationStarting(System.Windows.Input.ManipulationStartingEventArgs e, DrawingManager.ToolMode currentMode)
         {
             if (!CheckEnabled()) return;
 
             if (currentMode == DrawingManager.ToolMode.Move)
             {
-                e.ManipulationContainer = Application.Current.MainWindow;
-                e.Mode = ManipulationModes.Scale | ManipulationModes.Translate;
+                // 修复：使用目标元素的窗口作为操作容器
+                var window = Window.GetWindow(_targetElement);
+                if (window != null)
+                {
+                    e.ManipulationContainer = window;
+                }
+                e.Mode = System.Windows.Input.ManipulationModes.Scale | System.Windows.Input.ManipulationModes.Translate;
             }
             else
             {
-                e.Mode = ManipulationModes.None;
+                e.Mode = System.Windows.Input.ManipulationModes.None;
             }
         }
 
         /// <summary>
         /// 手势操作处理
         /// </summary>
-        public void HandleManipulationDelta(ManipulationDeltaEventArgs e, DrawingManager.ToolMode currentMode, UIElement container)
+        public void HandleManipulationDelta(System.Windows.Input.ManipulationDeltaEventArgs e, DrawingManager.ToolMode currentMode, UIElement container)
         {
             if (!CheckEnabled()) return;
             if (currentMode != DrawingManager.ToolMode.Move) return;
@@ -240,10 +272,22 @@ namespace ShowWrite
             // 处理缩放
             if (delta.Scale.X != 1.0 || delta.Scale.Y != 1.0)
             {
-                Point center = e.ManipulationOrigin;
-                Point relativeCenter = container.TranslatePoint(center, Application.Current.MainWindow);
+                System.Windows.Point center = e.ManipulationOrigin;
 
-                Point relative = new Point(
+                // 修复：使用目标元素的窗口作为参考
+                var window = Window.GetWindow(_targetElement);
+                System.Windows.Point relativeCenter;
+
+                if (window != null)
+                {
+                    relativeCenter = container.TranslatePoint(center, window);
+                }
+                else
+                {
+                    relativeCenter = center;
+                }
+
+                System.Windows.Point relative = new System.Windows.Point(
                     (relativeCenter.X - _panTransform.X) / _currentZoom,
                     (relativeCenter.Y - _panTransform.Y) / _currentZoom);
 

@@ -123,11 +123,11 @@ namespace ShowWrite
         {
             try
             {
-                var memory = GC.GetTotalMemory(false) / 1024 / 1024;
+                //var memory = GC.GetTotalMemory(false) / 1024 / 1024;
                 var driveInfo = new DriveInfo(Path.GetPathRoot(_logDirectory));
                 var availableSpace = driveInfo.AvailableFreeSpace / 1024 / 1024 / 1024;
 
-                Logger.Info("System", $"系统状态 - 内存: {memory} MB, 磁盘可用空间: {availableSpace} GB, 运行时间: {DateTime.Now - System.Diagnostics.Process.GetCurrentProcess().StartTime}");
+                Logger.Info("System", $"系统状态 - 软件安装目录的磁盘可用空间: {availableSpace} GB, 运行时间: {DateTime.Now - System.Diagnostics.Process.GetCurrentProcess().StartTime}");
             }
             catch (Exception ex)
             {

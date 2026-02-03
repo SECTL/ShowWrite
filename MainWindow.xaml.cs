@@ -3010,28 +3010,45 @@ namespace ShowWrite
         /// </summary>
         private void Exit_Click(object sender, RoutedEventArgs e)
         {
+            if (_isClosing) return;
+            _isClosing = true;
+
+            Logger.Info("MainWindow", "用户请求退出 - 执行强制关闭流程");
+
             try
             {
-                Logger.Info("MainWindow", "用户请求退出...");
+                // 1. 立刻阻止一切新操作
+                _isClosing = true;
 
-                // 先处理校正模式
-                if (_isPerspectiveCorrectionMode)
+                // 2. 强制停止摄像头（彻底切断帧回调）
+                if (_cameraManager != null)
                 {
-                    ExitPerspectiveCorrectionMode(false);
+                    _cameraManager.PauseCamera();                    // 先暂停
+                    _cameraManager.OnNewFrameProcessed -= OnCameraFrameReceived; // 解绑事件
+                    _cameraManager.ReleaseCameraResources();         // 如果你有这个方法
+                                                                     // _cameraManager.Dispose();                     // 如果有 Dispose 也加上
                 }
 
-                // 直接关闭窗口
-                Close();
+                // 3. 强制退出校正模式（防止它卡住）
+                if (_isPerspectiveCorrectionMode)
+                {
+                    ForceExitCorrectionMode();
+                }
+
+                // 4. 关闭所有弹窗
+                CloseAllPopups();
+
+                // 5. 保存配置
+                SaveConfig();
+
+                // 6. 最关键的一步：强制关闭整个 WPF 应用程序
+                //    这会直接结束 Dispatcher，绕过所有卡住的队列
+                System.Windows.Application.Current.Shutdown(0);
             }
             catch (Exception ex)
             {
-                Logger.Error("MainWindow", $"退出时发生错误: {ex.Message}", ex);
-                // 作为最后手段
-                try
-                {
-                    Environment.Exit(0);
-                }
-                catch { }
+                Logger.Error("MainWindow", "强制退出失败", ex);
+                try { Environment.Exit(0); } catch { }
             }
         }
 

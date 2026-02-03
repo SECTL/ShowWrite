@@ -278,8 +278,39 @@
                     <TextBlock Text="拍摄记录" Foreground="White" FontSize="16" FontWeight="Bold" Margin="10" DockPanel.Dock="Top"/>
 
                     <!-- 照片列表 -->
-                    <ListBox x:Name="PhotoList">
-                        <!-- 数据模板将由 PhotoPopupManager 动态创建 -->
+                    <ListBox x:Name="PhotoList" 
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="8,6" 
+                    Background="#2C3E50" 
+                    CornerRadius="6" 
+                    BorderBrush="#455A64" 
+                    BorderThickness="1">
+                                    <Grid>
+                                        <!-- 缩略图 -->
+                                        <Image Source="{Binding Image}" 
+                           Width="360" 
+                           Height="240" 
+                           Stretch="Uniform" 
+                           Margin="8"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                                        <!-- 拍摄时间 -->
+                                        <TextBlock Text="{Binding CaptureTime, StringFormat=yyyy-MM-dd HH:mm:ss}"
+                               Foreground="#FFFFFF"
+                               FontSize="13"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Bottom"
+                               Margin="12,0,12,12"
+                               Opacity="0.85"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
                     </ListBox>
 
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Vertical" HorizontalAlignment="Center" Margin="10">
