@@ -1,6 +1,5 @@
 <p align="center">
   <img width="16%" align="center" src="logo-SW.png" alt="logo">
-</p>
 
 [![GitHub Issues](https://img.shields.io/github/issues-search/SECTL/ShowWrite?query=is%3Aopen&style=for-the-badge&color=00b4ab&logo=github&label=问题)](https://github.com/SECTL/ShowWrite/issues)
 [![最新版本](https://img.shields.io/github/v/release/SECTL/ShowWrite?style=for-the-badge&color=00b4ab&label=最新正式版)](https://github.com/SECTL/ShowWrite/releases/latest)
@@ -9,6 +8,8 @@
 [![下载统计](https://img.shields.io/github/downloads/SECTL/ShowWrite/total?style=for-the-badge&color=00b4ab&label=累计下载)](https://github.com/SECTL/ShowWrite/releases)
 
 [![QQ群](https://img.shields.io/badge/-QQ%E7%BE%A4%EF%BD%9C833875216-blue?style=for-the-badge&logo=QQ)](https://qm.qq.com/q/iWcfaPHn7W)
+
+</p>
 
 # ShowWrite视频展台 2.1
 ## 下载
