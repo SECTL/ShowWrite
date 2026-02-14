@@ -1,4 +1,3 @@
-﻿using System.Collections.Generic;
 using Newtonsoft.Json;
 
 namespace ShowWrite.Models
@@ -21,6 +20,8 @@ namespace ShowWrite.Models
         public double PalmEraserThreshold { get; set; } = 100.0;
         public bool EnablePalmEraser { get; set; } = true;
         public string Theme { get; set; } = "Light";
+        public string StartupImageUrl { get; set; } = "";
+        public int Language { get; set; } = 0;
 
         // 每个摄像头的配置字典（新格式）
         public Dictionary<int, CameraConfig> CameraConfigs { get; set; } = new Dictionary<int, CameraConfig>();

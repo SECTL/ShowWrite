@@ -1,26 +1,70 @@
-﻿ <Window x:Class="ShowWrite.SettingsWindow"
+<Window x:Class="ShowWrite.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="设置" Height="498" Width="678"
+        xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
+        xmlns:local="clr-namespace:ShowWrite"
+        xmlns:services="clr-namespace:ShowWrite.Services"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        ui:WindowHelper.SystemBackdropType="Mica"
+        Title="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Settings]}" Height="498" Width="678"
         WindowStartupLocation="CenterOwner">
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120"/>
+            <ColumnDefinition Width="Auto"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <!-- 左侧导航菜单 -->
-        <ListBox x:Name="MenuList" Grid.Column="0" Background="#F0F0F0"
-                 SelectionChanged="MenuList_SelectionChanged">
-            <ListBox.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding}" Padding="10,5" FontSize="14"/>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-            <ListBoxItem>通用</ListBoxItem>
-            <ListBoxItem>高级</ListBoxItem>
-            <ListBoxItem>关于</ListBoxItem>
-        </ListBox>
+        <!-- 左侧导航菜单 (使用NavigationView) -->
+        <ui:NavigationView x:Name="NavView" Grid.Column="0"
+                          PaneDisplayMode="LeftCompact"
+                          IsPaneOpen="False"
+                          IsFooterSeparatorVisible="False"
+                          OpenPaneLength="200"
+                          CompactPaneLength="48"
+                          SelectionChanged="NavView_SelectionChanged">
+
+            <!-- 设置透明背景 -->
+            <ui:NavigationView.Resources>
+                <SolidColorBrush x:Key="{x:Static ui:ThemeKeys.NavigationViewContentBackgroundKey}" Color="Transparent"/>
+                <SolidColorBrush x:Key="{x:Static ui:ThemeKeys.ExpanderHeaderBorderBrushKey}" Color="Transparent"/>
+                <Thickness x:Key="NavigationViewContentGridBorderThickness">0,0,0,0</Thickness>
+            </ui:NavigationView.Resources>
+
+            <ui:NavigationView.MenuItems>
+                <!-- 通用设置 -->
+                <ui:NavigationViewItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[GeneralSettings]}" Tag="General">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon Icon="{x:Static ui:SegoeFluentIcons.Settings}"/>
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <!-- 高级设置 -->
+                <ui:NavigationViewItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[AdvancedSettings]}" Tag="Advanced">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon Glyph="&#xf8a6;" FontSize="14"/>
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <!-- 启动图设置 -->
+                <ui:NavigationViewItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupSettings]}" Tag="Startup">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon Icon="{x:Static ui:SegoeFluentIcons.Picture}"/>
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.MenuItems>
+
+            <!-- 页脚菜单项 (关于) -->
+            <ui:NavigationView.FooterMenuItems>
+                <ui:NavigationViewItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[About]}" Tag="About">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:FontIcon Icon="{x:Static ui:SegoeFluentIcons.Info}"/>
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.FooterMenuItems>
+
+            <!-- 导航视图的内容区域（只是一个占位符，实际内容在右侧Grid中） -->
+            <Border Background="Transparent"/>
+        </ui:NavigationView>
 
         <!-- 右侧内容区域 -->
         <Grid Grid.Column="1">
@@ -28,47 +72,64 @@
             <Grid x:Name="GeneralPanel" Visibility="Visible">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="10" Width="400">
-                        <GroupBox Header="界面主题">
+                        <GroupBox Header="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[InterfaceTheme]}">
                             <StackPanel Margin="5">
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
-                                    <TextBlock Text="UI主题:" VerticalAlignment="Center" Width="100"/>
+                                    <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[UITheme]}" VerticalAlignment="Center" Width="100"/>
                                     <ComboBox x:Name="ThemeComboBox" Width="200">
-                                        <ComboBoxItem Content="深色" Tag="Dark"/>
-                                        <ComboBoxItem Content="浅色" Tag="Light" IsSelected="True"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[DarkTheme]}" Tag="Dark"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[LightTheme]}" Tag="Light" IsSelected="True"/>
                                     </ComboBox>
                                 </StackPanel>
-                                <TextBlock Text="（更改主题后需要重启应用生效）" 
+                                <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[ThemeChangeNote]}" 
                                            FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="启动设置" Margin="0,10,0,0">
+                        <GroupBox Header="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[LanguageSettings]}" Margin="0,10,0,0">
                             <StackPanel Margin="5">
-                                <CheckBox x:Name="StartMaximizedCheckBox" Content="启动时最大化窗口" Margin="0,5"/>
-                                <CheckBox x:Name="AutoStartCameraCheckBox" Content="启动时自动打开摄像头" Margin="0,5"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
-                                    <TextBlock Text="默认摄像头:" VerticalAlignment="Center" Width="100"/>
+                                    <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Language]}" VerticalAlignment="Center" Width="100"/>
+                                    <ComboBox x:Name="LanguageComboBox" Width="200">
+                                        <ComboBoxItem Content="简体中文" Tag="0"/>
+                                        <ComboBoxItem Content="繁體中文" Tag="1"/>
+                                        <ComboBoxItem Content="文言文" Tag="2"/>
+                                        <ComboBoxItem Content="English" Tag="3"/>
+                                        <ComboBoxItem Content="བོད་ཡིག" Tag="4"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[LanguageChangeNote]}" 
+                                           FontSize="11" Foreground="Gray" Margin="0,5,0,0"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupSettings]}" Margin="0,10,0,0">
+                            <StackPanel Margin="5">
+                                <CheckBox x:Name="StartMaximizedCheckBox" Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartMaximized]}" Margin="0,5"/>
+                                <CheckBox x:Name="AutoStartCameraCheckBox" Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[AutoStartCamera]}" Margin="0,5"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,5">
+                                    <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[DefaultCamera]}" VerticalAlignment="Center" Width="100"/>
                                     <ComboBox x:Name="CameraComboBox" Width="200"/>
                                 </StackPanel>
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="默认工具设置" Margin="0,10,0,0">
+                        <GroupBox Header="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[DefaultToolSettings]}" Margin="0,10,0,0">
                             <StackPanel Margin="5">
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
-                                    <TextBlock Text="默认画笔宽度:" VerticalAlignment="Center" Width="100"/>
+                                    <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[DefaultPenWidth]}" VerticalAlignment="Center" Width="100"/>
                                     <Slider x:Name="PenWidthSlider" Minimum="1" Maximum="20" Width="200" Value="2"/>
                                     <TextBlock Text="{Binding Value, ElementName=PenWidthSlider}" 
                                                Width="30" TextAlignment="Right" Margin="5,0,0,0"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
-                                    <TextBlock Text="默认画笔颜色:" VerticalAlignment="Center" Width="100"/>
+                                    <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[DefaultPenColor]}" VerticalAlignment="Center" Width="100"/>
                                     <ComboBox x:Name="PenColorComboBox" Width="200">
-                                        <ComboBoxItem Content="红色" Tag="#FFFF0000"/>
-                                        <ComboBoxItem Content="蓝色" Tag="#FF0000FF" IsSelected="True"/>
-                                        <ComboBoxItem Content="绿色" Tag="#FF00FF00"/>
-                                        <ComboBoxItem Content="黄色" Tag="#FFFFFF00"/>
-                                        <ComboBoxItem Content="白色" Tag="#FFFFFFFF"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Red]}" Tag="#FFFF0000"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Blue]}" Tag="#FF0000FF" IsSelected="True"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Green]}" Tag="#FF00FF00"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Yellow]}" Tag="#FFFFFF00"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[White]}" Tag="#FFFFFFFF"/>
                                     </ComboBox>
                                 </StackPanel>
                             </StackPanel>
@@ -81,19 +142,19 @@
             <Grid x:Name="AdvancedPanel" Visibility="Collapsed">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="10" Width="400">
-                        <GroupBox Header="视频处理">
+                        <GroupBox Header="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[VideoProcessing]}">
                             <StackPanel Margin="5">
-                                <CheckBox x:Name="EnableHardwareAccel" Content="启用硬件加速" Margin="0,5"/>
-                                <CheckBox x:Name="EnableFrameProcessing" Content="启用实时画面处理" Margin="0,5"/>
+                                <CheckBox x:Name="EnableHardwareAccel" Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[EnableHardwareAccel]}" Margin="0,5"/>
+                                <CheckBox x:Name="EnableFrameProcessing" Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[EnableFrameProcessing]}" Margin="0,5"/>
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="性能设置" Margin="0,10,0,0">
+                        <GroupBox Header="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[PerformanceSettings]}" Margin="0,10,0,0">
                             <StackPanel Margin="5">
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
-                                    <TextBlock Text="帧率限制:" VerticalAlignment="Center" Width="100"/>
+                                    <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[FrameRateLimit]}" VerticalAlignment="Center" Width="100"/>
                                     <ComboBox x:Name="FrameRateComboBox" Width="200">
-                                        <ComboBoxItem Content="无限制"/>
+                                        <ComboBoxItem Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[NoLimit]}"/>
                                         <ComboBoxItem Content="30 FPS"/>
                                         <ComboBoxItem Content="25 FPS" IsSelected="True"/>
                                         <ComboBoxItem Content="20 FPS"/>
@@ -103,11 +164,50 @@
                             </StackPanel>
                         </GroupBox>
 
-                        <GroupBox Header="开发者模式" Margin="0,10,0,0">
+                        <GroupBox Header="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[DeveloperMode]}" Margin="0,10,0,0">
                             <StackPanel Margin="5">
-                                <CheckBox x:Name="DeveloperModeCheckBox" Content="启用开发者模式" Margin="0,5"/>
+                                <CheckBox x:Name="DeveloperModeCheckBox" Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[EnableDeveloperMode]}" Margin="0,5"/>
                             </StackPanel>
                         </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- 启动图设置 -->
+            <Grid x:Name="RUN" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageSettings]}" FontSize="20" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                        <TextBlock TextWrapping="Wrap" Margin="0,20,0,0">
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageNote]}" />
+                            <LineBreak/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageNote1]}" />
+                        </TextBlock>
+
+                        <!-- 启动图URL输入框 -->
+                        <StackPanel Margin="0,15,0,0">
+                            <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageURL]}" Margin="0,0,0,5" FontWeight="SemiBold"/>
+                            <TextBox x:Name="StartupImageUrlTextBox" 
+                                     Padding="8" 
+                                     MinHeight="30"
+                                     VerticalContentAlignment="Center"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     Margin="0,0,0,10"
+                                     ToolTip="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageNote2]}"/>
+
+                            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="Gray">
+                                <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageNote3]}"/>
+                                <LineBreak/>
+                                <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageNote4]}"/>
+                                <LineBreak/>
+                                <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageNote5]}"/>
+                                <LineBreak/>
+                                <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[StartupImageNote6]}"/>
+                            </TextBlock>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
@@ -116,42 +216,42 @@
             <Grid x:Name="AboutPanel" Visibility="Collapsed">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
-                        <TextBlock Text="ShowWrite 视频展台" FontSize="20" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[ShowWriteVideoPresenter]}" FontSize="20" FontWeight="Bold"/>
                         <TextBlock Margin="0,10">
-                <Run Text="版本: "/>
-                <Run x:Name="VersionText"/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Version]}"/>
+                            <Run x:Name="VersionText"/>
                         </TextBlock>
-                        <TextBlock Text="© 智教联盟" Margin="0,5"/>
-                        <TextBlock Text="本软件基于AForge.NET和ZXing库开发" Margin="0,20,0,5"/>
+                        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Copyright]}" Margin="0,5"/>
+                        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[BasedOnLibraries]}" Margin="0,20,0,5"/>
 
                         <TextBlock TextWrapping="Wrap" Margin="0,20,0,0">
-                <Run Text="本次更新的顺利发布，离不开"/>
-                <Run Text="开发者（也就是我）" FontWeight="Bold" Foreground="#FF2C3E50"/>
-                <Run Text="的持续投入，以及"/>
-                <Run Text="开发团队（还是我）" FontWeight="Bold" Foreground="#FF2C3E50"/>
-                <Run Text="的昼夜奋战。当然，也少不了各大 AI 大模型的助力。"/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[UpdateNote1]}"/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[UpdateNote2]}" FontWeight="Bold" Foreground="#FF2C3E50"/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[UpdateNote3]}"/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[UpdateNote4]}" FontWeight="Bold" Foreground="#FF2C3E50"/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[UpdateNote5]}"/>
                         </TextBlock>
 
                         <TextBlock TextWrapping="Wrap" Margin="0,10,0,0">
-                <Run Text="从 1.0 版本一路走来，我们经历了："/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[ExperienceNote]}"/>
                         </TextBlock>
 
                         <StackPanel Margin="20,10,0,0">
-                            <TextBlock Text="• 很多次 Bug 修复"/>
-                            <TextBlock Text="• 很多次 代码重构与优化" Margin="0,5,0,0"/>
-                            <TextBlock Text="• 🙏 特别鸣谢：佛祖对本软件的加持与庇佑" Margin="0,5,0,0"/>
-                            <TextBlock Text="（详情请参见 MainWindow.xaml.cs 中的神秘注释）" Foreground="#666" Margin="20,0,0,0"/>
+                            <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Achievement1]}"/>
+                            <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Achievement2]}" Margin="0,5,0,0"/>
+                            <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Achievement3]}" Margin="0,5,0,0"/>
+                            <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Achievement4]}" Foreground="#666" Margin="20,0,0,0"/>
                         </StackPanel>
 
                         <TextBlock TextWrapping="Wrap" Margin="0,20,0,0" Foreground="#2C3E50">
-                <Run Text="愿代码无 Bug，运行如飞。" FontWeight="Bold"/>
-                <LineBreak/>
-                <Run Text="—— 开发者 敬上"/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[WishNote]}" FontWeight="Bold"/>
+                            <LineBreak/>
+                            <Run Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[DeveloperSignature]}"/>
                         </TextBlock>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,30,0,0">
-                            <Button Content="检查更新" Padding="10,5" Margin="0,0,10,0"/>
-                            <Button Content="访问官网" Padding="10,5" Click="VisitWebsiteButton_Click"/>
+                            <Button Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[CheckUpdate]}" Padding="10,5" Margin="0,0,10,0"/>
+                            <Button Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[VisitWebsite]}" Padding="10,5" Click="VisitWebsiteButton_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -162,8 +262,8 @@
         <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" 
                     HorizontalAlignment="Right" VerticalAlignment="Bottom" 
                     Margin="10">
-            <Button Content="确定" Width="80" Height="30" Margin="0,0,10,0" Click="OkButton_Click"/>
-            <Button Content="取消" Width="80" Height="30" Click="CancelButton_Click"/>
+            <Button Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[OK]}" Width="80" Height="30" Margin="0,0,10,0" Click="OkButton_Click"/>
+            <Button Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Cancel]}" Width="80" Height="30" Click="CancelButton_Click"/>
         </StackPanel>
     </Grid>
 </Window>

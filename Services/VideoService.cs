@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Threading;
-using System.Threading.Tasks;
-using AForge.Video;
+﻿using AForge.Video;
 using AForge.Video.DirectShow;
-using ShowWrite;
 
 namespace ShowWrite.Services
 {

@@ -5,10 +5,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Ink;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Media.Animation;
-using System.Windows.Threading;
+using System.Windows.Ink;
 using StylusPointCollection = System.Windows.Input.StylusPointCollection;
 using Stroke = System.Windows.Ink.Stroke;
 using Color = System.Windows.Media.Color;
@@ -16,7 +14,6 @@ using Cursors = System.Windows.Input.Cursors;
 using Path = System.IO.Path;
 using WinPoint = System.Windows.Point;
 using WinImage = System.Windows.Controls.Image;
-using DrawingImage = System.Windows.Media.DrawingImage;
 
 namespace ShowWrite
 {
@@ -29,11 +26,6 @@ namespace ShowWrite
         private readonly Window _mainWindow;
 
         public ToolMode CurrentMode { get; private set; } = ToolMode.None;
-
-        private InkCanvas _overlayInkCanvas;
-        private ScaleTransform _zoomTransform;
-        private TranslateTransform _panTransform;
-        private bool _useOverlayInkCanvas = true;
 
         // 编辑历史
         private readonly Stack<EditAction> _editHistory = new Stack<EditAction>();
@@ -59,41 +51,6 @@ namespace ShowWrite
 
         // 橡皮擦设置
         private double _manualEraserSize = 20.0;
-
-        // =========================
-        // 高级橡皮擦系统 (从 DrawingAndErasingLogic.cs 移植)
-        // =========================
-        private bool _isUsingGeometryEraser = false;
-        private IncrementalStrokeHitTester _hitTester = null;
-        private double _eraserWidth = 64;
-        private bool _isEraserCircleShape = false;
-        private bool _isUsingStrokesEraser = false;
-        private Matrix _scaleMatrix = new Matrix();
-        private System.Windows.Controls.Canvas _eraserOverlayCanvas;
-        private WinImage _eraserFeedback;
-        private TranslateTransform _eraserFeedbackTranslateTransform;
-        private static readonly Guid _isLockGuid = new Guid("12345678-1234-1234-1234-123456789ABC");
-
-        // =========================
-        // 绘制系统增强 (从 DrawingAndErasingLogic.cs 移植)
-        // =========================
-        private bool _isLongPressSelected = false;
-        private bool _isMouseDown = false;
-        private bool _isTouchDown = false;
-        private WinPoint _iniP = new WinPoint(0, 0);
-        private DateTime _lastUpdateTime = DateTime.MinValue;
-        private const int _updateThrottleMs = 16;
-        private Stroke _lastTempStroke;
-        private StrokeCollection _lastTempStrokeCollection = new StrokeCollection();
-
-        // =========================
-        // 多点触控系统增强 (从 DrawingAndErasingLogic.cs 移植)
-        // =========================
-        private bool _isInMultiTouchMode = false;
-        private List<int> _dec = new List<int>();
-        private WinPoint _centerPoint = new WinPoint(0, 0);
-        private InkCanvasEditingMode _lastInkCanvasEditingMode = InkCanvasEditingMode.Ink;
-        private const double _multiTouchDelayMs = 100;
 
         // 鼠标平移状态
         private bool _isPanning = false;
@@ -586,37 +543,14 @@ namespace ShowWrite
 
             InitializeEventHandlers();
 
+            // 直接设置初始状态，避免递归
             CurrentMode = ToolMode.Move;
             _inkCanvas.EditingMode = InkCanvasEditingMode.None;
             _mainWindow.Cursor = Cursors.Hand;
 
+            // 初始化 TouchSDK
             InitializeTouchSDK();
         }
-
-        public void SetOverlayInkCanvas(InkCanvas overlayInkCanvas, ScaleTransform zoomTransform, TranslateTransform panTransform)
-        {
-            _overlayInkCanvas = overlayInkCanvas;
-            _zoomTransform = zoomTransform;
-            _panTransform = panTransform;
-
-            if (_overlayInkCanvas != null)
-            {
-                _overlayInkCanvas.StrokeCollected += OverlayInk_StrokeCollected;
-                _overlayInkCanvas.DefaultDrawingAttributes = _inkCanvas.DefaultDrawingAttributes.Clone();
-                Console.WriteLine("OverlayInkCanvas 已初始化");
-            }
-        }
-
-        public void SetUseOverlayInkCanvas(bool use)
-        {
-            _useOverlayInkCanvas = use;
-            if (_overlayInkCanvas != null)
-            {
-                _overlayInkCanvas.Visibility = use && CurrentMode == ToolMode.Pen ? Visibility.Visible : Visibility.Collapsed;
-            }
-        }
-
-        public bool IsOverlayInkCanvasActive => _useOverlayInkCanvas && _overlayInkCanvas != null && CurrentMode == ToolMode.Pen;
 
         /// <summary>
         /// 设置管理器是否启用
@@ -885,13 +819,12 @@ namespace ShowWrite
             UpdatePenAttributes();
         }
 
+        // =========================
+        // 设置画笔颜色
+        // =========================
         public void SetPenColor(Color color)
         {
             _inkCanvas.DefaultDrawingAttributes.Color = color;
-            if (_overlayInkCanvas != null)
-            {
-                _overlayInkCanvas.DefaultDrawingAttributes.Color = color;
-            }
         }
 
         // =========================
@@ -931,120 +864,18 @@ namespace ShowWrite
                 EndEdit();
         }
 
+        // 画笔：在收集到 Stroke 时一次性加入并结束本次手势
         private void Ink_StrokeCollected(object sender, InkCanvasStrokeCollectedEventArgs e)
         {
             if (CurrentMode != ToolMode.Pen) return;
             
+            // 恢复笔画的原始宽度（不受缩放影响）
             e.Stroke.DrawingAttributes.Width = UserPenWidth;
             e.Stroke.DrawingAttributes.Height = UserPenWidth;
             
             if (!_isEditing || _currentEdit == null) StartEdit();
             _currentEdit!.AddedStrokes.Add(e.Stroke);
             EndEdit();
-        }
-
-        private void OverlayInk_StrokeCollected(object sender, InkCanvasStrokeCollectedEventArgs e)
-        {
-            if (CurrentMode != ToolMode.Pen || _overlayInkCanvas == null) return;
-
-            try
-            {
-                var overlayStroke = e.Stroke;
-                var transformedStroke = TransformStrokeFromOverlayToMain(overlayStroke);
-                
-                if (transformedStroke != null)
-                {
-                    _inkCanvas.Strokes.Add(transformedStroke);
-                    
-                    if (!_isEditing || _currentEdit == null) StartEdit();
-                    _currentEdit?.AddedStrokes.Add(transformedStroke);
-                    EndEdit();
-                }
-
-                _overlayInkCanvas.Strokes.Remove(overlayStroke);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"OverlayInk_StrokeCollected 错误: {ex.Message}");
-            }
-        }
-
-        private Stroke TransformStrokeFromOverlayToMain(Stroke overlayStroke)
-        {
-            if (_zoomTransform == null || _panTransform == null) return null;
-
-            try
-            {
-                var stylusPoints = overlayStroke.StylusPoints;
-                var transformedPoints = new StylusPointCollection();
-
-                double zoom = _zoomTransform.ScaleX;
-                double panX = _panTransform.X;
-                double panY = _panTransform.Y;
-
-                foreach (var point in stylusPoints)
-                {
-                    double screenX = point.X;
-                    double screenY = point.Y;
-
-                    double canvasX = (screenX - panX) / zoom;
-                    double canvasY = (screenY - panY) / zoom;
-
-                    transformedPoints.Add(new StylusPoint(canvasX, canvasY, point.PressureFactor));
-                }
-
-                var newStroke = new Stroke(transformedPoints);
-                double adjustedWidth = UserPenWidth / zoom;
-                adjustedWidth = Math.Max(0.5, adjustedWidth);
-                
-                newStroke.DrawingAttributes = new DrawingAttributes
-                {
-                    Color = overlayStroke.DrawingAttributes.Color,
-                    Width = adjustedWidth,
-                    Height = adjustedWidth,
-                    StylusTip = overlayStroke.DrawingAttributes.StylusTip,
-                    IsHighlighter = overlayStroke.DrawingAttributes.IsHighlighter
-                };
-                
-                Console.WriteLine($"TransformStroke: UserPenWidth={UserPenWidth}, zoom={zoom}, adjustedWidth={adjustedWidth}");
-                
-                return newStroke;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"TransformStrokeFromOverlayToMain 错误: {ex.Message}");
-                return null;
-            }
-        }
-
-        public WinPoint ScreenToCanvasPoint(WinPoint screenPoint)
-        {
-            if (_zoomTransform == null || _panTransform == null)
-                return screenPoint;
-
-            double zoom = _zoomTransform.ScaleX;
-            double panX = _panTransform.X;
-            double panY = _panTransform.Y;
-
-            double canvasX = (screenPoint.X - panX) / zoom;
-            double canvasY = (screenPoint.Y - panY) / zoom;
-
-            return new WinPoint(canvasX, canvasY);
-        }
-
-        public WinPoint CanvasToScreenPoint(WinPoint canvasPoint)
-        {
-            if (_zoomTransform == null || _panTransform == null)
-                return canvasPoint;
-
-            double zoom = _zoomTransform.ScaleX;
-            double panX = _panTransform.X;
-            double panY = _panTransform.Y;
-
-            double screenX = canvasPoint.X * zoom + panX;
-            double screenY = canvasPoint.Y * zoom + panY;
-
-            return new WinPoint(screenX, screenY);
         }
 
         // 橡皮：StrokesChanged 会持续触发，等 MouseUp 再 EndEdit()
@@ -1056,43 +887,28 @@ namespace ShowWrite
             foreach (var s in e.Removed) _currentEdit.RemovedStrokes.Add(s);
         }
 
+        // =========================
+        // 模式切换 - 修复递归问题
+        // =========================
         public void SetMode(ToolMode mode, bool initial = false)
         {
+            // 递归保护
             if (_inSetMode) return;
             _inSetMode = true;
 
             try
             {
+                // 如果已经是目标模式，直接返回
                 if (CurrentMode == mode && !initial)
                     return;
 
+                // 如果手动切换模式，停用手掌擦
                 if (_isPalmEraserActive && mode != ToolMode.Eraser)
                 {
                     ForceDeactivatePalmEraser();
                 }
 
                 CurrentMode = mode;
-
-                if (_overlayInkCanvas != null)
-                {
-                    _overlayInkCanvas.Visibility = (_useOverlayInkCanvas && mode == ToolMode.Pen) 
-                        ? Visibility.Visible 
-                        : Visibility.Collapsed;
-                    
-                    if (mode == ToolMode.Pen && _useOverlayInkCanvas)
-                    {
-                        _overlayInkCanvas.DefaultDrawingAttributes = new DrawingAttributes
-                        {
-                            Color = _inkCanvas.DefaultDrawingAttributes.Color,
-                            Width = UserPenWidth,
-                            Height = UserPenWidth,
-                            StylusTip = _inkCanvas.DefaultDrawingAttributes.StylusTip,
-                            IsHighlighter = _inkCanvas.DefaultDrawingAttributes.IsHighlighter
-                        };
-                        _overlayInkCanvas.EditingMode = InkCanvasEditingMode.Ink;
-                        Console.WriteLine($"SetMode Pen: UserPenWidth={UserPenWidth}, Overlay Width={_overlayInkCanvas.DefaultDrawingAttributes.Width}");
-                    }
-                }
 
                 switch (mode)
                 {
@@ -1102,14 +918,7 @@ namespace ShowWrite
                         _drawingShapeMode = 0;
                         break;
                     case ToolMode.Pen:
-                        if (_useOverlayInkCanvas && _overlayInkCanvas != null)
-                        {
-                            _inkCanvas.EditingMode = InkCanvasEditingMode.None;
-                        }
-                        else
-                        {
-                            _inkCanvas.EditingMode = InkCanvasEditingMode.Ink;
-                        }
+                        _inkCanvas.EditingMode = InkCanvasEditingMode.Ink;
                         _mainWindow.Cursor = Cursors.Arrow;
                         _drawingShapeMode = 0;
                         break;
@@ -1117,6 +926,7 @@ namespace ShowWrite
                         _inkCanvas.EditingMode = InkCanvasEditingMode.EraseByPoint;
                         _mainWindow.Cursor = Cursors.Arrow;
                         _drawingShapeMode = 0;
+                        // 如果不是手掌擦激活，使用手动设置的橡皮擦大小
                         if (!_isPalmEraserActive)
                         {
                             _inkCanvas.EraserShape = new RectangleStylusShape(_manualEraserSize, _manualEraserSize);
@@ -1186,24 +996,12 @@ namespace ShowWrite
 
         public void UpdatePenAttributes()
         {
+            // 保持视觉笔宽与缩放无关 - 现在由 PanZoomManager 控制缩放补偿
             double compensatedWidth = UserPenWidth / Math.Max(CurrentZoom, 0.01);
             compensatedWidth = Math.Max(1.0, Math.Min(50.0, compensatedWidth));
             
             _inkCanvas.DefaultDrawingAttributes.Width = compensatedWidth;
             _inkCanvas.DefaultDrawingAttributes.Height = compensatedWidth;
-
-            if (_overlayInkCanvas != null)
-            {
-                _overlayInkCanvas.DefaultDrawingAttributes.Width = UserPenWidth;
-                _overlayInkCanvas.DefaultDrawingAttributes.Height = UserPenWidth;
-                
-                if (CurrentMode == ToolMode.Pen && _useOverlayInkCanvas)
-                {
-                    _overlayInkCanvas.DefaultDrawingAttributes.Color = _inkCanvas.DefaultDrawingAttributes.Color;
-                }
-                
-                Console.WriteLine($"UpdatePenAttributes: UserPenWidth={UserPenWidth}, Overlay Width={_overlayInkCanvas.DefaultDrawingAttributes.Width}");
-            }
         }
 
         // =========================
@@ -2149,489 +1947,9 @@ namespace ShowWrite
             }
         }
 
-        // =========================
-        // 高级橡皮擦系统实现 (从 DrawingAndErasingLogic.cs 移植)
-        // =========================
-
-        /// <summary>
-        /// 初始化橡皮擦覆盖层
-        /// </summary>
-        public void InitializeEraserOverlay(System.Windows.Controls.Canvas eraserOverlayCanvas)
-        {
-            _eraserOverlayCanvas = eraserOverlayCanvas;
-
-            _eraserFeedback = _mainWindow.FindName("EraserFeedback") as System.Windows.Controls.Image;
-            if (_eraserFeedback != null)
-            {
-                _eraserFeedbackTranslateTransform = _eraserFeedback.RenderTransform as TranslateTransform;
-            }
-
-            eraserOverlayCanvas.StylusDown += (o, args) =>
-            {
-                args.Handled = true;
-                if (args.StylusDevice.TabletDevice.Type == TabletDeviceType.Stylus) eraserOverlayCanvas.CaptureStylus();
-                EraserOverlay_PointerDown(o);
-            };
-            eraserOverlayCanvas.StylusUp += (o, args) =>
-            {
-                args.Handled = true;
-                if (args.StylusDevice.TabletDevice.Type == TabletDeviceType.Stylus) eraserOverlayCanvas.ReleaseStylusCapture();
-                EraserOverlay_PointerUp(o);
-            };
-            eraserOverlayCanvas.StylusMove += (o, args) =>
-            {
-                args.Handled = true;
-                EraserOverlay_PointerMove(o, args.GetPosition(_inkCanvas));
-            };
-            eraserOverlayCanvas.MouseDown += (o, args) =>
-            {
-                eraserOverlayCanvas.CaptureMouse();
-                EraserOverlay_PointerDown(o);
-            };
-            eraserOverlayCanvas.MouseUp += (o, args) =>
-            {
-                eraserOverlayCanvas.ReleaseMouseCapture();
-                EraserOverlay_PointerUp(o);
-            };
-            eraserOverlayCanvas.MouseMove += (o, args) =>
-            {
-                EraserOverlay_PointerMove(o, args.GetPosition(_inkCanvas));
-            };
-
-            UpdateEraserStyle();
-        }
-
-        /// <summary>
-        /// 更新橡皮擦样式
-        /// </summary>
-        private void UpdateEraserStyle()
-        {
-            if (_eraserFeedback == null) return;
-
-            string resourceKey = _isEraserCircleShape ? "EllipseEraserImageSource" : "RectangleEraserImageSource";
-            var imageSource = _mainWindow.TryFindResource(resourceKey) as DrawingImage;
-
-            if (imageSource != null)
-            {
-                _eraserFeedback.Source = imageSource;
-            }
-        }
-
-        /// <summary>
-        /// 橡皮擦覆盖层按下
-        /// </summary>
-        private void EraserOverlay_PointerDown(object sender)
-        {
-            if (_isUsingGeometryEraser) return;
-
-            _isUsingGeometryEraser = true;
-
-            var _h = _eraserWidth * 56 / 38;
-
-            StylusShape eraserShape;
-            if (_isEraserCircleShape)
-            {
-                eraserShape = new EllipseStylusShape(_eraserWidth, _eraserWidth);
-            }
-            else
-            {
-                eraserShape = new RectangleStylusShape(_eraserWidth, _h);
-            }
-
-            _hitTester = _inkCanvas.Strokes.GetIncrementalStrokeHitTester(eraserShape);
-            _hitTester.StrokeHit += EraserGeometry_StrokeHit;
-
-            var scaleX = _eraserWidth / 38;
-            var scaleY = _h / 56;
-            _scaleMatrix = new Matrix();
-            _scaleMatrix.ScaleAt(scaleX, scaleY, 0, 0);
-
-            if (_eraserFeedback != null)
-            {
-                _eraserFeedback.Width = Math.Max(_eraserWidth, 10);
-                _eraserFeedback.Height = _isEraserCircleShape ? _eraserFeedback.Width : _h;
-                _eraserFeedback.Measure(new System.Windows.Size(Double.PositiveInfinity, Double.PositiveInfinity));
-                _eraserFeedback.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        /// <summary>
-        /// 橡皮擦覆盖层抬起
-        /// </summary>
-        private void EraserOverlay_PointerUp(object sender)
-        {
-            if (!_isUsingGeometryEraser) return;
-
-            _isUsingGeometryEraser = false;
-
-            ((UIElement)sender).ReleaseMouseCapture();
-
-            if (_eraserFeedback != null)
-            {
-                _eraserFeedback.Visibility = Visibility.Collapsed;
-            }
-
-            if (_hitTester != null)
-            {
-                _hitTester.EndHitTesting();
-                _hitTester = null;
-            }
-
-            EndEdit();
-        }
-
-        /// <summary>
-        /// 橡皮擦覆盖层移动
-        /// </summary>
-        private void EraserOverlay_PointerMove(object sender, WinPoint pt)
-        {
-            if (!_isUsingGeometryEraser) return;
-
-            if (_isUsingStrokesEraser)
-            {
-                var _filtered = _inkCanvas.Strokes.HitTest(pt).Where(stroke => !stroke.ContainsPropertyData(_isLockGuid));
-                var filtered = _filtered as Stroke[] ?? _filtered.ToArray();
-                if (!filtered.Any()) return;
-                _inkCanvas.Strokes.Remove(new StrokeCollection(filtered));
-            }
-            else
-            {
-                if (_eraserFeedback != null && _eraserFeedback.Visibility == Visibility.Collapsed)
-                {
-                    _eraserFeedback.Visibility = Visibility.Visible;
-                }
-
-                if (_eraserFeedbackTranslateTransform != null)
-                {
-                    _eraserFeedbackTranslateTransform.X = pt.X - _eraserFeedback.ActualWidth / 2;
-                    _eraserFeedbackTranslateTransform.Y = pt.Y - _eraserFeedback.ActualHeight / 2;
-                }
-
-                if (_hitTester != null)
-                {
-                    _hitTester.AddPoint(pt);
-                }
-            }
-        }
-
-        /// <summary>
-        /// 橡皮擦几何命中
-        /// </summary>
-        private void EraserGeometry_StrokeHit(object sender, StrokeHitEventArgs args)
-        {
-            StrokeCollection eraseResult = args.GetPointEraseResults();
-            StrokeCollection strokesToReplace = new StrokeCollection { args.HitStroke };
-
-            var filtered_2replace = strokesToReplace.Where(stroke => !stroke.ContainsPropertyData(_isLockGuid));
-            var filtered2Replace = filtered_2replace as Stroke[] ?? filtered_2replace.ToArray();
-            if (!filtered2Replace.Any()) return;
-
-            var filtered_result = eraseResult.Where(stroke => !stroke.ContainsPropertyData(_isLockGuid));
-            var filteredResult = filtered_result as Stroke[] ?? filtered_result.ToArray();
-
-            if (filteredResult.Any())
-            {
-                _inkCanvas.Strokes.Replace(new StrokeCollection(filtered2Replace), new StrokeCollection(filteredResult));
-            }
-            else
-            {
-                _inkCanvas.Strokes.Remove(new StrokeCollection(filtered2Replace));
-            }
-        }
-
-        /// <summary>
-        /// 启用橡皮擦覆盖层
-        /// </summary>
-        public void EnableEraserOverlay()
-        {
-            if (_eraserOverlayCanvas != null)
-            {
-                _eraserOverlayCanvas.IsHitTestVisible = true;
-                _eraserOverlayCanvas.Visibility = Visibility.Visible;
-            }
-        }
-
-        /// <summary>
-        /// 禁用橡皮擦覆盖层
-        /// </summary>
-        public void DisableEraserOverlay()
-        {
-            if (_eraserOverlayCanvas != null)
-            {
-                _eraserOverlayCanvas.IsHitTestVisible = false;
-                _eraserOverlayCanvas.Visibility = Visibility.Collapsed;
-            }
-
-            if (_isUsingGeometryEraser)
-            {
-                _isUsingGeometryEraser = false;
-                if (_hitTester != null)
-                {
-                    _hitTester.EndHitTesting();
-                    _hitTester = null;
-                }
-            }
-
-            if (_eraserFeedback != null)
-            {
-                _eraserFeedback.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        /// <summary>
-        /// 更新橡皮擦大小
-        /// </summary>
-        public void UpdateEraserSize(int sizeLevel)
-        {
-            double k = 1.0;
-
-            switch (sizeLevel)
-            {
-                case 0: k = _isEraserCircleShape ? 0.5 : 0.7; break;
-                case 1: k = _isEraserCircleShape ? 0.8 : 0.9; break;
-                case 2: k = 1.0; break;
-                case 3: k = _isEraserCircleShape ? 1.25 : 1.2; break;
-                case 4: k = _isEraserCircleShape ? 1.5 : 1.3; break;
-            }
-
-            if (_isEraserCircleShape)
-            {
-                _eraserWidth = k * 90;
-            }
-            else
-            {
-                _eraserWidth = k * 90 * 0.6;
-            }
-
-            UpdateEraserStyle();
-        }
-
-        /// <summary>
-        /// 切换橡皮擦形状
-        /// </summary>
-        public void ToggleEraserShape()
-        {
-            _isEraserCircleShape = !_isEraserCircleShape;
-            UpdateEraserStyle();
-        }
-
-        /// <summary>
-        /// 切换橡皮擦模式
-        /// </summary>
-        public void ToggleEraserMode()
-        {
-            _isUsingStrokesEraser = !_isUsingStrokesEraser;
-        }
-
-        /// <summary>
-        /// 应用高级橡皮擦形状
-        /// </summary>
-        public void ApplyAdvancedEraserShape()
-        {
-            try
-            {
-                UpdateEraserSize(2);
-
-                StylusShape eraserShape;
-                if (_isEraserCircleShape)
-                {
-                    eraserShape = new EllipseStylusShape(_eraserWidth, _eraserWidth);
-                }
-                else
-                {
-                    var height = _eraserWidth * 56 / 38;
-                    eraserShape = new RectangleStylusShape(_eraserWidth, height);
-                }
-
-                _inkCanvas.EraserShape = eraserShape;
-
-                Console.WriteLine($"Eraser: Applied shape - Size: {_eraserWidth}, Circle: {_isEraserCircleShape}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Eraser: Error applying shape - {ex.Message}");
-            }
-        }
-
-        // =========================
-        // 绘制系统增强实现 (从 DrawingAndErasingLogic.cs 移植)
-        // =========================
-
-        /// <summary>
-        /// 安全更新临时笔画
-        /// </summary>
-        private void UpdateTempStrokeSafely(Stroke newStroke)
-        {
-            var now = DateTime.Now;
-            if ((now - _lastUpdateTime).TotalMilliseconds < _updateThrottleMs)
-            {
-                return;
-            }
-            _lastUpdateTime = now;
-
-            try
-            {
-                _inkCanvas.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    try
-                    {
-                        _inkCanvas.Strokes.Add(newStroke);
-
-                        if (_lastTempStroke != null && _inkCanvas.Strokes.Contains(_lastTempStroke))
-                        {
-                            _inkCanvas.Strokes.Remove(_lastTempStroke);
-                        }
-
-                        _lastTempStroke = newStroke;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"UpdateTempStrokeSafely 失败: {ex.Message}");
-                        if (_lastTempStroke != null && _inkCanvas.Strokes.Contains(_lastTempStroke))
-                        {
-                            try { _inkCanvas.Strokes.Remove(_lastTempStroke); } catch { }
-                        }
-                        _lastTempStroke = newStroke;
-                        try { _inkCanvas.Strokes.Add(newStroke); } catch { }
-                    }
-                }), DispatcherPriority.Render);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"UpdateTempStrokeSafely Dispatcher 失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 安全更新临时笔画集合
-        /// </summary>
-        private void UpdateTempStrokeCollectionSafely(StrokeCollection newStrokeCollection)
-        {
-            var now = DateTime.Now;
-            if ((now - _lastUpdateTime).TotalMilliseconds < _updateThrottleMs)
-            {
-                return;
-            }
-            _lastUpdateTime = now;
-
-            try
-            {
-                _inkCanvas.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    try
-                    {
-                        _inkCanvas.Strokes.Add(newStrokeCollection);
-
-                        if (_lastTempStrokeCollection != null && _lastTempStrokeCollection.Count > 0)
-                        {
-                            foreach (var stroke in _lastTempStrokeCollection)
-                            {
-                                if (_inkCanvas.Strokes.Contains(stroke))
-                                {
-                                    _inkCanvas.Strokes.Remove(stroke);
-                                }
-                            }
-                        }
-
-                        _lastTempStrokeCollection = newStrokeCollection;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"UpdateTempStrokeCollectionSafely 失败: {ex.Message}");
-                        if (_lastTempStrokeCollection != null && _lastTempStrokeCollection.Count > 0)
-                        {
-                            foreach (var stroke in _lastTempStrokeCollection)
-                            {
-                                try { _inkCanvas.Strokes.Remove(stroke); } catch { }
-                            }
-                        }
-                        _lastTempStrokeCollection = newStrokeCollection;
-                        try { _inkCanvas.Strokes.Add(newStrokeCollection); } catch { }
-                    }
-                }), DispatcherPriority.Render);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"UpdateTempStrokeCollectionSafely Dispatcher 失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 生成椭圆几何
-        /// </summary>
-        private List<WinPoint> GenerateEllipseGeometry(WinPoint st, WinPoint ed, bool isDrawTop = true, bool isDrawBottom = true)
-        {
-            var a = 0.5 * (ed.X - st.X);
-            var b = 0.5 * (ed.Y - st.Y);
-            var pointList = new List<WinPoint>();
-            if (isDrawTop && isDrawBottom)
-            {
-                for (double r = 0; r <= 2 * Math.PI; r = r + 0.01)
-                    pointList.Add(new WinPoint(0.5 * (st.X + ed.X) + a * Math.Cos(r),
-                        0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
-            }
-            else
-            {
-                if (isDrawBottom)
-                    for (double r = 0; r <= Math.PI; r = r + 0.01)
-                        pointList.Add(new WinPoint(0.5 * (st.X + ed.X) + a * Math.Cos(r),
-                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
-                if (isDrawTop)
-                    for (var r = Math.PI; r <= 2 * Math.PI; r = r + 0.01)
-                        pointList.Add(new WinPoint(0.5 * (st.X + ed.X) + a * Math.Cos(r),
-                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
-            }
-
-            return pointList;
-        }
-
-        /// <summary>
-        /// 生成虚线椭圆笔画集合
-        /// </summary>
-        private StrokeCollection GenerateDashedLineEllipseStrokeCollection(WinPoint st, WinPoint ed, bool isDrawTop = true, bool isDrawBottom = true)
-        {
-            var a = 0.5 * (ed.X - st.X);
-            var b = 0.5 * (ed.Y - st.Y);
-            var step = 0.05;
-            var pointList = new List<WinPoint>();
-            StylusPointCollection point;
-            Stroke stroke;
-            var strokes = new StrokeCollection();
-            if (isDrawBottom)
-                for (var i = 0.0; i < 1.0; i += step * 1.66)
-                {
-                    pointList = new List<WinPoint>();
-                    for (var r = Math.PI * i; r <= Math.PI * (i + step); r = r + 0.01)
-                        pointList.Add(new WinPoint(0.5 * (st.X + ed.X) + a * Math.Cos(r),
-                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
-                    point = new StylusPointCollection(pointList);
-                    stroke = new Stroke(point)
-                    {
-                        DrawingAttributes = _inkCanvas.DefaultDrawingAttributes.Clone()
-                    };
-                    strokes.Add(stroke.Clone());
-                }
-
-            if (isDrawTop)
-                for (var i = 1.0; i < 2.0; i += step * 1.66)
-                {
-                    pointList = new List<WinPoint>();
-                    for (var r = Math.PI * i; r <= Math.PI * (i + step); r = r + 0.01)
-                        pointList.Add(new WinPoint(0.5 * (st.X + ed.X) + a * Math.Cos(r),
-                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
-                    point = new StylusPointCollection(pointList);
-                    stroke = new Stroke(point)
-                    {
-                        DrawingAttributes = _inkCanvas.DefaultDrawingAttributes.Clone()
-                    };
-                    strokes.Add(stroke.Clone());
-                }
-
-            return strokes;
-        }
-
         public void Dispose()
         {
+            // 清理事件处理程序
             _inkCanvas.StrokeCollected -= Ink_StrokeCollected;
             _inkCanvas.PreviewMouseLeftButtonDown -= Ink_PreviewMouseDown;
             _inkCanvas.PreviewMouseLeftButtonUp -= Ink_PreviewMouseUp;
@@ -2639,18 +1957,19 @@ namespace ShowWrite
             _inkCanvas.PreviewStylusUp -= Ink_PreviewStylusUp;
             _inkCanvas.Strokes.StrokesChanged -= Ink_StrokesChanged;
 
-            if (_overlayInkCanvas != null)
-            {
-                _overlayInkCanvas.StrokeCollected -= OverlayInk_StrokeCollected;
-            }
-
+            // 清理资源
             _editHistory.Clear();
             _redoHistory.Clear();
             _touchPoints.Clear();
             _touchDeviceIds.Clear();
 
+            // 清理手写笔预览
             CleanupAllStrokePreviews();
+
+            // 重置多点触控状态
             ResetMultiTouchState();
+
+            // 清理 TouchSDK
             CleanupTouchSDK();
         }
     }

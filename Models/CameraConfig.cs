@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Drawing;
-
-namespace ShowWrite.Models
+﻿namespace ShowWrite.Models
 {
     public class CameraConfig
     {

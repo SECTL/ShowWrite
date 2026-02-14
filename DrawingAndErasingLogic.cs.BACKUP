@@ -1,0 +1,1962 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Ink;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Point = System.Windows.Point;
+
+namespace Ink_Canvas
+{
+    public partial class MainWindow : Window
+    {
+        #region 橡皮擦系统核心变量
+
+        public bool isUsingGeometryEraser = false;
+        private IncrementalStrokeHitTester hitTester = null;
+
+        public double eraserWidth = 64;
+        public bool isEraserCircleShape = false;
+        public bool isUsingStrokesEraser = false;
+
+        private Matrix scaleMatrix = new Matrix();
+
+        private System.Windows.Controls.Canvas eraserOverlayCanvas;
+        private Image eraserFeedback;
+        private TranslateTransform eraserFeedbackTranslateTransform;
+
+        private static readonly Guid IsLockGuid = new Guid("12345678-1234-1234-1234-123456789ABC");
+
+        #endregion
+
+        #region 绘制系统核心变量
+
+        private int drawingShapeMode;
+        private bool isLongPressSelected;
+        private bool isMouseDown;
+        private bool isTouchDown;
+        private Point iniP = new Point(0, 0);
+
+        private bool isFirstTouchCuboid = true;
+        private Point CuboidFrontRectIniP;
+        private Point CuboidFrontRectEndP;
+
+        private Stroke lastTempStroke;
+        private StrokeCollection lastTempStrokeCollection = new StrokeCollection();
+
+        private DateTime lastUpdateTime = DateTime.MinValue;
+        private const int UpdateThrottleMs = 16;
+
+        private StrokeCollection newStrokes = new StrokeCollection();
+        private List<Circle> circles = new List<Circle>();
+        private const double LINE_STRAIGHTEN_THRESHOLD = 0.20;
+
+        #endregion
+
+        #region 多点触控系统变量
+
+        private bool isInMultiTouchMode;
+        private List<int> dec = new List<int>();
+        private bool isSingleFingerDragMode;
+        private Point centerPoint = new Point(0, 0);
+        private InkCanvasEditingMode lastInkCanvasEditingMode = InkCanvasEditingMode.Ink;
+        private DateTime lastTouchDownTime = DateTime.MinValue;
+        private const double MULTI_TOUCH_DELAY_MS = 100;
+
+        private Dictionary<int, InkCanvasEditingMode> TouchDownPointsList { get; } =
+            new Dictionary<int, InkCanvasEditingMode>();
+
+        private Dictionary<int, StrokeVisual> StrokeVisualList { get; } = new Dictionary<int, StrokeVisual>();
+        private Dictionary<int, VisualCanvas> VisualCanvasList { get; } = new Dictionary<int, VisualCanvas>();
+
+        #endregion
+
+        #region 橡皮擦系统实现
+
+        private void EraserOverlayCanvas_Loaded(object sender, RoutedEventArgs e)
+        {
+            var canvas = (System.Windows.Controls.Canvas)sender;
+            eraserOverlayCanvas = canvas;
+
+            eraserFeedback = FindName("EraserFeedback") as Image;
+            if (eraserFeedback != null)
+            {
+                eraserFeedbackTranslateTransform = eraserFeedback.RenderTransform as TranslateTransform;
+            }
+
+            canvas.StylusDown += ((o, args) =>
+            {
+                e.Handled = true;
+                if (args.StylusDevice.TabletDevice.Type == TabletDeviceType.Stylus) canvas.CaptureStylus();
+                EraserOverlay_PointerDown(sender);
+            });
+            canvas.StylusUp += ((o, args) =>
+            {
+                e.Handled = true;
+                if (args.StylusDevice.TabletDevice.Type == TabletDeviceType.Stylus) canvas.ReleaseStylusCapture();
+                EraserOverlay_PointerUp(sender);
+            });
+            canvas.StylusMove += ((o, args) =>
+            {
+                e.Handled = true;
+                EraserOverlay_PointerMove(sender, args.GetPosition(inkCanvas));
+            });
+            canvas.MouseDown += ((o, args) =>
+            {
+                canvas.CaptureMouse();
+                EraserOverlay_PointerDown(sender);
+            });
+            canvas.MouseUp += ((o, args) =>
+            {
+                canvas.ReleaseMouseCapture();
+                EraserOverlay_PointerUp(sender);
+            });
+            canvas.MouseMove += ((o, args) =>
+            {
+                EraserOverlay_PointerMove(sender, args.GetPosition(inkCanvas));
+            });
+
+            UpdateEraserStyle();
+        }
+
+        private void UpdateEraserStyle()
+        {
+            if (eraserFeedback == null) return;
+
+            string resourceKey = isEraserCircleShape ? "EllipseEraserImageSource" : "RectangleEraserImageSource";
+            var imageSource = TryFindResource(resourceKey) as DrawingImage;
+
+            if (imageSource != null)
+            {
+                eraserFeedback.Source = imageSource;
+            }
+        }
+
+        private void EraserOverlay_PointerDown(object sender)
+        {
+            if (isUsingGeometryEraser) return;
+
+            isUsingGeometryEraser = true;
+
+            var _h = eraserWidth * 56 / 38;
+
+            StylusShape eraserShape;
+            if (isEraserCircleShape)
+            {
+                eraserShape = new EllipseStylusShape(eraserWidth, eraserWidth);
+            }
+            else
+            {
+                eraserShape = new RectangleStylusShape(eraserWidth, _h);
+            }
+
+            hitTester = inkCanvas.Strokes.GetIncrementalStrokeHitTester(eraserShape);
+            hitTester.StrokeHit += EraserGeometry_StrokeHit;
+
+            var scaleX = eraserWidth / 38;
+            var scaleY = _h / 56;
+            scaleMatrix = new Matrix();
+            scaleMatrix.ScaleAt(scaleX, scaleY, 0, 0);
+
+            if (eraserFeedback != null)
+            {
+                eraserFeedback.Width = Math.Max(eraserWidth, 10);
+                eraserFeedback.Height = isEraserCircleShape ? eraserFeedback.Width : _h;
+                eraserFeedback.Measure(new Size(Double.PositiveInfinity, Double.PositiveInfinity));
+                eraserFeedback.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void EraserOverlay_PointerUp(object sender)
+        {
+            if (!isUsingGeometryEraser) return;
+
+            isUsingGeometryEraser = false;
+
+            ((UIElement)sender).ReleaseMouseCapture();
+
+            if (eraserFeedback != null)
+            {
+                eraserFeedback.Visibility = Visibility.Collapsed;
+            }
+
+            if (hitTester != null)
+            {
+                hitTester.EndHitTesting();
+                hitTester = null;
+            }
+
+            if (ReplacedStroke != null || AddedStroke != null)
+            {
+                timeMachine.CommitStrokeEraseHistory(ReplacedStroke, AddedStroke);
+                AddedStroke = null;
+                ReplacedStroke = null;
+            }
+        }
+
+        private void EraserOverlay_PointerMove(object sender, Point pt)
+        {
+            if (!isUsingGeometryEraser) return;
+
+            if (isUsingStrokesEraser)
+            {
+                var _filtered = inkCanvas.Strokes.HitTest(pt).Where(stroke => !stroke.ContainsPropertyData(IsLockGuid));
+                var filtered = _filtered as Stroke[] ?? _filtered.ToArray();
+                if (!filtered.Any()) return;
+                inkCanvas.Strokes.Remove(new StrokeCollection(filtered));
+            }
+            else
+            {
+                if (eraserFeedback != null && eraserFeedback.Visibility == Visibility.Collapsed)
+                {
+                    eraserFeedback.Visibility = Visibility.Visible;
+                }
+
+                if (eraserFeedbackTranslateTransform != null)
+                {
+                    eraserFeedbackTranslateTransform.X = pt.X - eraserFeedback.ActualWidth / 2;
+                    eraserFeedbackTranslateTransform.Y = pt.Y - eraserFeedback.ActualHeight / 2;
+                }
+
+                if (hitTester != null)
+                {
+                    hitTester.AddPoint(pt);
+                }
+            }
+        }
+
+        private void EraserGeometry_StrokeHit(object sender, StrokeHitEventArgs args)
+        {
+            StrokeCollection eraseResult = args.GetPointEraseResults();
+            StrokeCollection strokesToReplace = new StrokeCollection { args.HitStroke };
+
+            var filtered_2replace = strokesToReplace.Where(stroke => !stroke.ContainsPropertyData(IsLockGuid));
+            var filtered2Replace = filtered_2replace as Stroke[] ?? filtered_2replace.ToArray();
+            if (!filtered2Replace.Any()) return;
+
+            var filtered_result = eraseResult.Where(stroke => !stroke.ContainsPropertyData(IsLockGuid));
+            var filteredResult = filtered_result as Stroke[] ?? filtered_result.ToArray();
+
+            if (filteredResult.Any())
+            {
+                inkCanvas.Strokes.Replace(new StrokeCollection(filtered2Replace), new StrokeCollection(filteredResult));
+            }
+            else
+            {
+                inkCanvas.Strokes.Remove(new StrokeCollection(filtered2Replace));
+            }
+        }
+
+        public void EnableEraserOverlay()
+        {
+            if (eraserOverlayCanvas != null)
+            {
+                eraserOverlayCanvas.IsHitTestVisible = true;
+                eraserOverlayCanvas.Visibility = Visibility.Visible;
+            }
+        }
+
+        public void DisableEraserOverlay()
+        {
+            if (eraserOverlayCanvas != null)
+            {
+                eraserOverlayCanvas.IsHitTestVisible = false;
+                eraserOverlayCanvas.Visibility = Visibility.Collapsed;
+            }
+
+            if (isUsingGeometryEraser)
+            {
+                isUsingGeometryEraser = false;
+                if (hitTester != null)
+                {
+                    hitTester.EndHitTesting();
+                    hitTester = null;
+                }
+            }
+
+            if (eraserFeedback != null)
+            {
+                eraserFeedback.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        public void UpdateEraserSize()
+        {
+            double k = 1.0;
+
+            switch (Settings.Canvas.EraserSize)
+            {
+                case 0: k = Settings.Canvas.EraserShapeType == 0 ? 0.5 : 0.7; break;
+                case 1: k = Settings.Canvas.EraserShapeType == 0 ? 0.8 : 0.9; break;
+                case 2: k = 1.0; break;
+                case 3: k = Settings.Canvas.EraserShapeType == 0 ? 1.25 : 1.2; break;
+                case 4: k = Settings.Canvas.EraserShapeType == 0 ? 1.5 : 1.3; break;
+            }
+
+            isEraserCircleShape = (Settings.Canvas.EraserShapeType == 0);
+
+            if (isEraserCircleShape)
+            {
+                eraserWidth = k * 90;
+            }
+            else
+            {
+                eraserWidth = k * 90 * 0.6;
+            }
+
+            UpdateEraserStyle();
+        }
+
+        public void ToggleEraserShape()
+        {
+            isEraserCircleShape = !isEraserCircleShape;
+            Settings.Canvas.EraserShapeType = isEraserCircleShape ? 0 : 1;
+            UpdateEraserStyle();
+        }
+
+        public void ToggleEraserMode()
+        {
+            isUsingStrokesEraser = !isUsingStrokesEraser;
+        }
+
+        public void ApplyAdvancedEraserShape()
+        {
+            try
+            {
+                UpdateEraserSize();
+
+                StylusShape eraserShape;
+                if (isEraserCircleShape)
+                {
+                    eraserShape = new EllipseStylusShape(eraserWidth, eraserWidth);
+                }
+                else
+                {
+                    var height = eraserWidth * 56 / 38;
+                    eraserShape = new RectangleStylusShape(eraserWidth, height);
+                }
+
+                inkCanvas.EraserShape = eraserShape;
+
+                Trace.WriteLine($"Eraser: Applied shape - Size: {eraserWidth}, Circle: {isEraserCircleShape}");
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"Eraser: Error applying shape - {ex.Message}");
+            }
+        }
+
+        internal void EraserIcon_Click(object sender, RoutedEventArgs e)
+        {
+            bool isAlreadyEraser = inkCanvas.EditingMode == InkCanvasEditingMode.EraseByPoint;
+            forceEraser = false;
+            forcePointEraser = true;
+            drawingShapeMode = 0;
+
+            if (!isAlreadyEraser && currentMode != 0)
+            {
+                SaveStrokes();
+            }
+
+            if (!isAlreadyEraser)
+            {
+                ResetTouchStates();
+            }
+
+            EnableEraserOverlay();
+            SetCurrentToolMode(InkCanvasEditingMode.EraseByPoint);
+            UpdateCurrentToolMode("eraser");
+            ApplyAdvancedEraserShape();
+            SetCursorBasedOnEditingMode(inkCanvas);
+            HideSubPanels("eraser");
+
+            Trace.WriteLine($"Eraser: Eraser button clicked, current size: {eraserWidth}, circle: {isEraserCircleShape}");
+
+            if (isAlreadyEraser)
+            {
+                if (EraserSizePanel.Visibility == Visibility.Collapsed)
+                {
+                    AnimationsHelper.ShowWithSlideFromBottomAndFade(EraserSizePanel);
+                    if (BoardEraserSizePanel != null)
+                        AnimationsHelper.ShowWithSlideFromBottomAndFade(BoardEraserSizePanel);
+                }
+                else
+                {
+                    AnimationsHelper.HideWithSlideAndFade(EraserSizePanel);
+                    if (BoardEraserSizePanel != null)
+                        AnimationsHelper.HideWithSlideAndFade(BoardEraserSizePanel);
+                }
+            }
+        }
+
+        private void EraserIconByStrokes_Click(object sender, RoutedEventArgs e)
+        {
+            if (lastBorderMouseDownObject is Panel panel)
+                panel.Background = new SolidColorBrush(Colors.Transparent);
+            if (sender == EraserByStrokes_Icon && lastBorderMouseDownObject != EraserByStrokes_Icon) return;
+
+            DisableEraserOverlay();
+
+            forceEraser = true;
+            forcePointEraser = false;
+
+            inkCanvas.EraserShape = new EllipseStylusShape(5, 5);
+            SetCurrentToolMode(InkCanvasEditingMode.EraseByStroke);
+            UpdateCurrentToolMode("eraserByStrokes");
+
+            drawingShapeMode = 0;
+
+            inkCanvas_EditingModeChanged(inkCanvas, null);
+            CancelSingleFingerDragMode();
+
+            HideSubPanels("eraserByStrokes");
+        }
+
+        #endregion
+
+        #region 绘制系统实现
+
+        private void inkCanvas_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            inkCanvas.CaptureMouse();
+            ViewboxFloatingBar.IsHitTestVisible = false;
+            BlackboardUIGridForInkReplay.IsHitTestVisible = false;
+
+            isMouseDown = true;
+            if (NeedUpdateIniP()) iniP = e.GetPosition(inkCanvas);
+        }
+
+        private void inkCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isMouseDown) MouseTouchMove(e.GetPosition(inkCanvas));
+
+            if (Settings.Canvas.IsShowCursor)
+            {
+                SetCursorBasedOnEditingMode(inkCanvas);
+            }
+        }
+
+        private void inkCanvas_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            inkCanvas.ReleaseMouseCapture();
+            ViewboxFloatingBar.IsHitTestVisible = true;
+            BlackboardUIGridForInkReplay.IsHitTestVisible = true;
+
+            if (drawingShapeMode == 5)
+            {
+                if (lastTempStroke != null)
+                {
+                    var circle = new Circle(new Point(), 0, lastTempStroke);
+                    circle.R = GetDistance(circle.Stroke.StylusPoints[0].ToPoint(),
+                        circle.Stroke.StylusPoints[circle.Stroke.StylusPoints.Count / 2].ToPoint()) / 2;
+                    circle.Centroid = new Point(
+                        (circle.Stroke.StylusPoints[0].X +
+                         circle.Stroke.StylusPoints[circle.Stroke.StylusPoints.Count / 2].X) / 2,
+                        (circle.Stroke.StylusPoints[0].Y +
+                         circle.Stroke.StylusPoints[circle.Stroke.StylusPoints.Count / 2].Y) / 2);
+                    circles.Add(circle);
+                }
+
+                if (lastIsInMultiTouchMode)
+                {
+                    ToggleSwitchEnableMultiTouchMode.IsOn = true;
+                    lastIsInMultiTouchMode = false;
+                }
+            }
+
+            if (drawingShapeMode != 9 && drawingShapeMode != 0 && drawingShapeMode != 24 && drawingShapeMode != 25)
+            {
+                if (isLongPressSelected) { }
+                else
+                {
+                    BtnPen_Click(null, null);
+                    if (lastIsInMultiTouchMode)
+                    {
+                        ToggleSwitchEnableMultiTouchMode.IsOn = true;
+                        lastIsInMultiTouchMode = false;
+                    }
+                }
+            }
+
+            if (drawingShapeMode == 9)
+            {
+                if (isFirstTouchCuboid)
+                {
+                    if (CuboidStrokeCollection == null) CuboidStrokeCollection = new StrokeCollection();
+                    isFirstTouchCuboid = false;
+                    var newIniP = new Point(Math.Min(CuboidFrontRectIniP.X, CuboidFrontRectEndP.X),
+                        Math.Min(CuboidFrontRectIniP.Y, CuboidFrontRectEndP.Y));
+                    var newEndP = new Point(Math.Max(CuboidFrontRectIniP.X, CuboidFrontRectEndP.X),
+                        Math.Max(CuboidFrontRectIniP.Y, CuboidFrontRectEndP.Y));
+                    CuboidFrontRectIniP = newIniP;
+                    CuboidFrontRectEndP = newEndP;
+                    try
+                    {
+                        CuboidStrokeCollection.Add(lastTempStrokeCollection);
+                    }
+                    catch
+                    {
+                        Trace.WriteLine("lastTempStrokeCollection failed.");
+                    }
+                }
+                else
+                {
+                    BtnPen_Click(null, null);
+                    if (lastIsInMultiTouchMode)
+                    {
+                        ToggleSwitchEnableMultiTouchMode.IsOn = true;
+                        lastIsInMultiTouchMode = false;
+                    }
+
+                    if (_currentCommitType == CommitReason.ShapeDrawing)
+                    {
+                        try
+                        {
+                            CuboidStrokeCollection.Add(lastTempStrokeCollection);
+                        }
+                        catch
+                        {
+                            Trace.WriteLine("lastTempStrokeCollection failed.");
+                        }
+
+                        _currentCommitType = CommitReason.UserInput;
+                        timeMachine.CommitStrokeUserInputHistory(CuboidStrokeCollection);
+                        CuboidStrokeCollection = null;
+                    }
+                }
+            }
+
+            if (drawingShapeMode == 24 || drawingShapeMode == 25)
+            {
+                if (drawMultiStepShapeCurrentStep == 0)
+                {
+                    drawMultiStepShapeCurrentStep = 1;
+                }
+                else
+                {
+                    drawMultiStepShapeCurrentStep = 0;
+                    if (drawMultiStepShapeSpecialStrokeCollection != null)
+                    {
+                        var opFlag = false;
+                        switch (Settings.Canvas.HyperbolaAsymptoteOption)
+                        {
+                            case OptionalOperation.Yes:
+                                opFlag = true;
+                                break;
+                            case OptionalOperation.No:
+                                opFlag = false;
+                                break;
+                            case OptionalOperation.Ask:
+                                opFlag = MessageBox.Show("是否移除渐近线？", "Ink Canvas", MessageBoxButton.YesNo) !=
+                                         MessageBoxResult.Yes;
+                                break;
+                        }
+
+                        if (!opFlag) inkCanvas.Strokes.Remove(drawMultiStepShapeSpecialStrokeCollection);
+                    }
+
+                    BtnPen_Click(null, null);
+                    if (lastIsInMultiTouchMode)
+                    {
+                        ToggleSwitchEnableMultiTouchMode.IsOn = true;
+                        lastIsInMultiTouchMode = false;
+                    }
+                }
+            }
+
+            isMouseDown = false;
+            if (ReplacedStroke != null || AddedStroke != null)
+            {
+                timeMachine.CommitStrokeEraseHistory(ReplacedStroke, AddedStroke);
+                AddedStroke = null;
+                ReplacedStroke = null;
+            }
+
+            if (_currentCommitType == CommitReason.ShapeDrawing && drawingShapeMode != 9)
+            {
+                _currentCommitType = CommitReason.UserInput;
+                StrokeCollection collection = null;
+                if (lastTempStrokeCollection != null && lastTempStrokeCollection.Count > 0)
+                    collection = lastTempStrokeCollection;
+                else if (lastTempStroke != null) collection = new StrokeCollection { lastTempStroke };
+                if (collection != null) timeMachine.CommitStrokeUserInputHistory(collection);
+            }
+
+            lastTempStroke = null;
+            lastTempStrokeCollection = null;
+
+            if (StrokeManipulationHistory?.Count > 0)
+            {
+                timeMachine.CommitStrokeManipulationHistory(StrokeManipulationHistory);
+                foreach (var item in StrokeManipulationHistory)
+                {
+                    StrokeInitialHistory[item.Key] = item.Value.Item2;
+                }
+                StrokeManipulationHistory = null;
+            }
+
+            if (DrawingAttributesHistory.Count > 0)
+            {
+                timeMachine.CommitStrokeDrawingAttributesHistory(DrawingAttributesHistory);
+                DrawingAttributesHistory = new Dictionary<Stroke, Tuple<DrawingAttributes, DrawingAttributes>>();
+                foreach (var item in DrawingAttributesHistoryFlag)
+                {
+                    item.Value.Clear();
+                }
+            }
+
+            if (Settings.Canvas.FitToCurve == true) drawingAttributes.FitToCurve = true;
+        }
+
+        private bool NeedUpdateIniP()
+        {
+            if (drawingShapeMode == 24 || drawingShapeMode == 25)
+            {
+                if (drawMultiStepShapeCurrentStep == 1)
+                    return false;
+            }
+            return true;
+        }
+
+        private void UpdateTempStrokeSafely(Stroke newStroke)
+        {
+            var now = DateTime.Now;
+            if ((now - lastUpdateTime).TotalMilliseconds < UpdateThrottleMs)
+            {
+                return;
+            }
+            lastUpdateTime = now;
+
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        inkCanvas.Strokes.Add(newStroke);
+
+                        if (lastTempStroke != null && inkCanvas.Strokes.Contains(lastTempStroke))
+                        {
+                            inkCanvas.Strokes.Remove(lastTempStroke);
+                        }
+
+                        lastTempStroke = newStroke;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"UpdateTempStrokeSafely 失败: {ex.Message}");
+                        if (lastTempStroke != null && inkCanvas.Strokes.Contains(lastTempStroke))
+                        {
+                            try { inkCanvas.Strokes.Remove(lastTempStroke); } catch { }
+                        }
+                        lastTempStroke = newStroke;
+                        try { inkCanvas.Strokes.Add(newStroke); } catch { }
+                    }
+                }), DispatcherPriority.Render);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"UpdateTempStrokeSafely Dispatcher 失败: {ex.Message}");
+            }
+        }
+
+        private void UpdateTempStrokeCollectionSafely(StrokeCollection newStrokeCollection)
+        {
+            var now = DateTime.Now;
+            if ((now - lastUpdateTime).TotalMilliseconds < UpdateThrottleMs)
+            {
+                return;
+            }
+            lastUpdateTime = now;
+
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        inkCanvas.Strokes.Add(newStrokeCollection);
+
+                        if (lastTempStrokeCollection != null && lastTempStrokeCollection.Count > 0)
+                        {
+                            foreach (var stroke in lastTempStrokeCollection)
+                            {
+                                if (inkCanvas.Strokes.Contains(stroke))
+                                {
+                                    inkCanvas.Strokes.Remove(stroke);
+                                }
+                            }
+                        }
+
+                        lastTempStrokeCollection = newStrokeCollection;
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"UpdateTempStrokeCollectionSafely 失败: {ex.Message}");
+                        if (lastTempStrokeCollection != null && lastTempStrokeCollection.Count > 0)
+                        {
+                            foreach (var stroke in lastTempStrokeCollection)
+                            {
+                                try { inkCanvas.Strokes.Remove(stroke); } catch { }
+                            }
+                        }
+                        lastTempStrokeCollection = newStrokeCollection;
+                        try { inkCanvas.Strokes.Add(newStrokeCollection); } catch { }
+                    }
+                }), DispatcherPriority.Render);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"UpdateTempStrokeCollectionSafely Dispatcher 失败: {ex.Message}");
+            }
+        }
+
+        private List<Point> GenerateEllipseGeometry(Point st, Point ed, bool isDrawTop = true,
+            bool isDrawBottom = true)
+        {
+            var a = 0.5 * (ed.X - st.X);
+            var b = 0.5 * (ed.Y - st.Y);
+            var pointList = new List<Point>();
+            if (isDrawTop && isDrawBottom)
+            {
+                for (double r = 0; r <= 2 * Math.PI; r = r + 0.01)
+                    pointList.Add(new Point(0.5 * (st.X + ed.X) + a * Math.Cos(r),
+                        0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
+            }
+            else
+            {
+                if (isDrawBottom)
+                    for (double r = 0; r <= Math.PI; r = r + 0.01)
+                        pointList.Add(new Point(0.5 * (st.X + ed.X) + a * Math.Cos(r),
+                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
+                if (isDrawTop)
+                    for (var r = Math.PI; r <= 2 * Math.PI; r = r + 0.01)
+                        pointList.Add(new Point(0.5 * (st.X + ed.X) + a * Math.Cos(r),
+                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
+            }
+
+            return pointList;
+        }
+
+        private StrokeCollection GenerateDashedLineEllipseStrokeCollection(Point st, Point ed, bool isDrawTop = true,
+            bool isDrawBottom = true)
+        {
+            var a = 0.5 * (ed.X - st.X);
+            var b = 0.5 * (ed.Y - st.Y);
+            var step = 0.05;
+            var pointList = new List<Point>();
+            StylusPointCollection point;
+            Stroke stroke;
+            var strokes = new StrokeCollection();
+            if (isDrawBottom)
+                for (var i = 0.0; i < 1.0; i += step * 1.66)
+                {
+                    pointList = new List<Point>();
+                    for (var r = Math.PI * i; r <= Math.PI * (i + step); r = r + 0.01)
+                        pointList.Add(new Point(0.5 * (st.X + ed.X) + a * Math.Cos(r),
+                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
+                    point = new StylusPointCollection(pointList);
+                    stroke = new Stroke(point)
+                    {
+                        DrawingAttributes = inkCanvas.DefaultDrawingAttributes.Clone()
+                    };
+                    strokes.Add(stroke.Clone());
+                }
+
+            if (isDrawTop)
+                for (var i = 1.0; i < 2.0; i += step * 1.66)
+                {
+                    pointList = new List<Point>();
+                    for (var r = Math.PI * i; r <= Math.PI * (i + step); r = r + 0.01)
+                        pointList.Add(new Point(0.5 * (st.X + ed.X) + a * Math.Cos(r),
+                            0.5 * (st.Y + ed.Y) + b * Math.Sin(r)));
+                    point = new StylusPointCollection(pointList);
+                    stroke = new Stroke(point)
+                    {
+                        DrawingAttributes = inkCanvas.DefaultDrawingAttributes.Clone()
+                    };
+                    strokes.Add(stroke.Clone());
+                }
+
+            return strokes;
+        }
+
+        private Stroke GenerateLineStroke(Point st, Point ed)
+        {
+            var pointList = new List<Point>();
+            StylusPointCollection point;
+            Stroke stroke;
+            pointList = new List<Point> {
+                new Point(st.X, st.Y),
+                new Point(ed.X, ed.Y)
+            };
+            point = new StylusPointCollection(pointList);
+            stroke = new Stroke(point)
+            {
+                DrawingAttributes = inkCanvas.DefaultDrawingAttributes.Clone()
+            };
+            return stroke;
+        }
+
+        private Stroke GenerateArrowLineStroke(Point st, Point ed)
+        {
+            var pointList = new List<Point>();
+            StylusPointCollection point;
+            Stroke stroke;
+
+            double w = 20, h = 7;
+            var theta = Math.Atan2(st.Y - ed.Y, st.X - ed.X);
+            var sint = Math.Sin(theta);
+            var cost = Math.Cos(theta);
+
+            pointList = new List<Point> {
+                new Point(st.X, st.Y),
+                new Point(ed.X, ed.Y),
+                new Point(ed.X + (w * cost - h * sint), ed.Y + (w * sint + h * cost)),
+                new Point(ed.X, ed.Y),
+                new Point(ed.X + (w * cost + h * sint), ed.Y - (h * cost - w * sint))
+            };
+            point = new StylusPointCollection(pointList);
+            stroke = new Stroke(point)
+            {
+                DrawingAttributes = inkCanvas.DefaultDrawingAttributes.Clone()
+            };
+            return stroke;
+        }
+
+        private StrokeCollection GenerateDashedLineStrokeCollection(Point st, Point ed)
+        {
+            double step = 5;
+            var pointList = new List<Point>();
+            StylusPointCollection point;
+            Stroke stroke;
+            var strokes = new StrokeCollection();
+            var d = GetDistance(st, ed);
+            var sinTheta = (ed.Y - st.Y) / d;
+            var cosTheta = (ed.X - st.X) / d;
+            for (var i = 0.0; i < d; i += step * 2.76)
+            {
+                pointList = new List<Point> {
+                    new Point(st.X + i * cosTheta, st.Y + i * sinTheta),
+                    new Point(st.X + Math.Min(i + step, d) * cosTheta, st.Y + Math.Min(i + step, d) * sinTheta)
+                };
+                point = new StylusPointCollection(pointList);
+                stroke = new Stroke(point)
+                {
+                    DrawingAttributes = inkCanvas.DefaultDrawingAttributes.Clone()
+                };
+                strokes.Add(stroke.Clone());
+            }
+
+            return strokes;
+        }
+
+        private StrokeCollection GenerateDotLineStrokeCollection(Point st, Point ed)
+        {
+            double step = 3;
+            var pointList = new List<Point>();
+            StylusPointCollection point;
+            Stroke stroke;
+            var strokes = new StrokeCollection();
+            var d = GetDistance(st, ed);
+            var sinTheta = (ed.Y - st.Y) / d;
+            var cosTheta = (ed.X - st.X) / d;
+            for (var i = 0.0; i < d; i += step * 2.76)
+            {
+                var stylusPoint = new StylusPoint(st.X + i * cosTheta, st.Y + i * sinTheta, (float)0.8);
+                point = new StylusPointCollection();
+                point.Add(stylusPoint);
+                stroke = new Stroke(point)
+                {
+                    DrawingAttributes = inkCanvas.DefaultDrawingAttributes.Clone()
+                };
+                strokes.Add(stroke.Clone());
+            }
+
+            return strokes;
+        }
+
+        #endregion
+
+        #region 多点触控系统实现
+
+        private void MainWindow_StylusDown(object sender, StylusDownEventArgs e)
+        {
+            var stylusPoint = e.GetPosition(this);
+            var floatingBarBounds = ViewboxFloatingBar.TransformToAncestor(this).TransformBounds(
+                new Rect(0, 0, ViewboxFloatingBar.ActualWidth, ViewboxFloatingBar.ActualHeight));
+
+            if (floatingBarBounds.Contains(stylusPoint))
+            {
+                return;
+            }
+
+            if (e.StylusDevice.Inverted)
+            {
+                inkCanvas.EditingMode = InkCanvasEditingMode.EraseByPoint;
+            }
+            else
+            {
+                if (drawingShapeMode != 0)
+                {
+                    inkCanvas.EditingMode = InkCanvasEditingMode.None;
+
+                    isTouchDown = true;
+                    ViewboxFloatingBar.IsHitTestVisible = false;
+                    BlackboardUIGridForInkReplay.IsHitTestVisible = false;
+
+                    if (NeedUpdateIniP()) iniP = e.GetPosition(inkCanvas);
+
+                    return;
+                }
+                if (inkCanvas.EditingMode != InkCanvasEditingMode.EraseByStroke)
+                {
+                    inkCanvas.EditingMode = InkCanvasEditingMode.Ink;
+                }
+                else
+                {
+                    LogHelper.WriteLogToFile("保持当前线擦模式");
+                }
+            }
+            inkCanvas.CaptureStylus();
+            ViewboxFloatingBar.IsHitTestVisible = false;
+            BlackboardUIGridForInkReplay.IsHitTestVisible = false;
+
+            SetCursorBasedOnEditingMode(inkCanvas);
+
+            if (inkCanvas.EditingMode == InkCanvasEditingMode.EraseByPoint
+                || inkCanvas.EditingMode == InkCanvasEditingMode.EraseByStroke
+                || inkCanvas.EditingMode == InkCanvasEditingMode.Select) return;
+
+            TouchDownPointsList[e.StylusDevice.Id] = InkCanvasEditingMode.None;
+        }
+
+        private async void MainWindow_StylusUp(object sender, StylusEventArgs e)
+        {
+            if (drawingShapeMode != 0)
+            {
+                isTouchDown = false;
+                ViewboxFloatingBar.IsHitTestVisible = true;
+                BlackboardUIGridForInkReplay.IsHitTestVisible = true;
+
+                if (drawingShapeMode == 24 || drawingShapeMode == 25)
+                {
+                    if (drawMultiStepShapeCurrentStep == 0)
+                    {
+                        drawMultiStepShapeCurrentStep = 1;
+                    }
+                    else
+                    {
+                        var mouseArgs = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                        {
+                            RoutedEvent = MouseLeftButtonUpEvent,
+                            Source = inkCanvas
+                        };
+                        inkCanvas_MouseUp(inkCanvas, mouseArgs);
+                    }
+                }
+                else
+                {
+                    var mouseArgs = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                    {
+                        RoutedEvent = MouseLeftButtonUpEvent,
+                        Source = inkCanvas
+                    };
+                    inkCanvas_MouseUp(inkCanvas, mouseArgs);
+                }
+
+                return;
+            }
+
+            try
+            {
+                var stroke = GetStrokeVisual(e.StylusDevice.Id).Stroke;
+
+                if (stroke != null)
+                {
+                    inkCanvas.Strokes.Add(stroke);
+                    await Task.Delay(5);
+                    inkCanvas.Children.Remove(GetVisualCanvas(e.StylusDevice.Id));
+
+                    inkCanvas_StrokeCollected(inkCanvas,
+                    new InkCanvasStrokeCollectedEventArgs(stroke));
+                }
+                else
+                {
+                    await Task.Delay(5);
+                    inkCanvas.Children.Remove(GetVisualCanvas(e.StylusDevice.Id));
+                }
+            }
+            catch (Exception ex)
+            {
+                LogHelper.WriteLogToFile($"MainWindow_StylusUp 出错: {ex}", LogHelper.LogType.Error);
+                Label.Content = ex.ToString();
+            }
+
+            try
+            {
+                StrokeVisualList.Remove(e.StylusDevice.Id);
+                VisualCanvasList.Remove(e.StylusDevice.Id);
+                TouchDownPointsList.Remove(e.StylusDevice.Id);
+                if (StrokeVisualList.Count == 0 || VisualCanvasList.Count == 0 || TouchDownPointsList.Count == 0)
+                {
+                    foreach (var canvas in VisualCanvasList.Values.ToList())
+                    {
+                        if (inkCanvas.Children.Contains(canvas))
+                        {
+                            inkCanvas.Children.Remove(canvas);
+                        }
+                    }
+                    StrokeVisualList.Clear();
+                    VisualCanvasList.Clear();
+                    TouchDownPointsList.Clear();
+                }
+            }
+            catch { }
+
+            inkCanvas.ReleaseStylusCapture();
+            ViewboxFloatingBar.IsHitTestVisible = true;
+            BlackboardUIGridForInkReplay.IsHitTestVisible = true;
+            SetCursorBasedOnEditingMode(inkCanvas);
+        }
+
+        private void MainWindow_StylusMove(object sender, StylusEventArgs e)
+        {
+            try
+            {
+                if (drawingShapeMode != 0)
+                {
+                    if (isTouchDown)
+                    {
+                        Point stylusPoint = e.GetPosition(inkCanvas);
+                        MouseTouchMove(stylusPoint);
+                    }
+                    return;
+                }
+
+                if (GetTouchDownPointsList(e.StylusDevice.Id) != InkCanvasEditingMode.None) return;
+                try
+                {
+                    if (e.StylusDevice.StylusButtons[1].StylusButtonState == StylusButtonState.Down) return;
+                }
+                catch { }
+
+
+                var strokeVisual = GetStrokeVisual(e.StylusDevice.Id);
+                var stylusPointCollection = e.GetStylusPoints(this);
+                foreach (var stylusPoint in stylusPointCollection)
+                    strokeVisual.Add(new StylusPoint(stylusPoint.X, stylusPoint.Y, stylusPoint.PressureFactor));
+                strokeVisual.Redraw();
+            }
+            catch { }
+        }
+
+        private StrokeVisual GetStrokeVisual(int id)
+        {
+            if (StrokeVisualList.TryGetValue(id, out var visual)) return visual;
+
+            var strokeVisual = new StrokeVisual(inkCanvas.DefaultDrawingAttributes.Clone());
+            StrokeVisualList[id] = strokeVisual;
+            var visualCanvas = new VisualCanvas();
+            strokeVisual.SetVisualCanvas(visualCanvas);
+            VisualCanvasList[id] = visualCanvas;
+            inkCanvas.Children.Add(visualCanvas);
+
+            return strokeVisual;
+        }
+
+        private VisualCanvas GetVisualCanvas(int id)
+        {
+            return VisualCanvasList.TryGetValue(id, out var visualCanvas) ? visualCanvas : null;
+        }
+
+        private InkCanvasEditingMode GetTouchDownPointsList(int id)
+        {
+            return TouchDownPointsList.TryGetValue(id, out var inkCanvasEditingMode) ? inkCanvasEditingMode : inkCanvas.EditingMode;
+        }
+
+        #endregion
+    }
+}
+
+namespace Ink_Canvas.Helpers
+{
+    public class VisualCanvas : FrameworkElement
+    {
+        private readonly List<DrawingVisual> _visuals = new List<DrawingVisual>();
+
+        protected override Visual GetVisualChild(int index)
+        {
+            if (index < 0 || index >= _visuals.Count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            return _visuals[index];
+        }
+
+        protected override int VisualChildrenCount => _visuals.Count;
+
+        public VisualCanvas()
+        {
+            CacheMode = new BitmapCache();
+
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(this, EdgeMode.Aliased);
+            RenderOptions.SetCachingHint(this, CachingHint.Cache);
+        }
+
+        public void AddVisual(DrawingVisual visual)
+        {
+            if (visual == null) return;
+            _visuals.Add(visual);
+            AddVisualChild(visual);
+        }
+        public void Clear()
+        {
+            foreach (var visual in _visuals)
+            {
+                RemoveVisualChild(visual);
+            }
+            _visuals.Clear();
+        }
+
+        public IReadOnlyList<DrawingVisual> Visuals => _visuals;
+    }
+
+    public class StrokeVisual
+    {
+        private int _lastDrawnPointCount = 0;
+        private const int INCREMENTAL_DRAW_THRESHOLD = 2;
+        private VisualCanvas _visualCanvas;
+
+        public StrokeVisual() : this(new DrawingAttributes
+        {
+            Color = Colors.Red,
+            Width = 3,
+            Height = 3
+        })
+        {
+        }
+
+        public StrokeVisual(DrawingAttributes drawingAttributes)
+        {
+            _drawingAttributes = drawingAttributes;
+        }
+
+        public Stroke Stroke { set; get; }
+
+        public void SetVisualCanvas(VisualCanvas visualCanvas)
+        {
+            _visualCanvas = visualCanvas;
+        }
+
+        public void Add(StylusPoint point)
+        {
+            if (Stroke == null)
+            {
+                var collection = new StylusPointCollection { point };
+                Stroke = new Stroke(collection) { DrawingAttributes = _drawingAttributes };
+            }
+            else
+            {
+                Stroke.StylusPoints.Add(point);
+            }
+        }
+
+        private void DrawSegmentToNewVisual(int startIndex, int endIndex)
+        {
+            if (Stroke == null || Stroke.StylusPoints.Count == 0 || _visualCanvas == null) return;
+            if (startIndex >= endIndex || startIndex < 0 || endIndex > Stroke.StylusPoints.Count) return;
+
+            var points = Stroke.StylusPoints;
+            var drawingAttributes = Stroke.DrawingAttributes;
+
+            var segmentVisual = new DrawingVisual();
+
+            RenderOptions.SetBitmapScalingMode(segmentVisual, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(segmentVisual, EdgeMode.Aliased);
+            RenderOptions.SetCachingHint(segmentVisual, CachingHint.Cache);
+
+            using (var dc = segmentVisual.RenderOpen())
+            {
+                var pen = new Pen(new SolidColorBrush(drawingAttributes.Color), drawingAttributes.Width);
+                pen.StartLineCap = PenLineCap.Round;
+                pen.EndLineCap = PenLineCap.Round;
+                pen.LineJoin = PenLineJoin.Round;
+
+                if (endIndex - startIndex >= 2)
+                {
+                    for (int i = startIndex; i < endIndex - 1 && i < points.Count - 1; i++)
+                    {
+                        var startPoint = new Point(points[i].X, points[i].Y);
+                        var endPoint = new Point(points[i + 1].X, points[i + 1].Y);
+                        dc.DrawLine(pen, startPoint, endPoint);
+                    }
+                }
+                else if (endIndex - startIndex == 1 && startIndex < points.Count)
+                {
+                    var brush = new SolidColorBrush(drawingAttributes.Color);
+                    var point = points[startIndex];
+                    dc.DrawEllipse(brush, null, new Point(point.X, point.Y),
+                        drawingAttributes.Width / 2, drawingAttributes.Height / 2);
+                }
+            }
+
+            _visualCanvas.AddVisual(segmentVisual);
+        }
+
+        public void Redraw()
+        {
+            if (Stroke == null || _visualCanvas == null) return;
+
+            var currentPointCount = Stroke.StylusPoints.Count;
+            if (currentPointCount == 0) return;
+
+            int newPointCount = currentPointCount - _lastDrawnPointCount;
+
+            if (newPointCount >= INCREMENTAL_DRAW_THRESHOLD || _lastDrawnPointCount == 0)
+            {
+                try
+                {
+                    if (_lastDrawnPointCount == 0)
+                    {
+                        DrawSegmentToNewVisual(0, currentPointCount);
+                        _lastDrawnPointCount = currentPointCount;
+                    }
+                    else
+                    {
+                        int startIndex = Math.Max(0, _lastDrawnPointCount - 1);
+                        DrawSegmentToNewVisual(startIndex, currentPointCount);
+                        _lastDrawnPointCount = currentPointCount;
+                    }
+                }
+                catch { }
+            }
+        }
+
+        public void ForceRedraw()
+        {
+            if (_visualCanvas != null)
+            {
+                _visualCanvas.Clear();
+            }
+            _lastDrawnPointCount = 0;
+            Redraw();
+        }
+
+        private readonly DrawingAttributes _drawingAttributes;
+
+        public static implicit operator Stroke(StrokeVisual v)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class ImprovedBezierSmoothing
+    {
+        private readonly InkSmoothingConfig _config;
+
+        public ImprovedBezierSmoothing(InkSmoothingConfig config = null)
+        {
+            _config = config ?? new InkSmoothingConfig();
+        }
+
+        public Stroke SmoothStroke(Stroke originalStroke)
+        {
+            if (originalStroke == null || originalStroke.StylusPoints.Count < 3)
+                return originalStroke;
+
+            var originalPoints = originalStroke.StylusPoints.ToArray();
+
+            var cleanedPoints = RemoveNoisePoints(originalPoints);
+
+            var smoothedPoints = ApplyCubicBezierSmoothing(cleanedPoints);
+
+            var finalPoints = PostProcessPoints(smoothedPoints);
+
+            return new Stroke(new StylusPointCollection(finalPoints))
+            {
+                DrawingAttributes = originalStroke.DrawingAttributes.Clone()
+            };
+        }
+
+        private StylusPoint[] RemoveNoisePoints(StylusPoint[] points)
+        {
+            if (points.Length < 3) return points;
+
+            var result = new List<StylusPoint> { points[0] };
+            double minDistance = _config.ResampleInterval * 0.5;
+
+            for (int i = 1; i < points.Length - 1; i++)
+            {
+                var prev = result[result.Count - 1];
+                var curr = points[i];
+                var next = points[i + 1];
+
+                double distToPrev = Math.Sqrt((curr.X - prev.X) * (curr.X - prev.X) +
+                                            (curr.Y - prev.Y) * (curr.Y - prev.Y));
+
+                if (distToPrev < minDistance)
+                    continue;
+
+                if (IsOutlierPoint(prev, curr, next))
+                    continue;
+
+                result.Add(curr);
+            }
+
+            result.Add(points[points.Length - 1]);
+            return result.ToArray();
+        }
+
+        private bool IsOutlierPoint(StylusPoint prev, StylusPoint curr, StylusPoint next)
+        {
+            var v1 = new Vector(curr.X - prev.X, curr.Y - prev.Y);
+            var v2 = new Vector(next.X - curr.X, next.Y - curr.Y);
+
+            if (v1.Length == 0 || v2.Length == 0) return false;
+
+            v1.Normalize();
+            v2.Normalize();
+
+            double dotProduct = Vector.Multiply(v1, v2);
+            double angle = Math.Acos(Math.Max(-1, Math.Min(1, dotProduct)));
+
+            return angle < Math.PI / 6;
+        }
+
+        private StylusPoint[] ApplyCubicBezierSmoothing(StylusPoint[] points)
+        {
+            if (points.Length < 4) return points;
+
+            var result = new List<StylusPoint>();
+            result.Add(points[0]);
+
+            for (int i = 0; i <= points.Length - 4; i++)
+            {
+                var p0 = points[i];
+                var p1 = points[i + 1];
+                var p2 = points[i + 2];
+                var p3 = points[i + 3];
+
+                var controlPoints = CalculateOptimalControlPoints(p0, p1, p2, p3);
+
+                int steps = CalculateInterpolationSteps(p0, p1, p2, p3);
+
+                for (int j = 1; j <= steps; j++)
+                {
+                    double t = (double)j / steps;
+                    var bezierPoint = CalculateBezierPoint(p0, controlPoints.cp1, controlPoints.cp2, p3, t);
+                    result.Add(bezierPoint);
+                }
+            }
+
+            result.Add(points[points.Length - 1]);
+            return result.ToArray();
+        }
+
+        private (Point cp1, Point cp2) CalculateOptimalControlPoints(StylusPoint p0, StylusPoint p1, StylusPoint p2, StylusPoint p3)
+        {
+            var tangent1 = CalculateTangent(p0, p1, p2);
+            var tangent2 = CalculateTangent(p1, p2, p3);
+
+            double dist1 = CalculateDistance(p0, p1);
+            double dist2 = CalculateDistance(p2, p3);
+
+            double controlDist1 = dist1 * _config.CurveTension;
+            double controlDist2 = dist2 * _config.CurveTension;
+
+            var cp1 = new Point(
+                p1.X + tangent1.X * controlDist1,
+                p1.Y + tangent1.Y * controlDist1
+            );
+
+            var cp2 = new Point(
+                p2.X - tangent2.X * controlDist2,
+                p2.Y - tangent2.Y * controlDist2
+            );
+
+            return (cp1, cp2);
+        }
+
+        private Vector CalculateTangent(StylusPoint p0, StylusPoint p1, StylusPoint p2)
+        {
+            var v1 = new Vector(p1.X - p0.X, p1.Y - p0.Y);
+            var v2 = new Vector(p2.X - p1.X, p2.Y - p1.Y);
+
+            if (v1.Length == 0 || v2.Length == 0)
+                return new Vector(0, 0);
+
+            v1.Normalize();
+            v2.Normalize();
+
+            var tangent = (v1 + v2) / 2;
+            if (tangent.Length > 0)
+                tangent.Normalize();
+
+            return tangent;
+        }
+
+        private double CalculateDistance(StylusPoint p1, StylusPoint p2)
+        {
+            double dx = p2.X - p1.X;
+            double dy = p2.Y - p1.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        private int CalculateInterpolationSteps(StylusPoint p0, StylusPoint p1, StylusPoint p2, StylusPoint p3)
+        {
+            if (!_config.UseAdaptiveInterpolation)
+                return _config.InterpolationSteps;
+
+            double totalLength = CalculateDistance(p0, p1) + CalculateDistance(p1, p2) + CalculateDistance(p2, p3);
+
+            double curvature = CalculateCurvature(p0, p1, p2, p3);
+
+            int baseSteps = Math.Max(8, Math.Min(20, (int)(totalLength / 10)));
+            int curvatureSteps = (int)(curvature * 15);
+
+            return Math.Max(_config.InterpolationSteps, Math.Min(30, baseSteps + curvatureSteps));
+        }
+
+        private double CalculateCurvature(StylusPoint p0, StylusPoint p1, StylusPoint p2, StylusPoint p3)
+        {
+            var v1 = new Vector(p1.X - p0.X, p1.Y - p0.Y);
+            var v2 = new Vector(p2.X - p1.X, p2.Y - p1.Y);
+            var v3 = new Vector(p3.X - p2.X, p3.Y - p2.Y);
+
+            if (v1.Length == 0 || v2.Length == 0 || v3.Length == 0) return 0;
+
+            v1.Normalize();
+            v2.Normalize();
+            v3.Normalize();
+
+            double angle1 = Math.Acos(Math.Max(-1, Math.Min(1, Vector.Multiply(v1, v2))));
+            double angle2 = Math.Acos(Math.Max(-1, Math.Min(1, Vector.Multiply(v2, v3))));
+
+            return (angle1 + angle2) / Math.PI;
+        }
+
+        private StylusPoint CalculateBezierPoint(StylusPoint p0, Point cp1, Point cp2, StylusPoint p3, double t)
+        {
+            double u = 1 - t;
+            double tt = t * t;
+            double uu = u * u;
+            double uuu = uu * u;
+            double ttt = tt * t;
+
+            double c0 = uuu;
+            double c1 = 3 * uu * t;
+            double c2 = 3 * u * tt;
+            double c3 = ttt;
+
+            double x = c0 * p0.X + c1 * cp1.X + c2 * cp2.X + c3 * p3.X;
+            double y = c0 * p0.Y + c1 * cp1.Y + c2 * cp2.Y + c3 * p3.Y;
+
+            float pressure = (float)(p0.PressureFactor * u + p3.PressureFactor * t);
+            pressure = Math.Max(pressure, 0.1f);
+
+            return new StylusPoint(x, y, pressure);
+        }
+
+        private StylusPoint[] PostProcessPoints(StylusPoint[] points)
+        {
+            if (points.Length == 0) return points;
+
+            if (points.Length > _config.MaxPointsPerStroke)
+            {
+                return ResamplePoints(points, _config.ResampleInterval);
+            }
+
+            return points;
+        }
+
+        private StylusPoint[] ResamplePoints(StylusPoint[] points, double interval)
+        {
+            var result = new List<StylusPoint> { points[0] };
+            double accumulated = 0;
+
+            for (int i = 1; i < points.Length; i++)
+            {
+                var prev = result[result.Count - 1];
+                var curr = points[i];
+                double dx = curr.X - prev.X;
+                double dy = curr.Y - prev.Y;
+                double dist = Math.Sqrt(dx * dx + dy * dy);
+
+                if (dist + accumulated >= interval)
+                {
+                    double t = (interval - accumulated) / dist;
+                    double x = prev.X + t * dx;
+                    double y = prev.Y + t * dy;
+                    float pressure = (float)(prev.PressureFactor * (1 - t) + curr.PressureFactor * t);
+                    pressure = Math.Max(pressure, 0.1f);
+
+                    result.Add(new StylusPoint(x, y, pressure));
+                    accumulated = 0;
+                    i--;
+                }
+                else
+                {
+                    accumulated += dist;
+                }
+            }
+
+            return result.ToArray();
+        }
+    }
+
+    public class AsyncAdvancedBezierSmoothing
+    {
+        private readonly SemaphoreSlim _processingSemaphore;
+        private readonly ConcurrentDictionary<Stroke, CancellationTokenSource> _processingTasks;
+        private readonly Dispatcher _uiDispatcher;
+
+        public AsyncAdvancedBezierSmoothing(Dispatcher uiDispatcher)
+        {
+            _uiDispatcher = uiDispatcher;
+            _processingSemaphore = new SemaphoreSlim(Environment.ProcessorCount, Environment.ProcessorCount);
+            _processingTasks = new ConcurrentDictionary<Stroke, CancellationTokenSource>();
+        }
+
+        public double SmoothingStrength { get; set; } = 0.4;
+        public double ResampleInterval { get; set; } = 2.5;
+        public int InterpolationSteps { get; set; } = 12;
+        public bool UseHardwareAcceleration { get; set; } = true;
+        public int MaxConcurrentTasks { get; set; } = Environment.ProcessorCount;
+        public bool UseAdaptiveInterpolation { get; set; } = true;
+        public double CurveTension { get; set; } = 0.3;
+
+        public async Task<Stroke> SmoothStrokeAsync(Stroke originalStroke,
+            Action<Stroke, Stroke> onCompleted = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (originalStroke == null || originalStroke.StylusPoints.Count < 2)
+                return originalStroke;
+
+            if (_processingTasks.TryGetValue(originalStroke, out var existingCts))
+            {
+                existingCts.Cancel();
+                _processingTasks.TryRemove(originalStroke, out _);
+            }
+
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _processingTasks[originalStroke] = cts;
+
+            try
+            {
+                await _processingSemaphore.WaitAsync(cts.Token);
+
+                var smoothedStroke = await Task.Run(() =>
+                    ProcessStrokeInternal(originalStroke, cts.Token), cts.Token);
+
+                if (onCompleted != null && !cts.Token.IsCancellationRequested)
+                {
+                    await _uiDispatcher.InvokeAsync(() => onCompleted(originalStroke, smoothedStroke));
+                }
+
+                return smoothedStroke;
+            }
+            catch (OperationCanceledException)
+            {
+                return originalStroke;
+            }
+            finally
+            {
+                _processingSemaphore.Release();
+                _processingTasks.TryRemove(originalStroke, out _);
+                cts.Dispose();
+            }
+        }
+
+        private Stroke ProcessStrokeInternal(Stroke stroke, CancellationToken cancellationToken)
+        {
+            var originalPoints = stroke.StylusPoints.ToArray();
+
+            if (originalPoints.Length < 3)
+                return stroke;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var smoothedPoints = ApplyImprovedBezierSmoothing(originalPoints);
+
+            System.Diagnostics.Debug.WriteLine($"AsyncAdvancedBezierSmoothing: 原始点数={originalPoints.Length}, 平滑后点数={smoothedPoints.Length}");
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (smoothedPoints.Length > originalPoints.Length * 3.0)
+            {
+                System.Diagnostics.Debug.WriteLine($"AsyncAdvancedBezierSmoothing: 点数过多，进行重采样");
+                smoothedPoints = ResampleEquidistantOptimized(smoothedPoints, ResampleInterval);
+            }
+
+            if (smoothedPoints.Length > originalPoints.Length * 2.5)
+            {
+                System.Diagnostics.Debug.WriteLine($"AsyncAdvancedBezierSmoothing: 重采样后点数仍然过多，返回原始笔画");
+                return stroke;
+            }
+
+            var smoothedStroke = new Stroke(new StylusPointCollection(smoothedPoints))
+            {
+                DrawingAttributes = stroke.DrawingAttributes.Clone()
+            };
+
+            System.Diagnostics.Debug.WriteLine($"AsyncAdvancedBezierSmoothing: 成功创建平滑笔画");
+            return smoothedStroke;
+        }
+
+        private StylusPoint[] ApplyImprovedBezierSmoothing(StylusPoint[] points)
+        {
+            if (points.Length < 6) return points;
+
+            var result = new List<StylusPoint>();
+
+            result.Add(points[0]);
+
+            for (int i = 0; i < points.Length - 5; i++)
+            {
+                var p0 = points[i];
+                var p1 = points[i + 1];
+                var p2 = points[i + 2];
+                var p3 = points[i + 3];
+                var p4 = points[i + 4];
+                var p5 = points[i + 5];
+
+                var controlPoints = CalculateQuinticControlPoints(p0, p1, p2, p3, p4, p5);
+
+                if (i == 0)
+                {
+                    for (int j = 1; j <= 4; j++)
+                    {
+                        double t = (double)j / 5;
+                        var bezierPoint = CalculateQuinticBezierPoint(p0, controlPoints, p5, t);
+                        result.Add(bezierPoint);
+                    }
+                }
+                else
+                {
+                    double t = 4.0 / 5.0;
+                    var bezierPoint = CalculateQuinticBezierPoint(p0, controlPoints, p5, t);
+                    result.Add(bezierPoint);
+                }
+            }
+
+            result.Add(points[points.Length - 1]);
+
+            System.Diagnostics.Debug.WriteLine($"ApplyImprovedBezierSmoothing: 原始点数={points.Length}, 生成点数={result.Count}");
+
+            return RemoveDuplicatePointsLoose(result.ToArray());
+        }
+
+        private (Point cp1, Point cp2, Point cp3, Point cp4) CalculateQuinticControlPoints(
+            StylusPoint p0, StylusPoint p1, StylusPoint p2, StylusPoint p3, StylusPoint p4, StylusPoint p5)
+        {
+            double dist1 = Math.Sqrt((p1.X - p0.X) * (p1.X - p0.X) + (p1.Y - p0.Y) * (p1.Y - p0.Y));
+            double dist2 = Math.Sqrt((p2.X - p1.X) * (p2.X - p1.X) + (p2.Y - p1.Y) * (p2.Y - p1.Y));
+            double dist3 = Math.Sqrt((p4.X - p3.X) * (p4.X - p3.X) + (p4.Y - p3.Y) * (p4.Y - p3.Y));
+            double dist4 = Math.Sqrt((p5.X - p4.X) * (p5.X - p4.X) + (p5.Y - p4.Y) * (p5.Y - p4.Y));
+
+            double controlDist1 = dist1 * 0.15;
+            double controlDist2 = dist2 * 0.15;
+            double controlDist3 = dist3 * 0.15;
+            double controlDist4 = dist4 * 0.15;
+
+            double dir1X = p2.X - p0.X;
+            double dir1Y = p2.Y - p0.Y;
+            double dir2X = p3.X - p1.X;
+            double dir2Y = p3.Y - p1.Y;
+            double dir3X = p4.X - p2.X;
+            double dir3Y = p4.Y - p2.Y;
+            double dir4X = p5.X - p3.X;
+            double dir4Y = p5.Y - p3.Y;
+
+            NormalizeVector(ref dir1X, ref dir1Y);
+            NormalizeVector(ref dir2X, ref dir2Y);
+            NormalizeVector(ref dir3X, ref dir3Y);
+            NormalizeVector(ref dir4X, ref dir4Y);
+
+            var cp1 = new Point(p1.X + dir1X * controlDist1, p1.Y + dir1Y * controlDist1);
+            var cp2 = new Point(p2.X + dir2X * controlDist2, p2.Y + dir2Y * controlDist2);
+            var cp3 = new Point(p3.X - dir3X * controlDist3, p3.Y - dir3Y * controlDist3);
+            var cp4 = new Point(p4.X - dir4X * controlDist4, p4.Y - dir4Y * controlDist4);
+
+            return (cp1, cp2, cp3, cp4);
+        }
+
+        private void NormalizeVector(ref double x, ref double y)
+        {
+            double length = Math.Sqrt(x * x + y * y);
+            if (length > 0)
+            {
+                x /= length;
+                y /= length;
+            }
+        }
+
+        private StylusPoint CalculateQuinticBezierPoint(StylusPoint p0, (Point cp1, Point cp2, Point cp3, Point cp4) controlPoints, StylusPoint p5, double t)
+        {
+            double oneMinusT = 1 - t;
+            double oneMinusT2 = oneMinusT * oneMinusT;
+            double oneMinusT3 = oneMinusT2 * oneMinusT;
+            double oneMinusT4 = oneMinusT3 * oneMinusT;
+            double oneMinusT5 = oneMinusT4 * oneMinusT;
+
+            double t2 = t * t;
+            double t3 = t2 * t;
+            double t4 = t3 * t;
+            double t5 = t4 * t;
+
+            double x = oneMinusT5 * p0.X +
+                      5 * oneMinusT4 * t * controlPoints.cp1.X +
+                      10 * oneMinusT3 * t2 * controlPoints.cp2.X +
+                      10 * oneMinusT2 * t3 * controlPoints.cp3.X +
+                      5 * oneMinusT * t4 * controlPoints.cp4.X +
+                      t5 * p5.X;
+
+            double y = oneMinusT5 * p0.Y +
+                      5 * oneMinusT4 * t * controlPoints.cp1.Y +
+                      10 * oneMinusT3 * t2 * controlPoints.cp2.Y +
+                      10 * oneMinusT2 * t3 * controlPoints.cp3.Y +
+                      5 * oneMinusT * t4 * controlPoints.cp4.Y +
+                      t5 * p5.Y;
+
+            float pressure = (float)((1 - t) * p0.PressureFactor + t * p5.PressureFactor);
+
+            return new StylusPoint(x, y, Math.Max(pressure, 0.1f));
+        }
+
+        private StylusPoint[] RemoveDuplicatePointsLoose(StylusPoint[] points)
+        {
+            if (points.Length < 2) return points;
+
+            var result = new List<StylusPoint>();
+            result.Add(points[0]);
+
+            double minDistance = 0.1;
+
+            for (int i = 1; i < points.Length; i++)
+            {
+                var lastPoint = result[result.Count - 1];
+                var currentPoint = points[i];
+
+                double distance = Math.Sqrt(
+                    (currentPoint.X - lastPoint.X) * (currentPoint.X - lastPoint.X) +
+                    (currentPoint.Y - lastPoint.Y) * (currentPoint.Y - lastPoint.Y));
+
+                if (distance >= minDistance)
+                {
+                    result.Add(currentPoint);
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"RemoveDuplicatePointsLoose: 输入点数={points.Length}, 输出点数={result.Count}");
+            return result.ToArray();
+        }
+
+        private StylusPoint[] ResampleEquidistantOptimized(StylusPoint[] points, double interval)
+        {
+            var result = new List<StylusPoint> { points[0] };
+            double accumulated = 0;
+
+            for (int i = 1; i < points.Length; i++)
+            {
+                var prev = result[result.Count - 1];
+                var curr = points[i];
+                double dx = curr.X - prev.X;
+                double dy = curr.Y - prev.Y;
+                double dist = Math.Sqrt(dx * dx + dy * dy);
+
+                if (dist + accumulated >= interval)
+                {
+                    double t = (interval - accumulated) / dist;
+                    double x = prev.X + t * dx;
+                    double y = prev.Y + t * dy;
+                    float pressure = (float)(prev.PressureFactor * (1 - t) + curr.PressureFactor * t);
+                    pressure = Math.Max(pressure, 0.1f);
+
+                    result.Add(new StylusPoint(x, y, pressure));
+                    accumulated = 0;
+                    i--;
+                }
+                else
+                {
+                    accumulated += dist;
+                }
+            }
+
+            return result.ToArray();
+        }
+    }
+
+    public class HardwareAcceleratedInkProcessor
+    {
+        private readonly RenderTargetBitmap _renderTarget;
+        private readonly DrawingVisual _drawingVisual;
+        private bool _isInitialized;
+
+        public HardwareAcceleratedInkProcessor(int width = 1920, int height = 1080)
+        {
+            _renderTarget = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+            _drawingVisual = new DrawingVisual();
+
+            RenderOptions.SetBitmapScalingMode(_drawingVisual, BitmapScalingMode.HighQuality);
+            RenderOptions.SetEdgeMode(_drawingVisual, EdgeMode.Aliased);
+
+            _isInitialized = true;
+        }
+
+        public async Task<Stroke> SmoothStrokeWithGPU(Stroke originalStroke)
+        {
+            if (!_isInitialized || originalStroke == null || originalStroke.StylusPoints.Count < 2)
+                return originalStroke;
+
+            return await Task.Run(() =>
+            {
+                try
+                {
+                    var pathGeometry = CreateSmoothPathGeometry(originalStroke.StylusPoints);
+
+                    var smoothedPoints = ConvertPathGeometryToStylusPoints(pathGeometry, originalStroke.StylusPoints);
+
+                    return new Stroke(new StylusPointCollection(smoothedPoints))
+                    {
+                        DrawingAttributes = originalStroke.DrawingAttributes.Clone()
+                    };
+                }
+                catch
+                {
+                    return originalStroke;
+                }
+            });
+        }
+
+        private PathGeometry CreateSmoothPathGeometry(StylusPointCollection points)
+        {
+            var pathGeometry = new PathGeometry();
+            var pathFigure = new PathFigure();
+
+            if (points.Count < 2) return pathGeometry;
+
+            pathFigure.StartPoint = new Point(points[0].X, points[0].Y);
+
+            for (int i = 0; i < points.Count - 1; i += 2)
+            {
+                var p1 = i + 1 < points.Count ? new Point(points[i + 1].X, points[i + 1].Y) : pathFigure.StartPoint;
+                var p2 = i + 2 < points.Count ? new Point(points[i + 2].X, points[i + 2].Y) : p1;
+                var p3 = i + 3 < points.Count ? new Point(points[i + 3].X, points[i + 3].Y) : p2;
+
+                var bezierSegment = new BezierSegment(p1, p2, p3, true);
+                pathFigure.Segments.Add(bezierSegment);
+            }
+
+            pathGeometry.Figures.Add(pathFigure);
+            return pathGeometry;
+        }
+
+        private List<StylusPoint> ConvertPathGeometryToStylusPoints(PathGeometry pathGeometry, StylusPointCollection originalPoints)
+        {
+            var result = new List<StylusPoint>();
+            var flattened = pathGeometry.GetFlattenedPathGeometry();
+
+            foreach (var figure in flattened.Figures)
+            {
+                result.Add(new StylusPoint(figure.StartPoint.X, figure.StartPoint.Y, 0.5f));
+
+                foreach (var segment in figure.Segments)
+                {
+                    if (segment is LineSegment lineSegment)
+                    {
+                        result.Add(new StylusPoint(lineSegment.Point.X, lineSegment.Point.Y, 0.5f));
+                    }
+                    else if (segment is PolyLineSegment polyLineSegment)
+                    {
+                        foreach (var point in polyLineSegment.Points)
+                        {
+                            result.Add(new StylusPoint(point.X, point.Y, 0.5f));
+                        }
+                    }
+                }
+            }
+
+            InterpolatePressure(result, originalPoints);
+
+            return result;
+        }
+
+        private void InterpolatePressure(List<StylusPoint> smoothedPoints, StylusPointCollection originalPoints)
+        {
+            if (originalPoints.Count == 0 || smoothedPoints.Count == 0) return;
+
+            for (int i = 0; i < smoothedPoints.Count; i++)
+            {
+                double ratio = (double)i / (smoothedPoints.Count - 1);
+                int originalIndex = (int)(ratio * (originalPoints.Count - 1));
+                originalIndex = Math.Max(0, Math.Min(originalIndex, originalPoints.Count - 1));
+
+                var point = smoothedPoints[i];
+                float pressure = originalPoints[originalIndex].PressureFactor;
+                smoothedPoints[i] = new StylusPoint(point.X, point.Y, Math.Max(pressure, 0.1f));
+            }
+        }
+
+        public static StylusPoint[] ParallelBezierInterpolation(StylusPoint[] controlPoints, int segments = 32)
+        {
+            if (controlPoints.Length < 4) return controlPoints;
+
+            var result = new StylusPoint[segments * (controlPoints.Length / 4)];
+
+            Parallel.For(0, controlPoints.Length / 4, segmentIndex =>
+            {
+                var p0 = controlPoints[segmentIndex * 4];
+                var p1 = controlPoints[segmentIndex * 4 + 1];
+                var p2 = controlPoints[segmentIndex * 4 + 2];
+                var p3 = controlPoints[segmentIndex * 4 + 3];
+
+                for (int i = 0; i < segments; i++)
+                {
+                    double t = (double)i / (segments - 1);
+                    result[segmentIndex * segments + i] = CubicBezierFast(p0, p1, p2, p3, t);
+                }
+            });
+
+            return result;
+        }
+
+        private static StylusPoint CubicBezierFast(StylusPoint p0, StylusPoint p1, StylusPoint p2, StylusPoint p3, double t)
+        {
+            double u = 1 - t;
+            double tt = t * t;
+            double uu = u * u;
+            double uuu = uu * u;
+            double ttt = tt * t;
+
+            double x = uuu * p0.X + 3 * uu * t * p1.X + 3 * u * tt * p2.X + ttt * p3.X;
+            double y = uuu * p0.Y + 3 * uu * t * p1.Y + 3 * u * tt * p2.Y + ttt * p3.Y;
+            float pressure = (float)(p1.PressureFactor * u + p2.PressureFactor * t);
+
+            return new StylusPoint(x, y, Math.Max(pressure, 0.1f));
+        }
+
+        public void Dispose()
+        {
+            _renderTarget?.Clear();
+            _isInitialized = false;
+        }
+    }
+
+    public class InkSmoothingConfig
+    {
+        public double ResampleInterval { get; set; } = 2.5;
+        public int InterpolationSteps { get; set; } = 12;
+        public bool UseAdaptiveInterpolation { get; set; } = true;
+        public double CurveTension { get; set; } = 0.3;
+        public int MaxPointsPerStroke { get; set; } = 1000;
+    }
+}

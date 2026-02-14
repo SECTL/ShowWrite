@@ -1,11 +1,8 @@
 // [file name]: Logger.cs
 // [file content begin]
-using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace ShowWrite
 {

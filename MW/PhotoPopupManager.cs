@@ -1,10 +1,11 @@
-﻿using ShowWrite.Models;
-using System;
+using ShowWrite.Models;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Ink;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Image = System.Windows.Controls.Image;
 using ListBox = System.Windows.Controls.ListBox;
@@ -27,6 +28,7 @@ namespace ShowWrite.Services
         private readonly MemoryManager _memoryManager;
         private readonly FrameProcessor _frameProcessor;
         private readonly PanZoomManager _panZoomManager;
+        private readonly LogManager _logManager;
 
         // 常量定义
         private const double BottomToolbarHeight = 70; // 底部工具栏高度
@@ -38,13 +40,13 @@ namespace ShowWrite.Services
         public event Action<PhotoWithStrokes> PhotoSelected;
         public event Action BackToLiveRequested;
         public event Action SaveImageRequested;
+        public event Action PopupOpened;
+        public event Action PopupClosed;
 
         // 状态
         private PhotoWithStrokes _currentPhoto;
         private StrokeCollection _liveStrokes;
         private bool _isLiveMode = true;
-        private System.Windows.Controls.ListBox photoList;
-        private LogManager logManager;
 
         /// <summary>
         /// 当前选中的照片
@@ -71,6 +73,7 @@ namespace ShowWrite.Services
             set => _isLiveMode = value;
         }
 
+        // 9个参数的构造函数
         public PhotoPopupManager(
             Popup photoPopup,
             ListBox photoList,
@@ -81,8 +84,24 @@ namespace ShowWrite.Services
             MemoryManager memoryManager,
             FrameProcessor frameProcessor,
             PanZoomManager panZoomManager)
+            : this(photoPopup, photoList, mainWindow, photos, drawingManager, cameraManager, memoryManager, frameProcessor, panZoomManager, null)
         {
-            _photoPopup = photoPopup ?? throw new ArgumentNullException(nameof(photoPopup));
+        }
+
+        // 10个参数的构造函数
+        public PhotoPopupManager(
+            Popup photoPopup,
+            ListBox photoList,
+            Window mainWindow,
+            ObservableCollection<PhotoWithStrokes> photos,
+            DrawingManager drawingManager,
+            CameraManager cameraManager,
+            MemoryManager memoryManager,
+            FrameProcessor frameProcessor,
+            PanZoomManager panZoomManager,
+            LogManager logManager)
+        {
+            _photoPopup = photoPopup;
             _photoList = photoList ?? throw new ArgumentNullException(nameof(photoList));
             _mainWindow = mainWindow ?? throw new ArgumentNullException(nameof(mainWindow));
             _photos = photos ?? throw new ArgumentNullException(nameof(photos));
@@ -91,22 +110,9 @@ namespace ShowWrite.Services
             _memoryManager = memoryManager ?? throw new ArgumentNullException(nameof(memoryManager));
             _frameProcessor = frameProcessor ?? throw new ArgumentNullException(nameof(frameProcessor));
             _panZoomManager = panZoomManager ?? throw new ArgumentNullException(nameof(panZoomManager));
+            _logManager = logManager;
 
             Initialize();
-        }
-
-        public PhotoPopupManager(Popup photoPopup, System.Windows.Controls.ListBox photoList, MainWindow mainWindow, ObservableCollection<PhotoWithStrokes> photos, DrawingManager drawingManager, CameraManager cameraManager, MemoryManager memoryManager, FrameProcessor frameProcessor, PanZoomManager panZoomManager, LogManager logManager)
-        {
-            _photoPopup = photoPopup;
-            this.photoList = photoList;
-            _mainWindow = mainWindow;
-            _photos = photos;
-            _drawingManager = drawingManager;
-            _cameraManager = cameraManager;
-            _memoryManager = memoryManager;
-            _frameProcessor = frameProcessor;
-            _panZoomManager = panZoomManager;
-            this.logManager = logManager;
         }
 
         /// <summary>
@@ -119,13 +125,20 @@ namespace ShowWrite.Services
                 // 绑定数据源
                 _photoList.ItemsSource = _photos;
 
-                // 设置数据模板
-                _photoList.ItemTemplate = CreatePhotoListItemTemplate();
+                // 设置 AlternationCount 以支持编号显示
+                _photoList.AlternationCount = int.MaxValue;
+
+                // 初始化照片索引
+                UpdatePhotoIndexes();
 
                 // 订阅事件
                 _photoList.SelectionChanged += PhotoList_SelectionChanged;
-                _photoPopup.Opened += PhotoPopup_Opened;
-                _photoPopup.Closed += PhotoPopup_Closed;
+                
+                if (_photoPopup != null)
+                {
+                    _photoPopup.Opened += PhotoPopup_Opened;
+                    _photoPopup.Closed += PhotoPopup_Closed;
+                }
 
                 // 初始化实时模式笔迹
                 _liveStrokes = new StrokeCollection(_drawingManager.GetStrokes());
@@ -202,7 +215,7 @@ namespace ShowWrite.Services
         }
 
         /// <summary>
-        /// 重新定位照片悬浮窗（显示在右下角，避开底部工具栏）
+        /// 重新定位照片悬浮窗（贴右侧放置）
         /// </summary>
         public void RepositionPhotoPopup()
         {
@@ -214,11 +227,18 @@ namespace ShowWrite.Services
                 double mainWindowWidth = _mainWindow.ActualWidth;
                 double mainWindowHeight = _mainWindow.ActualHeight;
 
-                // 计算右下角位置，避开底部工具栏
+                // 获取 Popup 的实际高度（Border 的高度）
+                double popupHeight = PopupHeight; // 默认值
+                if (_photoPopup.Child is System.Windows.Controls.Border border)
+                {
+                    popupHeight = border.Height;
+                }
+
+                // 计算位置：贴右侧放置
                 double left = mainWindowWidth - PopupWidth - PopupMargin;
 
-                // 重要：减去底部工具栏高度，确保悬浮窗不会覆盖工具栏
-                double top = mainWindowHeight - PopupHeight - BottomToolbarHeight - PopupMargin;
+                // 减去底部工具栏高度，确保悬浮窗不会覆盖工具栏
+                double top = mainWindowHeight - popupHeight - BottomToolbarHeight - PopupMargin;
 
                 // 确保位置在屏幕范围内
                 left = Math.Max(PopupMargin, left);
@@ -232,6 +252,7 @@ namespace ShowWrite.Services
                 Logger.Debug("PhotoPopupManager",
                     $"照片悬浮窗定位到: ({left:F0}, {top:F0}), " +
                     $"主窗口尺寸: ({mainWindowWidth:F0}x{mainWindowHeight:F0}), " +
+                    $"悬浮窗高度: {popupHeight:F0}, " +
                     $"避开了底部工具栏高度: {BottomToolbarHeight}");
             }
             catch (Exception ex)
@@ -241,7 +262,7 @@ namespace ShowWrite.Services
         }
 
         /// <summary>
-        /// 添加新照片
+        /// 添加新照片（修改版：创建缩略图）
         /// </summary>
         /// <param name="image">照片图像</param>
         /// <param name="strokes">笔迹</param>
@@ -249,27 +270,135 @@ namespace ShowWrite.Services
         {
             try
             {
-                if (image == null) return;
+                if (image == null)
+                {
+                    Logger.Warning("PhotoPopupManager", "添加照片失败：image 为 null");
+                    return;
+                }
+
+                // 确保在 UI 线程上创建图像
+                if (!System.Windows.Application.Current.Dispatcher.CheckAccess())
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        AddPhoto(image, strokes));
+                    return;
+                }
+
+                // 冻结图像以确保线程安全
+                if (!image.IsFrozen && image.CanFreeze)
+                {
+                    image.Freeze();
+                }
+
+                // 创建缩略图
+                BitmapSource thumbnail = CreateThumbnail(image, 120, 90);
 
                 var capturedImage = new CapturedImage(image);
                 var photo = new PhotoWithStrokes(capturedImage);
+
+                // 检查是否成功创建了 photo
+                if (photo == null)
+                {
+                    Logger.Error("PhotoPopupManager", "创建 PhotoWithStrokes 失败");
+                    return;
+                }
+
+                // 设置图像和缩略图
+                photo.Image = image;
+                photo.Thumbnail = thumbnail;
                 photo.Strokes = strokes != null ? new StrokeCollection(strokes) : new StrokeCollection();
 
                 // 添加到列表开头
                 _photos.Insert(0, photo);
                 CurrentPhoto = photo;
 
+                // 更新所有照片的索引
+                UpdatePhotoIndexes();
+
                 // 更新列表显示
                 UpdatePhotoListDisplay();
 
                 // 清理内存
-                _memoryManager.TriggerMemoryCleanup();
+                _memoryManager?.TriggerMemoryCleanup();
 
                 Logger.Info("PhotoPopupManager", "添加新照片成功");
             }
             catch (Exception ex)
             {
                 Logger.Error("PhotoPopupManager", $"添加照片失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 创建缩略图
+        /// </summary>
+        private BitmapSource CreateThumbnail(BitmapSource source, int width, int height)
+        {
+            try
+            {
+                // 增加空值检查
+                if (source == null)
+                {
+                    Logger.Warning("PhotoPopupManager", "无法创建缩略图：source 为 null");
+                    // 返回一个默认的空白图像
+                    return CreateDefaultThumbnail(width, height);
+                }
+
+                var scaleX = (double)width / source.PixelWidth;
+                var scaleY = (double)height / source.PixelHeight;
+                var scale = Math.Min(scaleX, scaleY);
+                var scaledWidth = (int)(source.PixelWidth * scale);
+                var scaledHeight = (int)(source.PixelHeight * scale);
+                var thumbnail = new TransformedBitmap(source,
+                    new ScaleTransform(scale, scale));
+                var result = new CroppedBitmap(thumbnail,
+                    new Int32Rect((thumbnail.PixelWidth - scaledWidth) / 2,
+                                 (thumbnail.PixelHeight - scaledHeight) / 2,
+                                 scaledWidth, scaledHeight));
+                result.Freeze();
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("PhotoPopupManager", $"创建缩略图失败: {ex.Message}", ex);
+                return CreateDefaultThumbnail(width, height);
+            }
+        }
+
+        /// <summary>
+        /// 创建默认缩略图（用于错误情况）
+        /// </summary>
+        private BitmapSource CreateDefaultThumbnail(int width, int height)
+        {
+            try
+            {
+                var drawingVisual = new DrawingVisual();
+                using (var drawingContext = drawingVisual.RenderOpen())
+                {
+                    drawingContext.DrawRectangle(
+                        System.Windows.Media.Brushes.LightGray,
+                        null,
+                        new Rect(0, 0, width, height));
+                }
+                var renderBitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+                renderBitmap.Render(drawingVisual);
+                renderBitmap.Freeze();
+                return renderBitmap;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 更新所有照片的索引
+        /// </summary>
+        public void UpdatePhotoIndexes()
+        {
+            for (int i = 0; i < _photos.Count; i++)
+            {
+                _photos[i].Index = i + 1;
             }
         }
 
@@ -281,6 +410,19 @@ namespace ShowWrite.Services
         {
             try
             {
+                if (photoWithStrokes == null)
+                {
+                    Logger.Warning("PhotoPopupManager", "尝试选择 null 的照片");
+                    return;
+                }
+
+                // 检查照片是否有效
+                if (photoWithStrokes.Image == null || photoWithStrokes.Image == null)
+                {
+                    Logger.Warning("PhotoPopupManager", "选择的照片图像为空");
+                    return;
+                }
+
                 // 检查是否点击了已选中的照片
                 if (_currentPhoto != null && _currentPhoto == photoWithStrokes && !_isLiveMode)
                 {
@@ -295,8 +437,14 @@ namespace ShowWrite.Services
                 _liveStrokes = new StrokeCollection(_drawingManager.GetStrokes());
                 _isLiveMode = false;
                 CurrentPhoto = photoWithStrokes;
+                
+                // 设置列表选中状态
+                if (_photoList != null)
+                {
+                    _photoList.SelectedItem = photoWithStrokes;
+                }
 
-                // 触发照片选择事件
+                // 触发照片选择事件 - 传递完整的 photoWithStrokes 对象
                 PhotoSelected?.Invoke(photoWithStrokes);
 
                 // 切换绘制管理器的StrokeCollection到照片的笔迹
@@ -305,7 +453,8 @@ namespace ShowWrite.Services
                 // 重置缩放状态
                 _panZoomManager.ResetZoom();
 
-                // 释放摄像头资源
+                // 停止摄像头并释放资源
+                _cameraManager.PauseCamera();
                 _cameraManager.ReleaseCameraResources();
 
                 // 触发GC释放旧资源
@@ -350,7 +499,7 @@ namespace ShowWrite.Services
                 // 重置缩放
                 _panZoomManager.ResetZoom();
 
-                // 重启摄像头
+                // 重新启动摄像头
                 _cameraManager.RestartCamera();
 
                 // 内存清理
@@ -392,9 +541,17 @@ namespace ShowWrite.Services
         }
 
         /// <summary>
+        /// 获取所有照片
+        /// </summary>
+        public ObservableCollection<PhotoWithStrokes> GetPhotos()
+        {
+            return _photos;
+        }
+
+        /// <summary>
         /// 更新照片列表显示
         /// </summary>
-        private void UpdatePhotoListDisplay()
+        public void UpdatePhotoListDisplay()
         {
             try
             {
@@ -410,69 +567,87 @@ namespace ShowWrite.Services
         }
 
         /// <summary>
-        /// 创建照片列表项模板
+        /// 创建照片列表项模板（修改版：移除"当前查看中"提示）
         /// </summary>
         private DataTemplate CreatePhotoListItemTemplate()
         {
             var dataTemplate = new DataTemplate();
 
-            // 创建框架
-            var stackPanelFactory = new FrameworkElementFactory(typeof(StackPanel));
-            stackPanelFactory.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
-            stackPanelFactory.SetValue(StackPanel.MarginProperty, new Thickness(6));
+            // 创建主框架
+            var mainStackFactory = new FrameworkElementFactory(typeof(StackPanel));
+            mainStackFactory.SetValue(StackPanel.OrientationProperty, Orientation.Horizontal);
+            mainStackFactory.SetValue(StackPanel.MarginProperty, new Thickness(6));
+            mainStackFactory.AddHandler(StackPanel.MouseLeftButtonDownEvent, new MouseButtonEventHandler(PhotoItem_MouseLeftButtonDown));
+
+            // 创建编号
+            var numberFactory = new FrameworkElementFactory(typeof(TextBlock));
+            numberFactory.SetValue(TextBlock.WidthProperty, 30.0);
+            numberFactory.SetValue(TextBlock.TextAlignmentProperty, TextAlignment.Center);
+            numberFactory.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+            numberFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.White);
+            numberFactory.SetValue(TextBlock.FontSizeProperty, 14.0);
+            numberFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
+            numberFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("Index"));
+
+            // 创建缩略图容器（Grid）
+            var gridFactory = new FrameworkElementFactory(typeof(Grid));
+            gridFactory.SetValue(Grid.WidthProperty, 120.0);
+            gridFactory.SetValue(Grid.HeightProperty, 90.0);
 
             // 创建缩略图
             var imageFactory = new FrameworkElementFactory(typeof(Image));
-            imageFactory.SetValue(Image.WidthProperty, 70.0);
-            imageFactory.SetValue(Image.HeightProperty, 52.0);
             imageFactory.SetBinding(Image.SourceProperty, new System.Windows.Data.Binding("Thumbnail"));
             imageFactory.SetValue(Image.StretchProperty, System.Windows.Media.Stretch.UniformToFill);
 
-            // 创建右侧信息面板
-            var infoPanelFactory = new FrameworkElementFactory(typeof(StackPanel));
-            infoPanelFactory.SetValue(StackPanel.MarginProperty, new Thickness(10, 0, 0, 0));
-            infoPanelFactory.SetValue(StackPanel.VerticalAlignmentProperty, VerticalAlignment.Center);
-
-            // 时间戳
-            var timestampFactory = new FrameworkElementFactory(typeof(TextBlock));
-            timestampFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.White);
-            timestampFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
-            timestampFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("Timestamp"));
-
-            // 笔迹数
-            var strokesFactory = new FrameworkElementFactory(typeof(TextBlock));
-            strokesFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.LightGray);
-            strokesFactory.SetValue(TextBlock.FontSizeProperty, 12.0);
-            strokesFactory.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("Strokes.Count")
+            // 创建遮罩层
+            var overlayFactory = new FrameworkElementFactory(typeof(Border));
+            overlayFactory.SetValue(Border.BackgroundProperty, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(180, 0, 0, 0)));
+            overlayFactory.SetValue(Border.VisibilityProperty, Visibility.Collapsed);
+            overlayFactory.SetBinding(Border.VisibilityProperty, new System.Windows.Data.Binding("IsSelected")
             {
-                StringFormat = "笔迹数: {0}"
+                RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(ListBoxItem), 1),
+                Converter = new BooleanToVisibilityConverter()
             });
 
-            // 选中状态提示文字
-            var selectedTipFactory = new FrameworkElementFactory(typeof(TextBlock));
-            selectedTipFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.Yellow);
-            selectedTipFactory.SetValue(TextBlock.FontSizeProperty, 11.0);
-            selectedTipFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.SemiBold);
-            selectedTipFactory.SetValue(TextBlock.MarginProperty, new Thickness(0, 5, 0, 0));
+            // 创建遮罩层文字
+            var overlayTextFactory = new FrameworkElementFactory(typeof(TextBlock));
+            overlayTextFactory.SetValue(TextBlock.TextProperty, "再次点击\n返回直播");
+            overlayTextFactory.SetValue(TextBlock.ForegroundProperty, System.Windows.Media.Brushes.White);
+            overlayTextFactory.SetValue(TextBlock.FontSizeProperty, 12.0);
+            overlayTextFactory.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
+            overlayTextFactory.SetValue(TextBlock.TextAlignmentProperty, TextAlignment.Center);
+            overlayTextFactory.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+            overlayTextFactory.SetValue(TextBlock.HorizontalAlignmentProperty, System.Windows.HorizontalAlignment.Center);
 
-            // 使用多重绑定和值转换器来确定是否显示提示文字
-            var multiBinding = new System.Windows.Data.MultiBinding();
-            multiBinding.Bindings.Add(new System.Windows.Data.Binding(".")); // 当前项
-            multiBinding.Bindings.Add(new System.Windows.Data.Binding("CurrentPhoto") { Source = this });
-            multiBinding.Converter = new PhotoSelectedTipConverter();
+            // 组合遮罩层
+            overlayFactory.AppendChild(overlayTextFactory);
 
-            selectedTipFactory.SetBinding(TextBlock.TextProperty, multiBinding);
+            // 组合 Grid（缩略图 + 遮罩层）
+            gridFactory.AppendChild(imageFactory);
+            gridFactory.AppendChild(overlayFactory);
 
-            // 组合面板
-            infoPanelFactory.AppendChild(timestampFactory);
-            infoPanelFactory.AppendChild(strokesFactory);
-            infoPanelFactory.AppendChild(selectedTipFactory);
+            // 创建复选框
+            var checkBoxFactory = new FrameworkElementFactory(typeof(System.Windows.Controls.CheckBox));
+            checkBoxFactory.SetValue(FrameworkElement.WidthProperty, 24.0);
+            checkBoxFactory.SetValue(FrameworkElement.HeightProperty, 24.0);
+            checkBoxFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(8, 0, 8, 0));
+            checkBoxFactory.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+            checkBoxFactory.SetBinding(ToggleButton.IsCheckedProperty, new System.Windows.Data.Binding("IsSelected")
+            {
+                Mode = System.Windows.Data.BindingMode.TwoWay
+            });
+            checkBoxFactory.SetBinding(UIElement.VisibilityProperty, new System.Windows.Data.Binding("Tag")
+            {
+                RelativeSource = new System.Windows.Data.RelativeSource(System.Windows.Data.RelativeSourceMode.FindAncestor, typeof(ListBox), 1),
+                Converter = new StringToVisibilityConverter()
+            });
 
-            // 组合主面板
-            stackPanelFactory.AppendChild(imageFactory);
-            stackPanelFactory.AppendChild(infoPanelFactory);
+            // 组合主面板（编号 + 缩略图容器 + 复选框）
+            mainStackFactory.AppendChild(numberFactory);
+            mainStackFactory.AppendChild(gridFactory);
+            mainStackFactory.AppendChild(checkBoxFactory);
 
-            dataTemplate.VisualTree = stackPanelFactory;
+            dataTemplate.VisualTree = mainStackFactory;
             return dataTemplate;
         }
 
@@ -497,11 +672,17 @@ namespace ShowWrite.Services
         {
             try
             {
-                // 重新定位悬浮窗（确保在打开时位置正确）
-                RepositionPhotoPopup();
+                // 延迟重新定位，确保高度绑定已经生效
+                System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+                {
+                    RepositionPhotoPopup();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
 
                 // 更新列表显示
                 UpdatePhotoListDisplay();
+
+                // 触发打开事件
+                PopupOpened?.Invoke();
 
                 Logger.Debug("PhotoPopupManager", "照片悬浮窗已打开");
             }
@@ -518,8 +699,11 @@ namespace ShowWrite.Services
         {
             try
             {
-                // 清空选中项
-                _photoList.SelectedItem = null;
+                // 不清空选中项，保持选中状态以便下次打开时恢复
+                // _photoList.SelectedItem = null;
+
+                // 触发关闭事件
+                PopupClosed?.Invoke();
 
                 Logger.Debug("PhotoPopupManager", "照片悬浮窗已关闭");
             }
@@ -549,6 +733,29 @@ namespace ShowWrite.Services
             catch (Exception ex)
             {
                 Logger.Error("PhotoPopupManager", $"照片列表选择变更事件失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 照片项鼠标左键按下事件
+        /// </summary>
+        private void PhotoItem_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            try
+            {
+                if (sender is StackPanel stackPanel && stackPanel.DataContext is PhotoWithStrokes photoWithStrokes)
+                {
+                    // 如果点击的是当前选中的照片，返回实时模式
+                    if (_currentPhoto != null && _currentPhoto == photoWithStrokes && !_isLiveMode)
+                    {
+                        BackToLive();
+                        e.Handled = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("PhotoPopupManager", $"照片项鼠标点击事件失败: {ex.Message}", ex);
             }
         }
 
@@ -602,5 +809,107 @@ namespace ShowWrite.Services
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// 布尔值到可见性转换器
+    /// </summary>
+    public class BooleanToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is bool isSelected)
+            {
+                return isSelected ? Visibility.Visible : Visibility.Collapsed;
+            }
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is Visibility visibility)
+            {
+                return visibility == Visibility.Visible;
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 替代索引转换器 - 将索引转换为从1开始的编号
+    /// </summary>
+    public class AlternationIndexConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is int index)
+            {
+                return (index + 1).ToString();
+            }
+            return "0";
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new System.NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// 减法转换器
+    /// 用于从屏幕高度中减去指定值（如底部菜单栏高度）
+    /// </summary>
+    public class SubtractConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            try
+            {
+                if (value is double doubleValue)
+                {
+                    double doubleParam = 0;
+                    if (parameter is double d)
+                    {
+                        doubleParam = d;
+                    }
+                    else if (parameter is string s && double.TryParse(s, out double result))
+                    {
+                        doubleParam = result;
+                    }
+                    return doubleValue - doubleParam;
+                }
+                return value;
+            }
+            catch
+            {
+                return value;
+            }
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new System.NotImplementedException();
+        }
+    }
+
+    public class StringToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value is string str)
+            {
+                return str == "Visible" ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (value is Visibility vis)
+            {
+                return vis;
+            }
+            return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }

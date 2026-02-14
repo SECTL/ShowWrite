@@ -1,7 +1,4 @@
-﻿using AForge;
-using AForge.Imaging.Filters;
-using System;
-using System.Drawing;
+﻿using AForge.Imaging.Filters;
 using System.Windows.Media.Imaging;
 using ZXing;
 using ZXing.Common;

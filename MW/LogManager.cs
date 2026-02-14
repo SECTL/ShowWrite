@@ -1,9 +1,6 @@
 // [file name]: LogManager.cs
 // [file content begin]
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 namespace ShowWrite
 {
@@ -147,8 +144,8 @@ namespace ShowWrite
         public DateTime CreatedTime { get; set; }
         public DateTime LastModified { get; set; }
 
-        public string SizeFormatted => Size < 1024 ? $"{Size} B" : 
-                                     Size < 1024 * 1024 ? $"{Size / 1024.0:F1} KB" : 
+        public string SizeFormatted => Size < 1024 ? $"{Size} B" :
+                                     Size < 1024 * 1024 ? $"{Size / 1024.0:F1} KB" :
                                      $"{Size / (1024.0 * 1024.0):F1} MB";
     }
 }

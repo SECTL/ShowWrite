@@ -1,39 +1,33 @@
-﻿using AForge.Imaging.Filters;
+using AForge.Imaging.Filters;
 using Newtonsoft.Json;
 using ShowWrite.Models;
 using ShowWrite.Services;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
-
-// 为有冲突的类型添加明确的别名
-using WinPoint = System.Windows.Point;
-using WinCursors = System.Windows.Input.Cursors;
-using WinComboBox = System.Windows.Controls.ComboBox;
-using WinOrientation = System.Windows.Controls.Orientation;
-using WinButton = System.Windows.Controls.Button;
-using WinBrushes = System.Windows.Media.Brushes;
-using WinBrush = System.Windows.Media.Brush;
 using Button = System.Windows.Controls.Button;
 using MessageBox = System.Windows.MessageBox;
-using SystemDrawingImage = System.Drawing.Image;  // 重命名 System.Drawing.Image
-using SystemDrawingBrushes = System.Drawing.Brushes;  // 重命名 System.Drawing.Brushes
-using WpfImage = System.Windows.Controls.Image;
-using Binding = System.Windows.Data.Binding;  // 为 WPF Image 添加别名
+using WinBrush = System.Windows.Media.Brush;
+using WinBrushes = System.Windows.Media.Brushes;
+using WinButton = System.Windows.Controls.Button;
+using WinComboBox = System.Windows.Controls.ComboBox;
+using WinCursors = System.Windows.Input.Cursors;
+using WinOrientation = System.Windows.Controls.Orientation;
+using WinMouseEventArgs = System.Windows.Input.MouseEventArgs;
+using WinMouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
+using WinPoint = System.Windows.Point;
+using WinImage = System.Windows.Controls.Image;
+using System.Windows.Controls.Primitives;
+using ListBox = System.Windows.Controls.ListBox;
 
 namespace ShowWrite
 {
@@ -49,6 +43,8 @@ namespace ShowWrite
         private TouchManager _touchManager;
         private LogManager _logManager;
         private PhotoPopupManager _photoPopupManager;
+        private Services.DeviceConnectionManager _deviceConnectionManager;
+        private LanguageManager _languageManager;
 
         // 数据集合
         private readonly ObservableCollection<PhotoWithStrokes> _photos = new();
@@ -89,22 +85,35 @@ namespace ShowWrite
         private WinPoint[] _correctionPoints = new WinPoint[4];
         private bool _isCorrectionModeInitialized = false;
 
-        // 启动图相关
-        private SplashWindow _splashWindow;
-        private bool _isSplashShown = false;
-        private const int SPLASH_DISPLAY_TIME = 2000; // 启动图显示时间（毫秒）
+        // 启动图相关 - 由App.xaml.cs控制
+        private bool _shouldShowSplash = false;
 
         // 主题相关
         private ResourceDictionary _currentTheme;
 
-        public MainWindow()
+        // 清屏确认滑块相关
+        private bool _isSliderDragging = false;
+        private double _sliderStartX = 0;
+        private double _sliderMaxDistance = 0;
+        private bool _sliderReachedEnd = false;
+
+        /// <summary>
+        /// 主构造函数 - 由App.xaml.cs调用
+        /// </summary>
+        /// <param name="shouldShowSplash">是否显示启动图</param>
+        public MainWindow(bool shouldShowSplash = false)
         {
-            // 显示启动图
-            ShowSplashScreen();
+            _shouldShowSplash = shouldShowSplash;
+
+            // 如果App.xaml.cs要求显示启动图，这里才显示
+            if (_shouldShowSplash)
+            {
+                ShowSplashScreen();
+            }
 
             // 初始化日志系统
             Logger.Initialize(minLogLevel: LogLevel.Debug);
-            Logger.Info("MainWindow", "应用程序启动");
+            Logger.Info("MainWindow", "主窗口初始化开始");
             _logManager = new LogManager();
 
             InitializeComponent();
@@ -124,8 +133,18 @@ namespace ShowWrite
 
             Logger.Info("MainWindow", "主窗口初始化完成");
 
-            // 关闭启动图
-            CloseSplashScreen();
+            // 如果显示了启动图，现在关闭它
+            if (_shouldShowSplash)
+            {
+                CloseSplashScreen();
+            }
+        }
+
+        /// <summary>
+        /// 默认构造函数 - 保留供WPF设计器使用
+        /// </summary>
+        public MainWindow() : this(false)
+        {
         }
 
         /// <summary>
@@ -137,22 +156,13 @@ namespace ShowWrite
             {
                 Logger.Debug("MainWindow", "显示启动图");
 
-                // 创建并显示启动窗口
-                _splashWindow = new SplashWindow();
-                _splashWindow.Show();
-                _isSplashShown = true;
-
-                // 让启动图窗口获得焦点并确保在前台
-                _splashWindow.Activate();
-                _splashWindow.Topmost = true;
-
-                // 强制更新UI
-                _splashWindow.UpdateLayout();
+                // 注意：这里我们不实际创建启动窗口
+                // 启动图由App.xaml.cs控制
+                Logger.Debug("MainWindow", "启动图由App.xaml.cs控制");
             }
             catch (Exception ex)
             {
                 Logger.Error("MainWindow", $"显示启动图失败: {ex.Message}", ex);
-                _splashWindow = null;
             }
         }
 
@@ -163,30 +173,8 @@ namespace ShowWrite
         {
             try
             {
-                if (_splashWindow != null && _isSplashShown)
-                {
-                    // 计算最小显示时间
-                    if (_splashWindow.StartTime.HasValue)
-                    {
-                        var elapsed = DateTime.Now - _splashWindow.StartTime.Value;
-                        int remainingTime = Math.Max(0, SPLASH_DISPLAY_TIME - (int)elapsed.TotalMilliseconds);
-
-                        if (remainingTime > 0)
-                        {
-                            // 等待剩余时间
-                            Task.Delay(remainingTime).ContinueWith(_ =>
-                            {
-                                Dispatcher.Invoke(() =>
-                                {
-                                    CloseSplashWindowInternal();
-                                });
-                            });
-                            return;
-                        }
-                    }
-
-                    CloseSplashWindowInternal();
-                }
+                Logger.Debug("MainWindow", "关闭启动图");
+                // 启动图由App.xaml.cs控制，这里只是记录
             }
             catch (Exception ex)
             {
@@ -194,50 +182,71 @@ namespace ShowWrite
             }
         }
 
-        /// <summary>
-        /// 内部关闭启动图窗口
-        /// </summary>
-        private void CloseSplashWindowInternal()
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
             {
-                if (_splashWindow != null)
+                // 记录进程ID
+                var process = System.Diagnostics.Process.GetCurrentProcess();
+                Logger.Info("MainWindow", $"主窗口加载完成，进程ID: {process.Id}, 进程名: {process.ProcessName}");
+
+                // 确保校正画布有正确的尺寸
+                Dispatcher.BeginInvoke(new Action(() =>
                 {
-                    _splashWindow.CloseSplash();
-                    _splashWindow = null;
-                    _isSplashShown = false;
+                    if (CorrectionCanvas != null && FindName("VideoArea") != null)
+                    {
+                        var videoArea = (Grid)FindName("VideoArea");
+                        CorrectionCanvas.Width = videoArea.ActualWidth;
+                        CorrectionCanvas.Height = videoArea.ActualHeight;
+                    }
+                }), DispatcherPriority.Loaded);
+
+                // 确保主窗口在前台
+                this.Activate();
+                this.Topmost = true;
+                this.Topmost = false;
+                this.Focus();
+
+                // 检查是否有多余进程
+                CheckForDuplicateProcesses();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"主窗口加载事件失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 检查重复进程
+        /// </summary>
+        private void CheckForDuplicateProcesses()
+        {
+            try
+            {
+                var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+                var processes = System.Diagnostics.Process.GetProcessesByName(currentProcess.ProcessName);
+
+                if (processes.Length > 1)
+                {
+                    Logger.Warning("MainWindow", $"检测到多个进程: {processes.Length} 个同名进程");
+
+                    foreach (var process in processes)
+                    {
+                        if (process.Id != currentProcess.Id)
+                        {
+                            Logger.Warning("MainWindow", $"发现其他进程: ID={process.Id}, 启动时间={process.StartTime}");
+                        }
+                    }
+                }
+                else
+                {
+                    Logger.Info("MainWindow", "进程检查正常: 只有一个进程运行");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("MainWindow", $"内部关闭启动图失败: {ex.Message}", ex);
-                try
-                {
-                    _splashWindow?.Close();
-                    _splashWindow = null;
-                    _isSplashShown = false;
-                }
-                catch { }
+                Logger.Error("MainWindow", $"检查重复进程失败: {ex.Message}", ex);
             }
-        }
-
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            // 确保校正画布有正确的尺寸
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                if (CorrectionCanvas != null && VideoArea != null)
-                {
-                    CorrectionCanvas.Width = VideoArea.ActualWidth;
-                    CorrectionCanvas.Height = VideoArea.ActualHeight;
-                }
-            }), DispatcherPriority.Loaded);
-
-            // 确保主窗口在前台
-            this.Activate();
-            this.Topmost = true;
-            this.Topmost = false;
-            this.Focus();
         }
 
         private void SwitchTheme(bool useDarkTheme)
@@ -281,47 +290,46 @@ namespace ShowWrite
                 InitializeCorrectionPoints();
             }
 
-            // 如果照片悬浮窗打开，重新定位
-            if (PhotoPopup != null && PhotoPopup.IsOpen)
-            {
-                _photoPopupManager.RepositionPhotoPopup();
-            }
+            // 照片栏固定在右侧，不需要重新定位
         }
 
-        /// <summary>
-        /// 初始化所有管理器
-        /// </summary>
         private void InitializeManagers()
         {
             try
             {
                 Logger.Info("MainWindow", "开始初始化管理器");
 
-                // 1. 初始化配置
                 if (config == null) config = new AppConfig();
 
-                // 2. 初始化绘制管理器
-                _drawingManager = new DrawingManager(Ink, VideoArea, this);
+                _drawingManager = new DrawingManager((InkCanvas)FindName("Ink"), (Grid)FindName("VideoArea"), this);
 
-                // 3. 初始化摄像头管理器
+                var eraserOverlayCanvas = (System.Windows.Controls.Canvas)FindName("EraserOverlayCanvas");
+                if (eraserOverlayCanvas != null)
+                {
+                    _drawingManager.InitializeEraserOverlay(eraserOverlayCanvas);
+                }
+
+                var overlayInkCanvas = (InkCanvas)FindName("OverlayInkCanvas");
+                var zoomTransform = (ScaleTransform)FindName("ZoomTransform");
+                var panTransform = (TranslateTransform)FindName("PanTransform");
+                if (overlayInkCanvas != null && zoomTransform != null && panTransform != null)
+                {
+                    _drawingManager.SetOverlayInkCanvas(overlayInkCanvas, zoomTransform, panTransform);
+                    Logger.Info("MainWindow", "OverlayInkCanvas 已设置到 DrawingManager");
+                }
+
                 _cameraManager = new CameraManager(_videoService, config);
 
-                // 4. 初始化内存管理器
                 _memoryManager = new MemoryManager();
 
-                // 5. 初始化帧处理器
                 _frameProcessor = new FrameProcessor(_cameraManager, _memoryManager);
 
-                // 6. 初始化平移缩放管理器
-                _panZoomManager = new PanZoomManager(ZoomTransform, PanTransform, VideoArea, _drawingManager);
+                _panZoomManager = new PanZoomManager((ScaleTransform)FindName("ZoomTransform"), (TranslateTransform)FindName("PanTransform"), (Grid)FindName("VideoArea"), _drawingManager);
 
-                // 7. 初始化触控管理器
                 _touchManager = new TouchManager(_drawingManager);
 
-                // 8. 初始化照片悬浮窗管理器
                 InitializePhotoPopupManager();
 
-                // 订阅事件
                 SubscribeToEvents();
 
                 Logger.Info("MainWindow", "管理器初始化完成");
@@ -341,7 +349,7 @@ namespace ShowWrite
             try
             {
                 _photoPopupManager = new PhotoPopupManager(
-                    PhotoPopup,
+                    null,
                     PhotoList,
                     this,
                     _photos,
@@ -367,7 +375,7 @@ namespace ShowWrite
         }
 
         /// <summary>
-        /// 照片选择事件处理
+        /// 照片选择事件处理（修复版）
         /// </summary>
         private void OnPhotoSelected(PhotoWithStrokes photo)
         {
@@ -375,20 +383,117 @@ namespace ShowWrite
             {
                 try
                 {
-                    // 显示选中的照片
-                    VideoImage.Source = photo?.Image;
+                    if (photo == null)
+                    {
+                        Logger.Warning("MainWindow", "照片选择事件收到空照片对象");
+                        return;
+                    }
 
-                    Logger.Debug("MainWindow", $"照片选择事件处理完成");
+                    if (photo.Image == null)
+                    {
+                        Logger.Warning("MainWindow", "照片对象的Image属性为空");
+                        return;
+                    }
+
+                    Logger.Info("MainWindow", $"切换到照片查看模式，照片尺寸: {photo.Image.Width}x{photo.Image.Height}");
+
+                    // 1. 先停止摄像头，确保视频帧不再生成
+                    if (_cameraManager != null && _cameraManager.IsCameraAvailable)
+                    {
+                        _cameraManager.PauseCamera();
+                        Logger.Debug("MainWindow", "摄像头已暂停");
+                    }
+
+                    // 2. 设置到非实时模式
+                    _isLiveMode = false;
+
+                    // 3. 显示选中的照片
+                    var videoImage = (WinImage)FindName("VideoImage");
+                    var videoArea = (Grid)FindName("VideoArea");
+                    if (videoImage != null)
+                    {
+                        videoImage.Source = photo.Image;
+                    }
+                    if (videoArea != null)
+                    {
+                        videoArea.Background = WinBrushes.Transparent;
+                    }
+
+                    // 4. 切换到照片对应的笔迹
+                    if (photo.Strokes != null)
+                    {
+                        _drawingManager.SwitchToPhotoStrokes(photo.Strokes);
+                        Logger.Debug("MainWindow", $"已切换到照片笔迹，包含 {photo.Strokes.Count} 个笔迹");
+                    }
+                    else
+                    {
+                        Logger.Warning("MainWindow", "照片没有关联的笔迹");
+                        _drawingManager.SwitchToPhotoStrokes(new StrokeCollection());
+                    }
+
+                    // 5. 更新UI状态
+                    UpdateUIModeForPhotoView();
+
+                    // 6. 触发内存清理
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        _memoryManager?.TriggerMemoryCleanup();
+                    }), DispatcherPriority.Background);
+
+                    Logger.Info("MainWindow", "已成功切换到照片查看模式");
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("MainWindow", $"处理照片选择事件失败: {ex.Message}", ex);
+
+                    // 出错时尝试恢复实时模式
+                    try
+                    {
+                        _isLiveMode = true;
+                        if (_cameraManager != null && _cameraManager.IsCameraAvailable)
+                        {
+                            _cameraManager.RestartCamera();
+                        }
+                        var videoImage = (WinImage)FindName("VideoImage");
+                        if (videoImage != null)
+                        {
+                            videoImage.Source = null;
+                        }
+                    }
+                    catch (Exception innerEx)
+                    {
+                        Logger.Error("MainWindow", $"恢复实时模式失败: {innerEx.Message}", innerEx);
+                    }
                 }
             });
         }
 
         /// <summary>
-        /// 返回实时模式请求处理
+        /// 为照片查看模式更新UI状态
+        /// </summary>
+        private void UpdateUIModeForPhotoView()
+        {
+            try
+            {
+                // 1. 设置窗口标题显示照片模式
+                this.Title = $"ShowWrite - 照片查看模式";
+
+                // 2. 关闭可能的悬浮窗
+                if (PenSettingsPopup.IsOpen)
+                {
+                    PenSettingsPopup.IsOpen = false;
+                }
+
+                Logger.Debug("MainWindow", "UI状态已更新为照片查看模式");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"更新UI状态失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 返回实时模式请求处理（修复版）
         /// </summary>
         private void OnBackToLiveRequested()
         {
@@ -396,16 +501,47 @@ namespace ShowWrite
             {
                 try
                 {
-                    // 重置视频帧记录状态
+                    // ---------------------------------------------------------
+                    // [新增修复 3] 清除列表选中状态
+                    // 这样下次点击同一张照片时，SelectionChanged 事件才能再次触发
+                    if (PhotoList != null)
+                    {
+                        PhotoList.SelectedIndex = -1;
+                    }
+                    // ---------------------------------------------------------
+
+                    // 1. 重置视频帧记录状态
                     _isFirstFrameProcessed = false;
                     Logger.ResetVideoFrameLogging();
 
-                    // 重启摄像头
-                    _cameraManager.RestartCamera();
+                    // 2. 重新启动摄像头
+                    if (_cameraManager != null && _cameraManager.IsCameraAvailable)
+                    {
+                        _cameraManager.RestartCamera();
+                    }
 
+                    // 3. 设置为实时模式
                     _isLiveMode = true;
 
-                    Logger.Info("MainWindow", "返回实时模式请求处理完成");
+                    // 4. 清空视频图像，让摄像头帧重新显示
+                    var videoImage = (WinImage)FindName("VideoImage");
+                    var videoArea = (Grid)FindName("VideoArea");
+                    if (videoImage != null)
+                    {
+                        videoImage.Source = null;
+                    }
+                    if (videoArea != null)
+                    {
+                        videoArea.Background = _noCameraBackground;
+                    }
+
+                    // 5. 切换回实时笔迹
+                    _drawingManager.SwitchToPhotoStrokes(_liveStrokes);
+
+                    // 6. 更新UI状态
+                    this.Title = "ShowWrite";
+
+                    Logger.Info("MainWindow", "已返回实时模式");
                 }
                 catch (Exception ex)
                 {
@@ -521,6 +657,10 @@ namespace ShowWrite
             {
                 Logger.Debug("MainWindow", "开始初始化UI");
 
+                // 初始化语言管理器
+                _languageManager = LanguageManager.Instance;
+                _languageManager.LanguageChanged += UpdateLanguageUI;
+
                 // 初始化实时模式笔迹
                 _drawingManager.SwitchToPhotoStrokes(_liveStrokes);
 
@@ -538,14 +678,39 @@ namespace ShowWrite
                 // 初始化画笔颜色选择器
                 InitializePenColorSelector();
 
+                if (PhotoList != null)
+                {
+                    PhotoList.SelectionChanged -= PhotoList_SelectionChanged; // 防止重复绑定
+                    PhotoList.SelectionChanged += PhotoList_SelectionChanged;
+                }
                 // 开始触控跟踪
                 _touchManager.StartTracking();
+
+                // 更新语言UI
+                UpdateLanguageUI();
 
                 Logger.Debug("MainWindow", "UI初始化完成");
             }
             catch (Exception ex)
             {
                 Logger.Error("MainWindow", $"初始化UI失败: {ex.Message}", ex);
+            }
+        }
+
+        private void PhotoList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // 如果选中项是 PhotoWithStrokes 类型，则调用切换逻辑
+            if (PhotoList.SelectedItem is PhotoWithStrokes photo)
+            {
+                // 调用现有的照片选择处理逻辑
+                OnPhotoSelected(photo);
+
+                // 确保照片栏保持展开
+                var photoPanelBorder = FindName("PhotoPanelBorder") as Border;
+                if (photoPanelBorder != null && photoPanelBorder.Visibility != Visibility.Visible)
+                {
+                    photoPanelBorder.Visibility = Visibility.Visible;
+                }
             }
         }
 
@@ -642,18 +807,22 @@ namespace ShowWrite
                 try
                 {
                     Logger.Debug("MainWindow", "=== 图层可见性测试 ===");
-                    Logger.Debug("MainWindow", $"VideoArea 子元素数量: {VisualTreeHelper.GetChildrenCount(VideoArea)}");
+                    var videoArea = (Grid)FindName("VideoArea");
+                    Logger.Debug("MainWindow", $"VideoArea 子元素数量: {VisualTreeHelper.GetChildrenCount(videoArea)}");
 
-                    for (int i = 0; i < VisualTreeHelper.GetChildrenCount(VideoArea); i++)
+                    for (int i = 0; i < VisualTreeHelper.GetChildrenCount(videoArea); i++)
                     {
-                        var child = VisualTreeHelper.GetChild(VideoArea, i);
+                        var child = VisualTreeHelper.GetChild(videoArea, i);
                         Logger.Debug("MainWindow", $"子元素 {i}: {child.GetType().Name}, 可见性: {((UIElement)child).Visibility}");
                     }
 
-                    Logger.Debug("MainWindow", $"VideoImage 源: {VideoImage.Source}");
-                    Logger.Debug("MainWindow", $"VideoImage 渲染尺寸: {VideoImage.RenderSize}");
-                    Logger.Debug("MainWindow", $"InkCanvas 背景: {Ink.Background}");
-                    Logger.Debug("MainWindow", $"InkCanvas 默认绘制属性: {Ink.DefaultDrawingAttributes.Color}, {Ink.DefaultDrawingAttributes.Width}");
+                    var videoImage = (WinImage)FindName("VideoImage");
+                    var ink = (InkCanvas)FindName("Ink");
+
+                    Logger.Debug("MainWindow", $"VideoImage 源: {videoImage?.Source}");
+                    Logger.Debug("MainWindow", $"VideoImage 渲染尺寸: {videoImage?.RenderSize}");
+                    Logger.Debug("MainWindow", $"InkCanvas 背景: {ink?.Background}");
+                    Logger.Debug("MainWindow", $"InkCanvas 默认绘制属性: {ink?.DefaultDrawingAttributes.Color}, {ink?.DefaultDrawingAttributes.Width}");
 
                     Logger.Debug("MainWindow", "=== 图层可见性测试结束 ===");
                 }
@@ -668,14 +837,16 @@ namespace ShowWrite
 
         #region 事件处理方法
 
+
         /// <summary>
-        /// 摄像头帧接收事件
+        /// 摄像头帧接收事件（修复版）
         /// </summary>
         private void OnCameraFrameReceived(System.Drawing.Bitmap frame)
         {
+            // 如果不是实时模式或正在关闭，不处理帧
             if (_isClosing || !_isLiveMode || _isPerspectiveCorrectionMode)
             {
-                _memoryManager.DisposeFrame(frame, true);
+                _memoryManager?.DisposeFrame(frame, true);
                 return;
             }
 
@@ -699,13 +870,14 @@ namespace ShowWrite
 
                         // 处理并显示帧
                         var bitmapImage = _frameProcessor.ProcessFrameToBitmapImage(frame);
-                        if (bitmapImage != null && VideoImage != null) // 添加 null 检查
+                        var videoImage = (WinImage)FindName("VideoImage");
+                        if (bitmapImage != null && videoImage != null)
                         {
-                            VideoImage.Source = bitmapImage;
+                            videoImage.Source = bitmapImage;
                         }
 
                         // 更新内存管理
-                        _memoryManager.UpdateLastProcessedFrame(frame);
+                        _memoryManager?.UpdateLastProcessedFrame(frame);
                     }
                     catch (Exception ex)
                     {
@@ -714,12 +886,12 @@ namespace ShowWrite
                     finally
                     {
                         // 释放当前帧
-                        _memoryManager.DisposeFrame(frame);
+                        _memoryManager?.DisposeFrame(frame);
                     }
                 }
                 else
                 {
-                    _memoryManager.DisposeFrame(frame, true);
+                    _memoryManager?.DisposeFrame(frame, true);
                 }
             });
         }
@@ -813,20 +985,21 @@ namespace ShowWrite
         /// </summary>
         private void PenBtn_Click(object sender, RoutedEventArgs e)
         {
-            // 如果当前不是画笔模式，切换到画笔模式并打开悬浮窗
+            // 如果当前不是画笔模式，切换到画笔模式
             if (_drawingManager.CurrentMode != DrawingManager.ToolMode.Pen)
             {
                 SetMode(DrawingManager.ToolMode.Pen);
-
-                // 打开画笔设置悬浮窗
-                PenSettingsPopup.IsOpen = true;
-                Logger.Debug("MainWindow", "切换到画笔模式并打开设置悬浮窗");
+                Logger.Debug("MainWindow", "切换到画笔模式");
             }
             else
             {
                 // 如果已经是画笔模式，切换悬浮窗的显示状态
                 PenSettingsPopup.IsOpen = !PenSettingsPopup.IsOpen;
-                Logger.Debug("MainWindow", $"画笔模式已选中，切换悬浮窗状态: {PenSettingsPopup.IsOpen}");
+                
+                // 确保按钮保持选中状态（因为 ToggleButton 点击会自动切换状态）
+                PenBtn.IsChecked = true;
+                
+                Logger.Debug("MainWindow", $"切换悬浮窗状态: {PenSettingsPopup.IsOpen}");
             }
         }
 
@@ -844,11 +1017,32 @@ namespace ShowWrite
                 Logger.Debug("MainWindow", "点击VideoArea，自动隐藏画笔设置悬浮窗");
             }
 
-            // 自动隐藏照片悬浮窗
-            if (PhotoPopup.IsOpen)
+            // 自动隐藏形状设置悬浮窗
+            if (ShapeSettingsPopup.IsOpen && (_drawingManager.CurrentMode == DrawingManager.ToolMode.Line ||
+                _drawingManager.CurrentMode == DrawingManager.ToolMode.Arrow ||
+                _drawingManager.CurrentMode == DrawingManager.ToolMode.Rectangle ||
+                _drawingManager.CurrentMode == DrawingManager.ToolMode.Ellipse ||
+                _drawingManager.CurrentMode == DrawingManager.ToolMode.Circle ||
+                _drawingManager.CurrentMode == DrawingManager.ToolMode.DashedLine ||
+                _drawingManager.CurrentMode == DrawingManager.ToolMode.DotLine))
             {
-                _photoPopupManager.HidePhotoPopup();
-                Logger.Debug("MainWindow", "点击VideoArea，自动隐藏照片悬浮窗");
+                ShapeSettingsPopup.IsOpen = false;
+                Logger.Debug("MainWindow", "点击VideoArea，自动隐藏形状设置悬浮窗");
+            }
+
+            // 自动隐藏连接设备悬浮窗
+            if (ConnectDevicePopup.IsOpen)
+            {
+                ConnectDevicePopup.IsOpen = false;
+                Logger.Debug("MainWindow", "点击VideoArea，自动隐藏连接设备悬浮窗");
+            }
+
+            // 自动收起照片栏
+            var photoPanelBorder = FindName("PhotoPanelBorder") as Border;
+            if (photoPanelBorder != null && photoPanelBorder.Visibility == Visibility.Visible)
+            {
+                photoPanelBorder.Visibility = Visibility.Collapsed;
+                Logger.Debug("MainWindow", "点击VideoArea，自动收起照片栏");
             }
 
             // 调用原有的鼠标事件处理
@@ -870,11 +1064,12 @@ namespace ShowWrite
                 Logger.Debug("MainWindow", "点击VideoArea，自动隐藏画笔设置悬浮窗");
             }
 
-            // 自动隐藏照片悬浮窗
-            if (PhotoPopup.IsOpen)
+            // 自动收起照片栏
+            var photoPanelBorder2 = FindName("PhotoPanelBorder") as Border;
+            if (photoPanelBorder2 != null && photoPanelBorder2.Visibility == Visibility.Visible)
             {
-                _photoPopupManager.HidePhotoPopup();
-                Logger.Debug("MainWindow", "点击VideoArea，自动隐藏照片悬浮窗");
+                photoPanelBorder2.Visibility = Visibility.Collapsed;
+                Logger.Debug("MainWindow", "点击VideoArea，自动收起照片栏");
             }
 
             // 原有的双击检测逻辑
@@ -1065,7 +1260,11 @@ namespace ShowWrite
 
                     // 显示原始图像
                     var bitmapImage = _memoryManager.BitmapToBitmapImage(_originalCorrectionFrame);
-                    VideoImage.Source = bitmapImage;
+                    var videoImage = (WinImage)FindName("VideoImage");
+                    if (videoImage != null)
+                    {
+                        videoImage.Source = bitmapImage;
+                    }
 
                     // 隐藏底部工具栏
                     BottomToolbar.Visibility = Visibility.Collapsed;
@@ -1083,8 +1282,11 @@ namespace ShowWrite
                     _isPerspectiveCorrectionMode = true;
                     _isCorrectionModeInitialized = true;
 
-                    // 禁用InkCanvas
-                    Ink.IsEnabled = false;
+                    var ink = (InkCanvas)FindName("Ink");
+                    if (ink != null)
+                    {
+                        ink.IsEnabled = false;
+                    }
 
                     // 更新校正UI
                     UpdateCorrectionUI();
@@ -1140,8 +1342,11 @@ namespace ShowWrite
                 // 释放鼠标捕获（防止鼠标卡死）
                 ReleaseAllMouseCaptures();
 
-                // 启用InkCanvas
-                Ink.IsEnabled = true;
+                var ink = (InkCanvas)FindName("Ink");
+                if (ink != null)
+                {
+                    ink.IsEnabled = true;
+                }
 
                 // 隐藏校正模式界面
                 PerspectiveCorrectionGrid.Visibility = Visibility.Collapsed;
@@ -1213,7 +1418,11 @@ namespace ShowWrite
                 {
                     try
                     {
-                        Ink.IsEnabled = true;
+                        var ink = (InkCanvas)FindName("Ink");
+                        if (ink != null)
+                        {
+                            ink.IsEnabled = true;
+                        }
                         PerspectiveCorrectionGrid.Visibility = Visibility.Collapsed;
                         BottomToolbar.Visibility = Visibility.Visible;
                     }
@@ -1262,9 +1471,9 @@ namespace ShowWrite
         {
             try
             {
-                // 获取视频区域的尺寸
-                double videoWidth = VideoArea.ActualWidth;
-                double videoHeight = VideoArea.ActualHeight;
+                var videoArea = (Grid)FindName("VideoArea");
+                double videoWidth = videoArea.ActualWidth;
+                double videoHeight = videoArea.ActualHeight;
 
                 // 如果视频区域尺寸为0，使用默认值
                 if (videoWidth <= 0 || videoHeight <= 0)
@@ -1637,7 +1846,9 @@ namespace ShowWrite
         /// </summary>
         private Rect GetImageRectInVideoArea()
         {
-            if (VideoImage.Source == null || VideoArea == null)
+            var videoImage = (WinImage)FindName("VideoImage");
+            var videoArea = (Grid)FindName("VideoArea");
+            if (videoImage.Source == null || videoArea == null)
             {
                 // 如果没有图像源，返回校正画布的尺寸
                 return new Rect(0, 0,
@@ -1647,8 +1858,8 @@ namespace ShowWrite
 
             try
             {
-                double imageWidth = VideoImage.Source.Width;
-                double imageHeight = VideoImage.Source.Height;
+                double imageWidth = videoImage.Source.Width;
+                double imageHeight = videoImage.Source.Height;
 
                 if (imageWidth <= 0 || imageHeight <= 0)
                 {
@@ -1658,8 +1869,8 @@ namespace ShowWrite
                 }
 
                 double aspectRatio = imageWidth / imageHeight;
-                double areaWidth = VideoArea.ActualWidth;
-                double areaHeight = VideoArea.ActualHeight;
+                double areaWidth = videoArea.ActualWidth;
+                double areaHeight = videoArea.ActualHeight;
                 double areaAspectRatio = areaWidth / areaHeight;
 
                 double width, height;
@@ -1735,7 +1946,7 @@ namespace ShowWrite
         #region 核心功能方法
 
         /// <summary>
-        /// 拍照功能
+        /// 拍照功能（修复版）
         /// </summary>
         private void Capture_Click(object sender, RoutedEventArgs e)
         {
@@ -1754,12 +1965,14 @@ namespace ShowWrite
             {
                 try
                 {
+                    // 确保拍照时获取正确的笔迹
+                    StrokeCollection currentStrokes = new StrokeCollection(_drawingManager.GetStrokes());
+
                     var bitmapImage = _frameProcessor.ProcessFrameToBitmapImage(frame);
                     if (bitmapImage != null)
                     {
                         // 使用 PhotoPopupManager 添加照片
-                        var strokes = new StrokeCollection(_drawingManager.GetStrokes());
-                        _photoPopupManager.AddPhoto(bitmapImage, strokes);
+                        _photoPopupManager.AddPhoto(bitmapImage, currentStrokes);
 
                         ShowPhotoTip();
                         _memoryManager.TriggerMemoryCleanup();
@@ -1992,27 +2205,27 @@ namespace ShowWrite
         {
             switch (colorName)
             {
-                case "Black": return Colors.Black;
-                case "Red": return Colors.Red;
-                case "Green": return Colors.Green;
-                case "Blue": return Colors.Blue;
-                case "Yellow": return Colors.Yellow;
-                case "White": return Colors.White;
-                case "Orange": return Colors.Orange;
-                case "Purple": return Colors.Purple;
-                case "Cyan": return Colors.Cyan;
-                case "Magenta": return Colors.Magenta;
-                case "Brown": return Colors.Brown;
-                case "Pink": return Colors.Pink;
-                case "Gray": return Colors.Gray;
-                case "DarkRed": return Colors.DarkRed;
-                case "DarkGreen": return Colors.DarkGreen;
-                case "DarkBlue": return Colors.DarkBlue;
-                case "Gold": return Colors.Gold;
-                case "Silver": return Colors.Silver;
-                case "Lime": return Colors.Lime;
-                case "Teal": return Colors.Teal;
-                default: return Colors.Black;
+                case "Black": return System.Windows.Media.Colors.Black;
+                case "Red": return System.Windows.Media.Colors.Red;
+                case "Green": return System.Windows.Media.Colors.Green;
+                case "Blue": return System.Windows.Media.Colors.Blue;
+                case "Yellow": return System.Windows.Media.Colors.Yellow;
+                case "White": return System.Windows.Media.Colors.White;
+                case "Orange": return System.Windows.Media.Colors.Orange;
+                case "Purple": return System.Windows.Media.Colors.Purple;
+                case "Cyan": return System.Windows.Media.Colors.Cyan;
+                case "Magenta": return System.Windows.Media.Colors.Magenta;
+                case "Brown": return System.Windows.Media.Colors.Brown;
+                case "Pink": return System.Windows.Media.Colors.Pink;
+                case "Gray": return System.Windows.Media.Colors.Gray;
+                case "DarkRed": return System.Windows.Media.Colors.DarkRed;
+                case "DarkGreen": return System.Windows.Media.Colors.DarkGreen;
+                case "DarkBlue": return System.Windows.Media.Colors.DarkBlue;
+                case "Gold": return System.Windows.Media.Colors.Gold;
+                case "Silver": return System.Windows.Media.Colors.Silver;
+                case "Lime": return System.Windows.Media.Colors.Lime;
+                case "Teal": return System.Windows.Media.Colors.Teal;
+                default: return System.Windows.Media.Colors.Black;
             }
         }
 
@@ -2049,6 +2262,12 @@ namespace ShowWrite
         {
             try
             {
+                // 确保画笔按钮保持选中状态
+                if (_drawingManager.CurrentMode == DrawingManager.ToolMode.Pen)
+                {
+                    PenBtn.IsChecked = true;
+                }
+
                 // 更新颜色选择器的选中状态
                 if (!string.IsNullOrEmpty(_currentPenColor))
                 {
@@ -2063,6 +2282,24 @@ namespace ShowWrite
             }
         }
 
+        private void PenSettingsPopup_Closed(object sender, EventArgs e)
+        {
+            try
+            {
+                // 确保画笔按钮保持选中状态
+                if (_drawingManager.CurrentMode == DrawingManager.ToolMode.Pen)
+                {
+                    PenBtn.IsChecked = true;
+                }
+
+                Logger.Debug("MainWindow", "画笔设置悬浮窗已关闭");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"画笔设置悬浮窗关闭事件失败: {ex.Message}", ex);
+            }
+        }
+
         /// <summary>
         /// 更多菜单弹出窗口关闭事件
         /// </summary>
@@ -2074,6 +2311,8 @@ namespace ShowWrite
         #endregion
 
         #region 其他事件处理方法
+
+
 
         /// <summary>
         /// 文档扫描功能
@@ -2157,6 +2396,184 @@ namespace ShowWrite
                 {
                     Logger.Error("MainWindow", $"保存图片失败: {ex.Message}", ex);
                     MessageBox.Show($"保存失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private bool _isSaveSelectionMode = false;
+
+        private void SavePhoto_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isSaveSelectionMode)
+            {
+                SaveSelectedPhotos();
+            }
+            else
+            {
+                EnterSaveSelectionMode();
+            }
+        }
+
+        private void EnterSaveSelectionMode()
+        {
+            _isSaveSelectionMode = true;
+
+            var savePhotoBtn = FindName("SavePhotoBtn") as Button;
+            var savePhotoButtonText = FindName("SavePhotoButtonText") as TextBlock;
+            var photoList = FindName("PhotoList") as ListBox;
+            var saveSelectedBtn = FindName("SaveSelectedBtn") as Button;
+            var cancelSelectBtn = FindName("CancelSelectBtn") as Button;
+
+            if (savePhotoBtn != null)
+            {
+                savePhotoBtn.Visibility = Visibility.Collapsed;
+            }
+
+            if (saveSelectedBtn != null)
+            {
+                saveSelectedBtn.Visibility = Visibility.Visible;
+            }
+
+            if (cancelSelectBtn != null)
+            {
+                cancelSelectBtn.Visibility = Visibility.Visible;
+            }
+
+            if (photoList != null)
+            {
+                photoList.Tag = "Visible";
+                Logger.Debug("MainWindow", $"进入保存选择模式，photoList.Tag = {photoList.Tag}");
+                
+                // 强制刷新列表项
+                var items = photoList.Items;
+                var collectionView = System.Windows.Data.CollectionViewSource.GetDefaultView(items);
+                collectionView.Refresh();
+            }
+
+            Logger.Debug("MainWindow", "进入保存选择模式");
+        }
+
+        private void SaveSelectedPhotos()
+        {
+            var selectedPhotos = _photoPopupManager.GetPhotos().Where(p => p.IsSelected).ToList();
+
+            if (selectedPhotos.Count == 0)
+            {
+                MessageBox.Show("请先选择要保存的照片。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "PNG 图片|*.png|JPEG 图片|*.jpg",
+                FileName = $"Photos_{DateTime.Now:yyyyMMdd_HHmmss}.png"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    foreach (var photo in selectedPhotos)
+                    {
+                        string fileName = dlg.FileName.Replace(".png", $"_{photo.Index}.png").Replace(".jpg", $"_{photo.Index}.jpg");
+                        SaveImageWithInk(photo.Image, photo.Strokes, fileName);
+                    }
+
+                    Logger.Info("MainWindow", $"保存了 {selectedPhotos.Count} 张照片");
+                    MessageBox.Show($"保存成功！共保存 {selectedPhotos.Count} 张照片。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    ExitSaveSelectionMode();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("MainWindow", $"保存照片失败: {ex.Message}", ex);
+                    MessageBox.Show($"保存失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void ExitSaveSelectionMode()
+        {
+            _isSaveSelectionMode = false;
+
+            var savePhotoBtn = FindName("SavePhotoBtn") as Button;
+            var photoList = FindName("PhotoList") as ListBox;
+            var saveSelectedBtn = FindName("SaveSelectedBtn") as Button;
+            var cancelSelectBtn = FindName("CancelSelectBtn") as Button;
+
+            if (savePhotoBtn != null)
+            {
+                savePhotoBtn.Visibility = Visibility.Visible;
+            }
+
+            if (saveSelectedBtn != null)
+            {
+                saveSelectedBtn.Visibility = Visibility.Collapsed;
+            }
+
+            if (cancelSelectBtn != null)
+            {
+                cancelSelectBtn.Visibility = Visibility.Collapsed;
+            }
+
+            if (photoList != null)
+            {
+                photoList.Tag = "Collapsed";
+                Logger.Debug("MainWindow", $"退出保存选择模式，photoList.Tag = {photoList.Tag}");
+
+                var photos = _photoPopupManager.GetPhotos();
+                foreach (var photo in photos)
+                {
+                    photo.IsSelected = false;
+                }
+            }
+
+            Logger.Debug("MainWindow", "退出保存选择模式");
+        }
+
+        private void InvertSelectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isSaveSelectionMode)
+            {
+                return;
+            }
+
+            var photos = _photoPopupManager.GetPhotos();
+            foreach (var photo in photos)
+            {
+                photo.IsSelected = !photo.IsSelected;
+            }
+        }
+
+        private void ImportPhoto_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isClosing) return;
+
+            Logger.Info("MainWindow", "开始导入图片");
+
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif|PNG 图片|*.png|JPEG 图片|*.jpg;*.jpeg|BMP 图片|*.bmp|GIF 图片|*.gif",
+                Title = "选择要导入的图片"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(dlg.FileName);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+
+                    _photoPopupManager.AddPhoto(bitmap, null);
+                    Logger.Info("MainWindow", $"图片导入成功: {dlg.FileName}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("MainWindow", $"导入图片失败: {ex.Message}", ex);
+                    MessageBox.Show($"导入失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -2392,7 +2809,11 @@ namespace ShowWrite
                 if (frame != null)
                 {
                     using var processed = _cameraManager.ProcessFrame(frame, applyAdjustments: true);
-                    VideoImage.Source = _memoryManager.BitmapToBitmapImage(processed);
+                    var videoImage = (WinImage)FindName("VideoImage");
+                    if (videoImage != null)
+                    {
+                        videoImage.Source = _memoryManager.BitmapToBitmapImage(processed);
+                    }
                     frame.Dispose();
                 }
             }
@@ -2489,12 +2910,20 @@ namespace ShowWrite
         {
             Dispatcher.Invoke(() =>
             {
-                VideoImage.Source = null;
-                VideoArea.Background = _noCameraBackground;
+                var videoImage = (WinImage)FindName("VideoImage");
+                var videoArea = (Grid)FindName("VideoArea");
+                if (videoImage != null)
+                {
+                    videoImage.Source = null;
+                }
+                if (videoArea != null)
+                {
+                    videoArea.Background = _noCameraBackground;
+                }
 
                 var textBlock = new TextBlock
                 {
-                    Text = "未检测到摄像头\n批注功能仍可使用",
+                    Text = LanguageManager.Instance.GetTranslation("NoCameraDetected"),
                     Foreground = WinBrushes.White,
                     FontSize = 16,
                     FontWeight = FontWeights.Bold,
@@ -2503,8 +2932,11 @@ namespace ShowWrite
                     VerticalAlignment = VerticalAlignment.Center
                 };
 
-                VideoArea.IsHitTestVisible = true;
-                VideoArea.Focusable = true;
+                if (videoArea != null)
+                {
+                    videoArea.IsHitTestVisible = true;
+                    videoArea.Focusable = true;
+                }
                 Logger.Info("MainWindow", "已切换到无摄像头模式，批注功能可用");
             });
         }
@@ -2518,9 +2950,13 @@ namespace ShowWrite
 
             Logger.Debug("MainWindow", "显示拍照提示");
 
-            PhotoTipPopup.IsOpen = true;
-            await Task.Delay(3000);
-            PhotoTipPopup.IsOpen = false;
+            var photoTipPopup = FindName("PhotoTipPopup") as Popup;
+            if (photoTipPopup != null)
+            {
+                photoTipPopup.IsOpen = true;
+                await Task.Delay(3000);
+                photoTipPopup.IsOpen = false;
+            }
         }
 
         /// <summary>
@@ -2593,6 +3029,12 @@ namespace ShowWrite
                 if (config.CameraConfigs == null)
                 {
                     config.CameraConfigs = new Dictionary<int, CameraConfig>();
+                }
+
+                // 加载语言设置
+                if (_languageManager != null)
+                {
+                    _languageManager.CurrentLanguage = (LanguageType)config.Language;
                 }
 
                 Logger.Info("MainWindow", $"配置加载成功，包含 {config.CameraConfigs.Count} 个摄像头的配置");
@@ -2884,7 +3326,8 @@ namespace ShowWrite
                     EnableFrameProcessing = config.EnableFrameProcessing,
                     FrameRateLimit = config.FrameRateLimit,
                     CameraConfigs = config.CameraConfigs,
-                    Theme = config.Theme
+                    Theme = config.Theme,
+                    Language = (int)(_languageManager?.CurrentLanguage ?? LanguageType.SimplifiedChinese)
                 };
 
                 var json = JsonConvert.SerializeObject(cfg, Formatting.Indented);
@@ -3061,9 +3504,19 @@ namespace ShowWrite
             {
                 PenSettingsPopup.IsOpen = false;
                 MoreMenuPopup.IsOpen = false;
-                PhotoPopup.IsOpen = false;
                 TouchInfoPopup.IsOpen = false;
-                PhotoTipPopup.IsOpen = false;
+                
+                var photoPanelBorder = FindName("PhotoPanelBorder") as Border;
+                if (photoPanelBorder != null)
+                {
+                    photoPanelBorder.Visibility = Visibility.Collapsed;
+                }
+                
+                var photoTipPopup = FindName("PhotoTipPopup") as Popup;
+                if (photoTipPopup != null)
+                {
+                    photoTipPopup.IsOpen = false;
+                }
 
                 Logger.Debug("MainWindow", "所有弹出窗口已关闭");
             }
@@ -3122,18 +3575,23 @@ namespace ShowWrite
                 _liveStrokes = null;
 
                 // 清理图片资源
-                if (VideoImage.Source != null)
+                var videoImage = (WinImage)FindName("VideoImage");
+                if (videoImage != null && videoImage.Source != null)
                 {
-                    var source = VideoImage.Source as BitmapSource;
+                    var source = videoImage.Source as BitmapSource;
                     if (source != null)
                     {
-                        VideoImage.Source = null;
+                        videoImage.Source = null;
                         source = null;
                     }
                 }
 
                 // 清理画布
-                Ink.Strokes.Clear();
+                var ink = (InkCanvas)FindName("Ink");
+                if (ink != null)
+                {
+                    ink.Strokes.Clear();
+                }
 
                 // 清理校正相关资源
                 if (_originalCorrectionFrame != null)
@@ -3217,10 +3675,20 @@ namespace ShowWrite
                 MoveBtn.IsChecked = mode == DrawingManager.ToolMode.Move;
                 PenBtn.IsChecked = mode == DrawingManager.ToolMode.Pen;
                 EraserBtn.IsChecked = mode == DrawingManager.ToolMode.Eraser;
+                ShapeBtn.IsChecked = mode == DrawingManager.ToolMode.Line || mode == DrawingManager.ToolMode.Arrow ||
+                                   mode == DrawingManager.ToolMode.Rectangle || mode == DrawingManager.ToolMode.Ellipse ||
+                                   mode == DrawingManager.ToolMode.Circle || mode == DrawingManager.ToolMode.DashedLine ||
+                                   mode == DrawingManager.ToolMode.DotLine;
 
                 if (mode == DrawingManager.ToolMode.Pen)
                 {
                     _panZoomManager.ApplyStrokeScaleCompensation();
+                }
+
+                // 禁用橡皮擦覆盖层（如果不是橡皮擦模式）
+                if (mode != DrawingManager.ToolMode.Eraser)
+                {
+                    _drawingManager.DisableEraserOverlay();
                 }
 
                 Logger.Debug("MainWindow", $"切换到模式: {mode}");
@@ -3257,18 +3725,487 @@ namespace ShowWrite
 
                 // 关闭画笔设置悬浮窗
                 PenSettingsPopup.IsOpen = false;
+
+                // 启用橡皮擦覆盖层
+                _drawingManager.EnableEraserOverlay();
+                _drawingManager.ApplyAdvancedEraserShape();
             }
             else
             {
                 // 如果已经是橡皮擦模式，保持选中状态（不取消）
                 EraserBtn.IsChecked = true;
 
-                // 如果需要清屏功能，可以在这里添加确认对话框
-                if (MessageBox.Show("确定要清除所有笔迹吗？", "清屏确认", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                // 显示清屏确认悬浮窗
+                ShowClearConfirmPopup();
+            }
+        }
+
+        private void ShowClearConfirmPopup()
+        {
+            if (ClearConfirmPopup.IsOpen)
+            {
+                ClearConfirmPopup.IsOpen = false;
+                return;
+            }
+            ClearConfirmPopup.IsOpen = true;
+        }
+
+        private void ClearConfirmPopup_Opened(object sender, EventArgs e)
+        {
+            _isSliderDragging = false;
+            _sliderReachedEnd = false;
+            
+            // 重置滑块位置
+            SliderThumb.Margin = new Thickness(2, 0, 0, 0);
+            SliderProgress.Width = 0;
+        }
+
+        private void ClearConfirmPopup_Closed(object sender, EventArgs e)
+        {
+            _isSliderDragging = false;
+            _sliderReachedEnd = false;
+        }
+
+        public CustomPopupPlacement[] ClearConfirmPopup_PlacementCallback(System.Windows.Size popupSize, System.Windows.Size targetSize, System.Windows.Point offset)
+        {
+            double x = (targetSize.Width - popupSize.Width) / 2;
+            double y = -popupSize.Height - 5;
+            
+            return new CustomPopupPlacement[] 
+            { 
+                new CustomPopupPlacement(new System.Windows.Point(x, y), PopupPrimaryAxis.Vertical) 
+            };
+        }
+
+        private void SliderThumb_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _isSliderDragging = true;
+            _sliderReachedEnd = false;
+            _sliderStartX = e.GetPosition(SliderTrack).X;
+            _sliderMaxDistance = SliderTrack.ActualWidth - SliderThumb.ActualWidth - 4;
+            SliderThumb.CaptureMouse();
+        }
+
+        private void SliderThumb_MouseMove(object sender, WinMouseEventArgs e)
+        {
+            if (!_isSliderDragging) return;
+
+            double currentX = e.GetPosition(SliderTrack).X;
+            double offset = currentX - _sliderStartX;
+            
+            // 限制范围
+            offset = Math.Max(0, Math.Min(offset, _sliderMaxDistance));
+            
+            // 更新滑块位置
+            SliderThumb.Margin = new Thickness(2 + offset, 0, 0, 0);
+            SliderProgress.Width = offset + SliderThumb.ActualWidth / 2;
+
+            // 检查是否滑到底（标记状态，松手时才执行）
+            _sliderReachedEnd = offset >= _sliderMaxDistance - 5;
+        }
+
+        private void SliderThumb_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (!_isSliderDragging) return;
+            
+            _isSliderDragging = false;
+            SliderThumb.ReleaseMouseCapture();
+            
+            // 如果滑到底了，执行清屏
+            if (_sliderReachedEnd)
+            {
+                ClearConfirmPopup.IsOpen = false;
+                ClearInk_Click(null, null);
+            }
+            else
+            {
+                // 没有滑到底，弹回起点
+                SliderThumb.Margin = new Thickness(2, 0, 0, 0);
+                SliderProgress.Width = 0;
+            }
+        }
+
+        private void ConnectDeviceBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (ConnectDevicePopup.IsOpen)
                 {
-                    ClearInk_Click(sender, e);
+                    ConnectDevicePopup.IsOpen = false;
+                    Logger.Debug("MainWindow", "关闭连接设备悬浮窗");
+                }
+                else
+                {
+                    if (_deviceConnectionManager == null)
+                    {
+                        _deviceConnectionManager = new Services.DeviceConnectionManager();
+                        
+                        _deviceConnectionManager.ConnectionStatusChanged += OnConnectionStatusChanged;
+                        _deviceConnectionManager.ClientConnected += OnClientConnected;
+                    }
+
+                    ConnectDevicePopup.IsOpen = true;
+                    Logger.Debug("MainWindow", "打开连接设备悬浮窗");
                 }
             }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"切换连接设备悬浮窗失败: {ex.Message}", ex);
+            }
+        }
+
+        private void ConnectDevicePopup_Opened(object sender, EventArgs e)
+        {
+            try
+            {
+                // 自动开始连接
+                StartConnection();
+                
+                Logger.Debug("MainWindow", "连接设备悬浮窗已打开");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"连接设备悬浮窗打开事件失败: {ex.Message}", ex);
+            }
+        }
+
+        private void ConnectDevicePopup_Closed(object sender, EventArgs e)
+        {
+            try
+            {
+                // 停止连接
+                if (_deviceConnectionManager != null && _deviceConnectionManager.IsListening)
+                {
+                    _deviceConnectionManager.StopListening();
+                }
+
+                Logger.Debug("MainWindow", "连接设备悬浮窗已关闭");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"连接设备悬浮窗关闭事件失败: {ex.Message}", ex);
+            }
+        }
+
+        private void StartConnection()
+        {
+            try
+            {
+                if (_deviceConnectionManager == null)
+                {
+                    _deviceConnectionManager = new Services.DeviceConnectionManager();
+                    
+                    // 订阅事件
+                    _deviceConnectionManager.ConnectionStatusChanged += OnConnectionStatusChanged;
+                    _deviceConnectionManager.ClientConnected += OnClientConnected;
+                    _deviceConnectionManager.PhotoReceived += OnPhotoReceived;
+                }
+
+                // 生成二维码
+                _deviceConnectionManager.GenerateQrCode();
+
+                // 更新UI
+                QrCodeImage.Source = _deviceConnectionManager.QrCodeImage;
+                IpAddressText.Text = $"{_languageManager.GetTranslation("IPAddress")}: {_deviceConnectionManager.GetLocalIPAddress()}:{_deviceConnectionManager.Port}";
+                ConnectionStatusText.Text = _languageManager.GetTranslation("WaitingForConnection");
+
+                // 开始监听
+                _ = _deviceConnectionManager.StartListeningAsync();
+                
+                Logger.Info("MainWindow", "开始设备连接");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"开始设备连接失败: {ex.Message}", ex);
+                MessageBox.Show($"开始连接失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RefreshPortBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // 获取用户输入的端口号
+                if (int.TryParse(PortNumberText.Text, out int port))
+                {
+                    if (_deviceConnectionManager != null)
+                    {
+                        _deviceConnectionManager.Port = port;
+                    }
+
+                    // 刷新连接
+                    StartConnection();
+                    
+                    Logger.Info("MainWindow", $"刷新端口: {port}");
+                }
+                else
+                {
+                    MessageBox.Show("请输入有效的端口号", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"刷新端口失败: {ex.Message}", ex);
+                MessageBox.Show($"刷新端口失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OnConnectionStatusChanged(string status)
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    ConnectionStatusText.Text = status;
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"更新连接状态失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// 更新语言UI
+        /// </summary>
+        private void UpdateLanguageUI()
+        {
+            try
+            {
+                if (_languageManager == null)
+                    return;
+
+                // 连接设备悬浮窗
+                ConnectDeviceTitleText.Text = _languageManager.GetTranslation("ConnectDevice");
+                PortNumberLabelText.Text = _languageManager.GetTranslation("PortNumber");
+                RefreshButtonText.Text = _languageManager.GetTranslation("Refresh");
+
+                // 主界面按钮
+                MoreButtonText.Text = _languageManager.GetTranslation("More");
+                MinimizeButtonText.Text = _languageManager.GetTranslation("Minimize");
+                ScanQRButtonText.Text = _languageManager.GetTranslation("ScanQR");
+                MoveButtonText.Text = _languageManager.GetTranslation("Move");
+                PenButtonText.Text = _languageManager.GetTranslation("Pen");
+                EraserButtonText.Text = _languageManager.GetTranslation("Eraser");
+                ShapeButtonText.Text = _languageManager.GetTranslation("Shape");
+                UndoButtonText.Text = _languageManager.GetTranslation("Undo");
+                RedoButtonText.Text = _languageManager.GetTranslation("Redo");
+                ClearButtonText.Text = _languageManager.GetTranslation("Clear");
+                CaptureButtonText.Text = _languageManager.GetTranslation("Capture");
+                ConnectDeviceButtonText.Text = _languageManager.GetTranslation("ConnectDevice");
+                PhotoRecordsTitleText.Text = _languageManager.GetTranslation("PhotoRecords");
+                //SaveImageText.Text = _languageManager.GetTranslation("SaveImage");
+                PenSettingsTitleText.Text = _languageManager.GetTranslation("PenSettings");
+
+                Logger.Debug("MainWindow", "语言UI更新完成");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"更新语言UI失败: {ex.Message}", ex);
+            }
+        }
+
+        private void OnClientConnected(string message)
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    ConnectionStatusText.Text = message;
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"处理客户端连接失败: {ex.Message}", ex);
+            }
+        }
+
+        private void OnPhotoReceived(byte[] photoData)
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    Logger.Info("MainWindow", $"收到照片数据，大小: {photoData.Length} 字节");
+
+                    var bitmapImage = ConvertBytesToBitmapImage(photoData);
+                    if (bitmapImage != null)
+                    {
+                        var capturedImage = new ShowWrite.Models.CapturedImage(bitmapImage);
+                        var photo = new PhotoWithStrokes(capturedImage);
+
+                        _photos.Insert(0, photo);
+                        _photoPopupManager?.UpdatePhotoListDisplay();
+
+                        Logger.Info("MainWindow", "照片已添加到列表");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"处理接收到的照片失败: {ex.Message}", ex);
+            }
+        }
+
+        private BitmapImage ConvertBytesToBitmapImage(byte[] imageData)
+        {
+            try
+            {
+                using (var stream = new System.IO.MemoryStream(imageData))
+                {
+                    var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                    if (decoder != null && decoder.Frames.Count > 0)
+                    {
+                        var bitmapFrame = decoder.Frames[0];
+                        var bitmapImage = new BitmapImage();
+                        bitmapImage.BeginInit();
+                        bitmapImage.StreamSource = stream;
+                        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmapImage.EndInit();
+                        bitmapImage.Freeze();
+                        return bitmapImage;
+                    }
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("MainWindow", $"转换字节数组为BitmapImage失败: {ex.Message}", ex);
+                return null;
+            }
+        }
+
+        private void ShapeBtn_Click(object sender, RoutedEventArgs e)
+        {
+            // 打开形状设置悬浮窗
+            ShapeSettingsPopup.IsOpen = true;
+            Logger.Debug("MainWindow", "打开形状设置弹出窗口");
+        }
+
+        private void ShapeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag != null)
+            {
+                var shapeType = button.Tag.ToString();
+                switch (shapeType)
+                {
+                    case "Line":
+                        SetMode(DrawingManager.ToolMode.Line);
+                        Logger.Debug("MainWindow", "切换到直线绘制模式");
+                        break;
+                    case "Arrow":
+                        SetMode(DrawingManager.ToolMode.Arrow);
+                        Logger.Debug("MainWindow", "切换到箭头绘制模式");
+                        break;
+                    case "Rectangle":
+                        SetMode(DrawingManager.ToolMode.Rectangle);
+                        Logger.Debug("MainWindow", "切换到矩形绘制模式");
+                        break;
+                    case "Ellipse":
+                        SetMode(DrawingManager.ToolMode.Ellipse);
+                        Logger.Debug("MainWindow", "切换到椭圆绘制模式");
+                        break;
+                    case "Circle":
+                        SetMode(DrawingManager.ToolMode.Circle);
+                        Logger.Debug("MainWindow", "切换到圆形绘制模式");
+                        break;
+                    case "DashedLine":
+                        SetMode(DrawingManager.ToolMode.DashedLine);
+                        Logger.Debug("MainWindow", "切换到虚线绘制模式");
+                        break;
+                }
+                ShapeSettingsPopup.IsOpen = false;
+            }
+        }
+
+        private void CloseShapeSettings_Click(object sender, RoutedEventArgs e)
+        {
+            ShapeSettingsPopup.IsOpen = false;
+            Logger.Debug("MainWindow", "关闭形状设置弹出窗口");
+        }
+
+        private void ShapeSettingsPopup_Opened(object sender, EventArgs e)
+        {
+            Logger.Debug("MainWindow", "形状设置弹出窗口已打开");
+        }
+
+        private void Ink_PreviewMouseLeftButtonDown(object sender, WinMouseButtonEventArgs e)
+        {
+            var mode = _drawingManager.CurrentMode;
+            if (mode == DrawingManager.ToolMode.Line || mode == DrawingManager.ToolMode.Arrow ||
+                mode == DrawingManager.ToolMode.Rectangle || mode == DrawingManager.ToolMode.Ellipse ||
+                mode == DrawingManager.ToolMode.Circle || mode == DrawingManager.ToolMode.DashedLine ||
+                mode == DrawingManager.ToolMode.DotLine)
+            {
+                var position = e.GetPosition(sender as IInputElement);
+                int shapeMode = mode switch
+                {
+                    DrawingManager.ToolMode.Line => 1,
+                    DrawingManager.ToolMode.Arrow => 2,
+                    DrawingManager.ToolMode.Rectangle => 3,
+                    DrawingManager.ToolMode.Ellipse => 4,
+                    DrawingManager.ToolMode.Circle => 5,
+                    DrawingManager.ToolMode.DashedLine => 8,
+                    DrawingManager.ToolMode.DotLine => 18,
+                    _ => 0
+                };
+                _drawingManager.StartShapeDrawing(position, shapeMode);
+                e.Handled = true;
+            }
+        }
+
+        private void Ink_PreviewMouseMove(object sender, WinMouseEventArgs e)
+        {
+            var mode = _drawingManager.CurrentMode;
+            if (mode == DrawingManager.ToolMode.Line || mode == DrawingManager.ToolMode.Arrow ||
+                mode == DrawingManager.ToolMode.Rectangle || mode == DrawingManager.ToolMode.Ellipse ||
+                mode == DrawingManager.ToolMode.Circle || mode == DrawingManager.ToolMode.DashedLine ||
+                mode == DrawingManager.ToolMode.DotLine)
+            {
+                if (e.LeftButton == MouseButtonState.Pressed)
+                {
+                    var position = e.GetPosition(sender as IInputElement);
+                    _drawingManager.UpdateShapePreview(position);
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void Ink_PreviewMouseLeftButtonUp(object sender, WinMouseButtonEventArgs e)
+        {
+            var mode = _drawingManager.CurrentMode;
+            if (mode == DrawingManager.ToolMode.Line || mode == DrawingManager.ToolMode.Arrow ||
+                mode == DrawingManager.ToolMode.Rectangle || mode == DrawingManager.ToolMode.Ellipse ||
+                mode == DrawingManager.ToolMode.Circle || mode == DrawingManager.ToolMode.DashedLine ||
+                mode == DrawingManager.ToolMode.DotLine)
+            {
+                _drawingManager.CommitShape();
+                e.Handled = true;
+            }
+        }
+
+        private void OverlayInk_PreviewMouseLeftButtonDown(object sender, WinMouseButtonEventArgs e)
+        {
+        }
+
+        private void OverlayInk_PreviewMouseMove(object sender, WinMouseEventArgs e)
+        {
+        }
+
+        private void OverlayInk_PreviewMouseLeftButtonUp(object sender, WinMouseButtonEventArgs e)
+        {
+        }
+
+        private void OverlayInk_PreviewStylusDown(object sender, StylusDownEventArgs e)
+        {
+        }
+
+        private void OverlayInk_PreviewStylusMove(object sender, StylusEventArgs e)
+        {
+        }
+
+        private void OverlayInk_PreviewStylusUp(object sender, StylusEventArgs e)
+        {
         }
 
         private void PenWidthSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -3277,6 +4214,7 @@ namespace ShowWrite
             {
                 PenWidthValue.Text = e.NewValue.ToString("0");
                 _panZoomManager.SetOriginalPenWidth(e.NewValue);
+                _drawingManager.UpdatePenAttributes();
                 Logger.Debug("MainWindow", $"笔迹宽度设置为: {e.NewValue:F1}");
             }
         }
@@ -3342,10 +4280,89 @@ namespace ShowWrite
             Logger.Debug("MainWindow", "切换更多菜单显示状态");
         }
 
+        private void PhotoImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Image image && image.DataContext is PhotoWithStrokes photo)
+            {
+                if (_isSaveSelectionMode)
+                {
+                    photo.IsSelected = !photo.IsSelected;
+                }
+                else
+                {
+                    if (PhotoList.SelectedItem == photo)
+                    {
+                        PhotoList.SelectedIndex = -1;
+                        _photoPopupManager.BackToLive();
+                    }
+                    else
+                    {
+                        PhotoList.SelectedItem = photo;
+                    }
+                }
+            }
+        }
+
+        private void DeletePhoto_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is PhotoWithStrokes photo)
+            {
+                var result = MessageBox.Show(
+                    $"确定要删除第 {photo.Index} 张照片吗？",
+                    "确认删除",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    bool wasViewing = _photoPopupManager.CurrentPhoto == photo;
+                    
+                    _photoPopupManager.GetPhotos().Remove(photo);
+                    _photoPopupManager.UpdatePhotoIndexes();
+                    
+                    if (wasViewing)
+                    {
+                        _photoPopupManager.BackToLive();
+                    }
+                    
+                    Logger.Info("MainWindow", $"已删除照片 {photo.Index}");
+                }
+            }
+        }
+
+        private void CancelSelect_Click(object sender, RoutedEventArgs e)
+        {
+            ExitSaveSelectionMode();
+        }
+
         private void TogglePhotoPanel_Click(object sender, RoutedEventArgs e)
         {
-            _photoPopupManager.TogglePhotoPopup();
-            Logger.Debug("MainWindow", "切换照片面板显示状态");
+            var photoPanelBorder = FindName("PhotoPanelBorder") as Border;
+            if (photoPanelBorder != null)
+            {
+                if (photoPanelBorder.Visibility == Visibility.Visible)
+                {
+                    photoPanelBorder.Visibility = Visibility.Collapsed;
+                    if (_isSaveSelectionMode)
+                    {
+                        ExitSaveSelectionMode();
+                    }
+                    Logger.Debug("MainWindow", "照片栏收起");
+                }
+                else
+                {
+                    photoPanelBorder.Visibility = Visibility.Visible;
+                    Logger.Debug("MainWindow", "照片栏展开");
+                }
+            }
+        }
+
+        private void OnPhotoPopupOpened()
+        {
+        }
+
+        private void OnPhotoPopupClosed()
+        {
         }
 
         private void BackToLive_Click(object sender, RoutedEventArgs e)

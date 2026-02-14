@@ -1,6 +1,5 @@
-﻿using System.Drawing;
+﻿using ShowWrite.Models;
 using System.Drawing.Imaging;
-using ShowWrite.Models;
 
 namespace ShowWrite.Services
 {

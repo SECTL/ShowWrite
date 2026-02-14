@@ -1,8 +1,7 @@
-﻿using System;
+using ShowWrite.Services;
 using System.Windows;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
-using System.ComponentModel;
 
 namespace ShowWrite
 {
@@ -11,12 +10,17 @@ namespace ShowWrite
         public DateTime? StartTime { get; private set; }
 
         // 在线图片URL
-        private const string OnlineImageUrl = "http://mhhuaji.web1337.net/picture/3.jpg";
+        private const string OnlineImageUrl = "http://mhhuaji.web1337.net/mhblog/wp-content/uploads/2026/02/b_ccb4a817f77c8cf9a95d1c737964f3b0.jpg";
+
+        private readonly LanguageManager _languageManager;
 
         public SplashWindow()
         {
             InitializeComponent();
             StartTime = DateTime.Now;
+
+            _languageManager = LanguageManager.Instance;
+            _languageManager.LanguageChanged += UpdateLanguage;
 
             // 设置窗口位置在屏幕中央
             this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -39,6 +43,19 @@ namespace ShowWrite
                 // 窗口加载完成后开始加载图片
                 LoadOnlineImage();
             };
+        }
+
+        private void UpdateLanguage()
+        {
+            // 更新窗口标题
+            Title = _languageManager.GetTranslation("ShowWrite");
+
+            // 强制刷新所有绑定
+            this.Dispatcher.Invoke(() =>
+            {
+                InvalidateVisual();
+                UpdateLayout();
+            });
         }
 
         /// <summary>

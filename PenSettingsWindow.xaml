@@ -1,7 +1,9 @@
 <Window x:Class="ShowWrite.PenSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="画笔与橡皮擦设置" Height="421" Width="400"
+        xmlns:local="clr-namespace:ShowWrite"
+        xmlns:services="clr-namespace:ShowWrite.Services"
+        Title="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[PenSettings]}" Height="421" Width="400"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Grid Margin="15">
         <Grid.RowDefinitions>
@@ -16,10 +18,10 @@
         </Grid.RowDefinitions>
 
         <!-- 画笔设置标题 -->
-        <TextBlock Text="画笔设置" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" Grid.Row="0"/>
+        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[PenSettings]}" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" Grid.Row="0"/>
 
         <!-- 画笔颜色选择 -->
-        <TextBlock Text="画笔颜色：" FontWeight="Bold" Grid.Row="1" Margin="0,5,0,5"/>
+        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[PenColor]}" FontWeight="Bold" Grid.Row="1" Margin="0,5,0,5"/>
         <StackPanel Orientation="Horizontal" Grid.Row="2" Margin="0,5,0,5">
             <!-- 常用颜色选择 -->
             <Border Width="20" Height="20" Background="Black" Margin="2" 
@@ -36,18 +38,18 @@
                     MouseDown="ColorPreview_MouseDown" Tag="#FFFFFFFF" BorderBrush="LightGray" BorderThickness="1"/>
 
             <!-- 自定义颜色按钮 -->
-            <Button x:Name="CustomColorButton" Content="更多颜色..." Margin="10,0,0,0" 
+            <Button x:Name="CustomColorButton" Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[MoreColors]}" Margin="10,0,0,0" 
                     Click="CustomColorButton_Click" Width="80"/>
         </StackPanel>
 
         <!-- 当前画笔颜色预览 -->
         <StackPanel Orientation="Horizontal" Grid.Row="3" Margin="0,10,0,10">
-            <TextBlock Text="当前颜色：" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[CurrentColor]}" VerticalAlignment="Center"/>
             <Border x:Name="PenColorPreview" Width="40" Height="20" BorderBrush="Black" BorderThickness="1" Margin="10,0,0,0"/>
         </StackPanel>
 
         <!-- 画笔宽度选择 -->
-        <TextBlock Text="画笔宽度：" FontWeight="Bold" Grid.Row="4" Margin="0,10,0,5"/>
+        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[PenWidth]}" FontWeight="Bold" Grid.Row="4" Margin="0,10,0,5"/>
         <StackPanel Orientation="Horizontal" Grid.Row="5" Margin="0,5,0,5">
             <Slider x:Name="PenWidthSlider" Minimum="1" Maximum="20" Value="2" 
                     TickFrequency="1" IsSnapToTickEnabled="True" Width="200"/>
@@ -55,10 +57,10 @@
         </StackPanel>
 
         <!-- 橡皮擦设置标题 -->
-        <TextBlock Text="橡皮擦设置" FontWeight="Bold" FontSize="16" Margin="0,20,0,10" Grid.Row="6"/>
+        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[EraserSettings]}" FontWeight="Bold" FontSize="16" Margin="0,20,0,10" Grid.Row="6"/>
 
         <!-- 橡皮擦宽度选择 -->
-        <TextBlock Text="橡皮擦宽度：" FontWeight="Bold" Grid.Row="7" Margin="0,5,0,5"/>
+        <TextBlock Text="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[EraserSize]}" FontWeight="Bold" Grid.Row="7" Margin="0,5,0,5"/>
         <StackPanel Orientation="Horizontal" Grid.Row="7" Margin="0,5,0,5">
             <Slider x:Name="EraserWidthSlider" Minimum="5" Maximum="50" Value="20" 
                     TickFrequency="5" IsSnapToTickEnabled="True" Width="200" Height="63"/>
@@ -69,8 +71,8 @@
 
         <!-- 按钮 -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Row="7" Margin="0,70,0,0" Width="180">
-            <Button Content="确定" Width="80" Click="Ok_Click"/>
-            <Button Content="取消" Width="80" Margin="5" Click="Cancel_Click"/>
+            <Button Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[OK]}" Width="80" Click="Ok_Click"/>
+            <Button Content="{Binding Source={x:Static services:LanguageManager.Instance}, Path=Translations[Cancel]}" Width="80" Margin="5" Click="Cancel_Click"/>
         </StackPanel>
     </Grid>
 </Window>

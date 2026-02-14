@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+using ShowWrite.Services;
 using System.Windows;
 
 namespace ShowWrite
@@ -9,23 +8,33 @@ namespace ShowWrite
         private SplashWindow _splashWindow;
         private MainWindow _mainWindow;
 
-        protected override async void OnStartup(StartupEventArgs e)
+        protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
 
-            // 1. 先显示启动图
-            ShowSplashWindow();
-
             try
             {
-                // 2. 异步初始化主窗口
-                await InitializeMainWindowAsync();
+                Logger.Info("App", "应用程序启动开始");
 
-                // 3. 关闭启动图
+                // 0. 加载语言设置
+                LoadLanguageSettings();
+
+                // 1. 显示启动图
+                ShowSplashWindow();
+
+                // 2. 等待一小段时间让启动图完全显示
+                System.Threading.Thread.Sleep(500);
+
+                // 3. 在主线程创建主窗口
+                CreateMainWindow();
+
+                // 4. 关闭启动图
                 CloseSplashWindow();
 
-                // 4. 显示主窗口
-                _mainWindow.Show();
+                // 5. 显示主窗口
+                _mainWindow?.Show();
+
+                Logger.Info("App", "应用程序启动完成");
             }
             catch (Exception ex)
             {
@@ -36,17 +45,50 @@ namespace ShowWrite
         }
 
         /// <summary>
+        /// 加载语言设置
+        /// </summary>
+        private void LoadLanguageSettings()
+        {
+            try
+            {
+                Logger.Debug("App", "加载语言设置");
+
+                var configPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+                if (System.IO.File.Exists(configPath))
+                {
+                    var json = System.IO.File.ReadAllText(configPath, System.Text.Encoding.UTF8);
+                    var config = Newtonsoft.Json.JsonConvert.DeserializeObject<Models.AppConfig>(json);
+                    if (config != null)
+                    {
+                        LanguageManager.Instance.CurrentLanguage = (LanguageType)config.Language;
+                        Logger.Info("App", $"语言设置已加载: {LanguageManager.Instance.CurrentLanguage}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("App", $"加载语言设置失败: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
         /// 显示启动图窗口
         /// </summary>
         private void ShowSplashWindow()
         {
             try
             {
+                Logger.Debug("App", "显示启动图窗口");
                 _splashWindow = new SplashWindow();
                 _splashWindow.Show();
                 _splashWindow.Activate();
                 _splashWindow.Topmost = true;
                 _splashWindow.UpdateLayout();
+
+                // 确保启动图窗口处理消息
+                Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.Background);
+
+                Logger.Debug("App", "启动图窗口已显示");
             }
             catch (Exception ex)
             {
@@ -55,29 +97,22 @@ namespace ShowWrite
         }
 
         /// <summary>
-        /// 异步初始化主窗口
+        /// 创建主窗口
         /// </summary>
-        private async Task InitializeMainWindowAsync()
+        private void CreateMainWindow()
         {
             try
             {
-                Logger.Debug("App", "开始异步初始化主窗口");
+                Logger.Debug("App", "创建主窗口开始");
 
-                // 在后台线程创建和初始化主窗口
-                await Task.Run(() =>
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        _mainWindow = new MainWindow();
-                        // 注意：这里我们修改了 MainWindow 构造函数，使其不显示启动图
-                    });
-                });
+                // 同步创建主窗口，不使用 async
+                _mainWindow = new MainWindow();
 
-                Logger.Debug("App", "主窗口初始化完成");
+                Logger.Debug("App", "主窗口创建完成");
             }
             catch (Exception ex)
             {
-                Logger.Error("App", $"初始化主窗口失败: {ex.Message}", ex);
+                Logger.Error("App", $"创建主窗口失败: {ex.Message}", ex);
                 throw;
             }
         }
@@ -91,8 +126,18 @@ namespace ShowWrite
             {
                 if (_splashWindow != null)
                 {
-                    _splashWindow.CloseSplash();
+                    Logger.Debug("App", "关闭启动图窗口");
+
+                    // 先隐藏再关闭
+                    _splashWindow.Hide();
+                    _splashWindow.Close();
                     _splashWindow = null;
+
+                    // 强制垃圾回收
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+
+                    Logger.Debug("App", "启动图窗口已关闭");
                 }
             }
             catch (Exception ex)
@@ -108,11 +153,20 @@ namespace ShowWrite
         {
             try
             {
+                Logger.Info("App", "应用程序退出");
+
                 // 确保启动图被关闭
-                if (_splashWindow != null && _splashWindow.IsLoaded)
+                if (_splashWindow != null)
                 {
                     _splashWindow.Close();
                     _splashWindow = null;
+                }
+
+                // 确保主窗口被关闭
+                if (_mainWindow != null)
+                {
+                    _mainWindow.Close();
+                    _mainWindow = null;
                 }
             }
             catch { }

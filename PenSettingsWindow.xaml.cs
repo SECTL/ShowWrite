@@ -1,6 +1,7 @@
-﻿using System.Windows;
-using System.Windows.Media;
+using ShowWrite.Services;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using WinForms = System.Windows.Forms;
 
 namespace ShowWrite
@@ -12,6 +13,8 @@ namespace ShowWrite
         public double SelectedEraserWidth { get; private set; }
         public bool UseTouchAreaForEraser { get; private set; } = false;
 
+        private readonly LanguageManager _languageManager;
+
         public PenSettingsWindow(System.Windows.Media.Color currentColor, double currentPenWidth, double currentEraserWidth)
         {
             InitializeComponent();
@@ -19,6 +22,9 @@ namespace ShowWrite
             SelectedColor = currentColor;
             SelectedPenWidth = currentPenWidth;
             SelectedEraserWidth = currentEraserWidth;
+
+            _languageManager = LanguageManager.Instance;
+            _languageManager.LanguageChanged += UpdateLanguage;
 
             // 初始化UI
             PenColorPreview.Background = new SolidColorBrush(SelectedColor);
@@ -33,6 +39,12 @@ namespace ShowWrite
 
             // 默认使用滑块模式
             UseTouchAreaForEraser = false;
+        }
+
+        private void UpdateLanguage()
+        {
+            // 更新窗口标题
+            Title = _languageManager.GetTranslation("PenSettings");
         }
 
         private void PenWidthSlider_ValueChanged(object sender, System.Windows.RoutedPropertyChangedEventArgs<double> e)

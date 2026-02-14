@@ -1,5 +1,4 @@
-﻿using System;
-using System.Windows.Ink;
+﻿using System.Windows.Ink;
 using System.Windows.Media.Imaging;
 
 namespace ShowWrite.Models

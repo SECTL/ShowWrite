@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0-windows</TargetFramework>
@@ -13,7 +13,7 @@
 		<RepositoryUrl>https://github.com/wwcrdrvf6u/ShowWrite/</RepositoryUrl>
 		<Authors>wwcrdrvf6u</Authors>
 		<SelfContained>false</SelfContained>
-		<Platforms>AnyCPU;x64;x86</Platforms>
+		<Platforms>AnyCPU;x64</Platforms>
 		<LangVersion>preview</LangVersion>
 	</PropertyGroup>
 	<ItemGroup>
@@ -27,7 +27,7 @@
 		<PackageReference Include="iNKORE.UI.WPF.Modern" Version="0.10.2.1" />
 		<PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.10.2" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-		<PackageReference Include="QRCoder" Version="1.4.3" />
+		<PackageReference Include="QRCoder" Version="1.7.0" />
 		<PackageReference Include="ZXing.Net" Version="0.16.10" />
 	</ItemGroup>
 	<ItemGroup>

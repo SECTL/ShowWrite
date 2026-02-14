@@ -1,4 +1,5 @@
-﻿using System.Windows;
+using ShowWrite.Services;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace ShowWrite
@@ -11,9 +12,14 @@ namespace ShowWrite
         public bool MirrorH { get; private set; }
         public bool MirrorV { get; private set; }
 
+        private readonly LanguageManager _languageManager;
+
         public AdjustVideoWindow(double brightness, double contrast, int rotation, bool mirrorH, bool mirrorV)
         {
             InitializeComponent();
+
+            _languageManager = LanguageManager.Instance;
+            _languageManager.LanguageChanged += UpdateLanguage;
 
             // 初始化滑块值
             BrightnessSlider.Value = brightness;
@@ -24,6 +30,12 @@ namespace ShowWrite
             RotationBox.SelectedIndex = rotation / 90;
             MirrorHCheck.IsChecked = mirrorH;
             MirrorVCheck.IsChecked = mirrorV;
+        }
+
+        private void UpdateLanguage()
+        {
+            // 更新窗口标题
+            Title = _languageManager.GetTranslation("AdjustVideo");
         }
 
         // 添加缺失的事件处理方法 - 这是关键修复

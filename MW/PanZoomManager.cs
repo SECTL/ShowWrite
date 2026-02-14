@@ -1,6 +1,4 @@
-﻿using System;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Media;
 
 namespace ShowWrite
@@ -77,13 +75,10 @@ namespace ShowWrite
 
             try
             {
-                double compensatedWidth = _originalPenWidth / _currentZoom;
-                compensatedWidth = Math.Max(1.0, Math.Min(50.0, compensatedWidth));
-
-                _drawingManager.UserPenWidth = compensatedWidth;
+                _drawingManager.CurrentZoom = _currentZoom;
                 _drawingManager.UpdatePenAttributes();
 
-                Console.WriteLine($"缩放补偿: 缩放因子={_currentZoom:F2}, 笔迹宽度={compensatedWidth:F2}");
+                Console.WriteLine($"缩放补偿: 缩放因子={_currentZoom:F2}, 原始笔迹宽度={_originalPenWidth:F2}");
             }
             catch (Exception ex)
             {
@@ -97,6 +92,7 @@ namespace ShowWrite
         public void SetOriginalPenWidth(double width)
         {
             _originalPenWidth = width;
+            _drawingManager.UserPenWidth = width;
             ApplyStrokeScaleCompensation();
         }
 

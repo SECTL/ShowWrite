@@ -2,10 +2,6 @@
 using AForge.Imaging.Filters;
 using ShowWrite.Models;
 using ShowWrite.Services;
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Threading;
 
 namespace ShowWrite
 {
