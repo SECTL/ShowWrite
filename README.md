@@ -2,6 +2,14 @@
   <img width="16%" align="center" src="logo-SW.png" alt="logo">
 </p>
 
+[![GitHub Issues](https://img.shields.io/github/issues-search/SECTL/ShowWrite?query=is%3Aopen&style=for-the-badge&color=00b4ab&logo=github&label=问题)](https://github.com/SECTL/ShowWrite/issues)
+[![最新版本](https://img.shields.io/github/v/release/SECTL/ShowWrite?style=for-the-badge&color=00b4ab&label=最新正式版)](https://github.com/SECTL/ShowWrite/releases/latest)
+[![最新Beta版本](https://img.shields.io/github/v/release/SECTL/ShowWrite?include_prereleases&style=for-the-badge&label=测试版)](https://github.com/SECTL/ShowWrite/releases/)
+[![上次更新](https://img.shields.io/github/last-commit/SECTL/ShowWrite?style=for-the-badge&color=00b4ab&label=最后更新时间)](https://github.com/SECTL/ShowWrite/commits/master)
+[![下载统计](https://img.shields.io/github/downloads/SECTL/ShowWrite/total?style=for-the-badge&color=00b4ab&label=累计下载)](https://github.com/SECTL/ShowWrite/releases)
+
+[![QQ群](https://img.shields.io/badge/-QQ%E7%BE%A4%EF%BD%9C833875216-blue?style=for-the-badge&logo=QQ)](https://qm.qq.com/q/iWcfaPHn7W)
+
 # ShowWrite视频展台 2.1
 ## 下载
 [Github Releases](https://github.com/wwcrdrvf6u/ShowWrite/releases/)
@@ -42,13 +50,5 @@ EasiCamera_2.1.1.8888
   * 用于文件保存对话框（`SaveFileDialog`）
 ### **第三方库**
 * `ImageMagick` — 图像处理库（Magick.NET，支持图像转换、编辑等）
-
-## 加入我们
-
-<p>
-  <img width="50%" align="center" src="讨论群.jpg" alt="tqq">
-</p>
-
-
    
 -（希沃视频展台）
