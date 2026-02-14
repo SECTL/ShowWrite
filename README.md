@@ -1,4 +1,4 @@
-<p align="center">
+<div align="center">
   <img width="16%" align="center" src="logo-SW.png" alt="logo">
 
 [![GitHub Issues](https://img.shields.io/github/issues-search/SECTL/ShowWrite?query=is%3Aopen&style=for-the-badge&color=00b4ab&logo=github&label=问题)](https://github.com/SECTL/ShowWrite/issues)
@@ -9,7 +9,7 @@
 
 [![QQ群](https://img.shields.io/badge/-QQ%E7%BE%A4%EF%BD%9C833875216-blue?style=for-the-badge&logo=QQ)](https://qm.qq.com/q/iWcfaPHn7W)
 
-</p>
+</div>
 
 # ShowWrite视频展台 2.1
 ## 下载
