@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="16%" align="center" src="logo-SW.png" alt="logo">
+  <img width="16%" align="center" src="logo-SW1.png" alt="logo">
 </p>
 
 # ShowWrite视频展台 2.1
@@ -52,3 +52,4 @@ EasiCamera_2.1.1.8888
 
    
 -（希沃视频展台）
+
