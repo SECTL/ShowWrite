@@ -2001,14 +2001,26 @@ namespace ShowWrite
         {
             _isKeystoneCorrectionMode = true;
 
+            // 将 KeystoneButtonGroup 移动到中间列并居中
+            if (_keystoneButtonGroup != null)
+            {
+                Grid.SetColumn(_keystoneButtonGroup, 1);
+                _keystoneButtonGroup.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center;
+                _keystoneButtonGroup.IsVisible = true;
+            }
+
+            // 隐藏其他按钮组
             if (_leftButtonGroup != null)
                 _leftButtonGroup.IsVisible = false;
-            if (_keystoneButtonGroup != null)
-                _keystoneButtonGroup.IsVisible = true;
+            if (_centerButtonGroup != null)
+                _centerButtonGroup.IsVisible = false;
+            if (_rightButtonGroup != null)
+                _rightButtonGroup.IsVisible = false;
 
             if (_keystoneOverlayCanvas != null)
                 _keystoneOverlayCanvas.IsVisible = true;
 
+            // 初始化校正点（原有代码）
             var existingPoints = _cameraService.GetSourcePoints();
             if (existingPoints != null && existingPoints.Length == 4)
             {
@@ -2037,10 +2049,21 @@ namespace ShowWrite
         {
             _isKeystoneCorrectionMode = false;
 
+            // 将 KeystoneButtonGroup 移回左侧列并左对齐
+            if (_keystoneButtonGroup != null)
+            {
+                Grid.SetColumn(_keystoneButtonGroup, 0);
+                _keystoneButtonGroup.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+                _keystoneButtonGroup.IsVisible = false;
+            }
+
+            // 恢复其他按钮组
             if (_leftButtonGroup != null)
                 _leftButtonGroup.IsVisible = true;
-            if (_keystoneButtonGroup != null)
-                _keystoneButtonGroup.IsVisible = false;
+            if (_centerButtonGroup != null)
+                _centerButtonGroup.IsVisible = true;
+            if (_rightButtonGroup != null)
+                _rightButtonGroup.IsVisible = true;
 
             if (_keystoneOverlayCanvas != null)
                 _keystoneOverlayCanvas.IsVisible = false;
