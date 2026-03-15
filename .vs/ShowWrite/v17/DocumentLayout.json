@@ -3,16 +3,8 @@
   "WorkspaceRootPath": "C:\\Users\\vum\\source\\repos\\ShowWrite\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\mw\\splashwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mw\\splashwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+      "AbsoluteMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|c:\\users\\vum\\source\\repos\\showwrite\\mainwindow.axaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1FEBD063-10B8-47FD-A2A6-B3F3270EB83C}|ShowWrite.csproj|solutionrelative:mainwindow.axaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -22,24 +14,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Bookmark",
               "Name": "ST:128:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "SplashWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MW\\SplashWindow.xaml.cs",
-              "RelativeDocumentMoniker": "MW\\SplashWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MW\\SplashWindow.xaml.cs",
-              "RelativeToolTip": "MW\\SplashWindow.xaml.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAABXAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-03T14:56:59.266Z",
-              "EditorCaption": ""
             },
             {
               "$type": "Bookmark",
@@ -47,27 +26,15 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "MainWindow.xaml.cs",
-              "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.xaml.cs",
-              "RelativeDocumentMoniker": "MainWindow.xaml.cs",
-              "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.xaml.cs",
-              "RelativeToolTip": "MainWindow.xaml.cs",
-              "ViewState": "AgIAAFYMAAAAAAAAAAAqwGoMAAAZAAAAAAAAAA==",
+              "DocumentIndex": 0,
+              "Title": "MainWindow.axaml.cs",
+              "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.axaml.cs",
+              "RelativeDocumentMoniker": "MainWindow.axaml.cs",
+              "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.axaml.cs",
+              "RelativeToolTip": "MainWindow.axaml.cs",
+              "ViewState": "AgIAACcEAAAAAAAAAIA0wEoEAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-03T13:44:15.556Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "MainWindow.xaml",
-              "DocumentMoniker": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.xaml",
-              "RelativeDocumentMoniker": "MainWindow.xaml",
-              "ToolTip": "C:\\Users\\vum\\source\\repos\\ShowWrite\\MainWindow.xaml",
-              "RelativeToolTip": "MainWindow.xaml",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
-              "WhenOpened": "2026-01-23T12:32:08.08Z",
+              "WhenOpened": "2026-03-15T07:09:16.687Z",
               "EditorCaption": ""
             }
           ]

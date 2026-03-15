@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using OpenCvSharp;
 using SkiaSharp;
 using System;
@@ -1065,7 +1066,7 @@ namespace ShowWrite
             // 如果处于梯形校正模式且点击的元素是校正点或校正画布的子元素，则忽略平移
             if (_isKeystoneCorrectionMode)
             {
-                var source = e.Source as Avalonia.Visual;
+                var source = e.Source as Visual;
                 while (source != null)
                 {
                     if (source == _keystonePointTL || source == _keystonePointTR ||
@@ -1075,7 +1076,7 @@ namespace ShowWrite
                         // 不处理平移，让事件继续传递给校正点
                         return;
                     }
-                    source = source.VisualParent;
+                    source = source.GetVisualParent(); // 使用扩展方法
                 }
             }
 
