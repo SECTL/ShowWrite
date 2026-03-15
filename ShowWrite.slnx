@@ -1,0 +1,9 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Plugins/TestPlugin/TestPlugin.csproj" Id="8751a8d9-ab4d-4dce-b6c6-2faff8c63fc0" />
+  <Project Path="ShowWrite.csproj" />
+</Solution>
