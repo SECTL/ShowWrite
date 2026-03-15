@@ -1,10 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup />
-  <ItemGroup />
-  <ItemGroup>
-    <Page Update="MW\SplashWindow.xaml">
-      <SubType>Designer</SubType>
-    </Page>
-  </ItemGroup>
+  <PropertyGroup>
+    <_LastSelectedProfileId>D:\WindowsPrograms\ShowWrite\Properties\PublishProfiles\FolderProfile.pubxml</_LastSelectedProfileId>
+  </PropertyGroup>
 </Project>

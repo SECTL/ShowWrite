@@ -1,0 +1,291 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+        x:Class="ShowWrite.SettingsWindow"
+        Title="设置"
+        Width="800" Height="500"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource ThemeBackground}"
+        CanResize="True"
+        MinWidth="600" MinHeight="400">
+
+    <Window.Styles>
+        <Style Selector="ListBoxItem.nav-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Margin" Value="4,2"/>
+        </Style>
+        <Style Selector="ListBoxItem.nav-item:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemeHoverBackground}"/>
+        </Style>
+        <Style Selector="ListBoxItem.nav-item:selected">
+            <Setter Property="Background" Value="{DynamicResource ThemePrimary}"/>
+        </Style>
+        <Style Selector="ListBoxItem.nav-item:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource ThemePrimary}"/>
+        </Style>
+        <Style Selector="NumericUpDown.setting-input">
+            <Setter Property="Background" Value="{DynamicResource ThemeSurfaceVariant}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ThemeBorder}"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Width" Value="120"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.setting-label">
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.setting-title">
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+        <Style Selector="Button.save-btn">
+            <Setter Property="Background" Value="{DynamicResource ThemePrimary}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/>
+            <Setter Property="Padding" Value="24,10"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="Button.save-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemePrimaryHover}"/>
+        </Style>
+        <Style Selector="Button.reset-btn">
+            <Setter Property="Background" Value="{DynamicResource ThemeBorder}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextPrimary}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </Style>
+        <Style Selector="Button.reset-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemePressedBackground}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{DynamicResource ThemeSurface}" Padding="8">
+            <StackPanel Spacing="4">
+                <TextBlock Text="设置" FontSize="18" FontWeight="Bold" 
+                           Foreground="{DynamicResource ThemeTextPrimary}" Margin="12,8,0,16"/>
+                
+                <ListBox x:Name="NavListBox" 
+                         Background="Transparent" 
+                         BorderThickness="0"
+                         SelectionMode="Single"
+                         SelectedIndex="0"
+                         SelectionChanged="NavListBox_SelectionChanged">
+                    <ListBoxItem Classes="nav-item" Tag="general">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Viewbox Width="20" Height="20">
+                                <Path Fill="{DynamicResource ThemeTextPrimary}" Data="M19.14,12.1c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,3.11c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.51C8.66,5.75,8.12,6.07,7.62,6.45L5.24,5.49c-0.22-0.08-0.47,0-0.59,0.22L2.74,9.03C2.62,9.24,2.67,9.5,2.86,9.65l2.02,1.58C4.84,11.53,4.8,11.84,4.8,12.16c0,0.32,0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.1z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                            </Viewbox>
+                            <TextBlock Text="常规" FontSize="14" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ListBoxItem>
+                    
+                    <ListBoxItem Classes="nav-item" Tag="pen">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Viewbox Width="20" Height="20">
+                                <Path Fill="{DynamicResource ThemeTextPrimary}" Data="M4.2 20.975q-.525.125-.913-.262t-.262-.913l.875-4.25l4.55 4.55zm5.875-2.1l-4.95-4.95L15.45 3.6q.575-.575 1.425-.575T18.3 3.6l2.1 2.1q.575.575.575 1.425T20.4 8.55z"/>
+                            </Viewbox>
+                            <TextBlock Text="笔锋" FontSize="14" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ListBoxItem>
+                    
+                    <ListBoxItem Classes="nav-item" Tag="camera">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Viewbox Width="20" Height="20">
+                                <Path Fill="{DynamicResource ThemeTextPrimary}" Data="M19 6.5h-1.28l-.32-1a3 3 0 0 0-2.84-2H9.44A3 3 0 0 0 6.6 5.55l-.32 1H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-8a3 3 0 0 0-3-3.05m1 11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h2a1 1 0 0 0 1-.68l.54-1.64a1 1 0 0 1 .95-.68h5.12a1 1 0 0 1 .95.68l.54 1.64a1 1 0 0 0 .9.68h2a1 1 0 0 1 1 1Zm-8-9a4 4 0 1 0 4 4a4 4 0 0 0-4-4m0 6a2 2 0 1 1 2-2a2 2 0 0 1-2 2"/>
+                            </Viewbox>
+                            <TextBlock Text="摄像头" FontSize="14" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ListBoxItem>
+                    
+                    <ListBoxItem Classes="nav-item" Tag="about">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Viewbox Width="20" Height="20">
+                                <Path Fill="{DynamicResource ThemeTextPrimary}" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                            </Viewbox>
+                            <TextBlock Text="关于" FontSize="14" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ListBoxItem>
+                </ListBox>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1" Background="{DynamicResource ThemeBackground}" Padding="24">
+            <Grid x:Name="ContentArea" RowDefinitions="*,Auto">
+                <StackPanel x:Name="GeneralPage" IsVisible="True" Spacing="16" Grid.Row="0">
+                    <TextBlock Text="常规设置" Classes="setting-title"/>
+                    
+                    <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="16">
+                        <StackPanel Spacing="16">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="主题" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <ComboBox x:Name="ThemeComboBox" Width="150">
+                                        <ComboBoxItem Content="深色" Tag="Dark"/>
+                                        <ComboBoxItem Content="浅色" Tag="Light"/>
+                                        <ComboBoxItem Content="白色-简约" Tag="LightMinimal"/>
+                                        <ComboBoxItem Content="我眼不瞎" Tag="NoBackground"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                
+                <StackPanel x:Name="PenPage" IsVisible="False" Spacing="16" Grid.Row="0">
+                    <TextBlock Text="笔锋设置" Classes="setting-title"/>
+                    
+                    <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="16">
+                        <StackPanel Spacing="16">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="路径细分份数" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown x:Name="DenominatorInput" Classes="setting-input" 
+                                                   Minimum="10" Maximum="100" Increment="5" Value="30"/>
+                                    <TextBlock Text="(20~40, 越大越平滑)" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="最细笔触比例" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown x:Name="RatioMinInput" Classes="setting-input" 
+                                                   Minimum="0.1" Maximum="1.0" Increment="0.05" Value="0.3"/>
+                                    <TextBlock Text="(0.3, 避免笔画过细)" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="最粗笔触比例" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown x:Name="RatioMaxInput" Classes="setting-input" 
+                                                   Minimum="1.0" Maximum="3.0" Increment="0.1" Value="1.5"/>
+                                    <TextBlock Text="(1.5, 避免笔画过粗)" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="快速阈值" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown x:Name="SpeedThresholdFastInput" Classes="setting-input" 
+                                                   Minimum="5" Maximum="50" Increment="1" Value="15"/>
+                                    <TextBlock Text="(&gt;15 快速移动变细)" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="慢速阈值" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown x:Name="SpeedThresholdSlowInput" Classes="setting-input" 
+                                                   Minimum="1" Maximum="20" Increment="1" Value="5"/>
+                                    <TextBlock Text="(&lt;5 慢速移动变粗)" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="比例变化系数" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown x:Name="RatioChangeCoefficientInput" Classes="setting-input" 
+                                                   Minimum="0.5" Maximum="1.0" Increment="0.05" Value="0.95"/>
+                                    <TextBlock Text="(0.8~1.0, 越小变化越剧烈)" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    
+                    <TextBlock Text="手掌擦设置" Classes="setting-title" Margin="0,16,0,0"/>
+                    
+                    <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="16">
+                        <StackPanel Spacing="16">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="启用手掌擦" Classes="setting-label" Width="140"/>
+                                <CheckBox x:Name="EnablePalmEraserInput" IsChecked="True"/>
+                            </Grid>
+                            
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="触发阈值" Classes="setting-label" Width="140"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                    <NumericUpDown x:Name="PalmEraserThresholdInput" Classes="setting-input" 
+                                                   Minimum="1000" Maximum="20000" Increment="500" Value="5000"/>
+                                    <TextBlock Text="(触摸面积阈值, 越小越敏感)" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                
+                <StackPanel x:Name="CameraPage" IsVisible="False" Spacing="16" Grid.Row="0">
+                    <TextBlock Text="摄像头设置" Classes="setting-title"/>
+                    <TextBlock Text="摄像头设置内容待添加..." Foreground="{DynamicResource ThemeTextTertiary}"/>
+                </StackPanel>
+                
+                <StackPanel x:Name="AboutPage" IsVisible="False" Spacing="16" Grid.Row="0">
+                    <TextBlock Text="关于" Classes="setting-title"/>
+                    <TextBlock Text="ShowWrite v1.0" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="14"/>
+                    <TextBlock Text="一款简单易用的书写展示工具" Foreground="{DynamicResource ThemeTextTertiary}"/>
+                    
+                    <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="16" Margin="0,16,0,0">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="系统信息" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="14" FontWeight="Bold"/>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="主板序列号：" Classes="setting-label" Width="100"/>
+                                <TextBlock x:Name="MotherboardSerialText" Grid.Column="1" Text="正在获取..." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13" TextWrapping="Wrap"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="Auto,*">
+                                <TextBlock Grid.Column="0" Text="注册 UUID：" Classes="setting-label" Width="100"/>
+                                <TextBlock x:Name="UuidText" Grid.Column="1" Text="正在获取..." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13" TextWrapping="Wrap"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                
+                <Border Grid.Row="1" 
+                        Background="{DynamicResource ThemeSurface}" 
+                        BorderBrush="{DynamicResource ThemeSurfaceVariant}" 
+                        BorderThickness="0,1,0,0" 
+                        Padding="24,16" 
+                        Margin="-24,-8,-24,-24">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Classes="reset-btn" Click="ResetPenSettings_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16" Height="16">
+                                    <Path Fill="{DynamicResource ThemeTextPrimary}" Data="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                                </Viewbox>
+                                <TextBlock Text="恢复默认"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="save-btn" Click="SavePenSettings_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="16" Height="16">
+                                    <Path Fill="{DynamicResource ThemeTextPrimary}" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </Viewbox>
+                                <TextBlock Text="保存设置"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

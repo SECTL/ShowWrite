@@ -1,42 +1,52 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
-		<TargetFramework>net8.0-windows</TargetFramework>
-		<UseWPF>true</UseWPF>
-		<UseWindowsForms>true</UseWindowsForms>
+		<TargetFramework>net8.0</TargetFramework>
 		<Nullable>enable</Nullable>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Title>ShowWrite视频展台</Title>
-		<Version>2.1.5</Version>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<ProduceReferenceAssembly>True</ProduceReferenceAssembly>
+		<GenerateDocumentationFile>False</GenerateDocumentationFile>
+	</PropertyGroup>
+	<PropertyGroup Label="Avalonia">
+		<AvaloniaXamlIlDebuggerLaunch>False</AvaloniaXamlIlDebuggerLaunch>
 		<ApplicationIcon>icon-d1tools.com.ico</ApplicationIcon>
-		<PackageProjectUrl>https://github.com/wwcrdrvf6u/ShowWrite/</PackageProjectUrl>
-		<RepositoryUrl>https://github.com/wwcrdrvf6u/ShowWrite/</RepositoryUrl>
-		<Authors>wwcrdrvf6u</Authors>
-		<SelfContained>false</SelfContained>
-		<Platforms>AnyCPU;x64;x86</Platforms>
-		<LangVersion>preview</LangVersion>
 	</PropertyGroup>
 	<ItemGroup>
-	  <Content Include="icon-d1tools.com.ico" />
+	  <AvaloniaXaml Remove="CameraService\**" />
+	  <AvaloniaXaml Remove="Plugins\**" />
+	  <Compile Remove="CameraService\**" />
+	  <Compile Remove="Plugins\**" />
+	  <EmbeddedResource Remove="CameraService\**" />
+	  <EmbeddedResource Remove="Plugins\**" />
+	  <None Remove="CameraService\**" />
+	  <None Remove="Plugins\**" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="AForge.Imaging" Version="2.2.5" />
-		<PackageReference Include="AForge.Video" Version="2.2.5" />
-		<PackageReference Include="AForge.Video.DirectShow" Version="2.2.5" />
-		<PackageReference Include="iNKORE.UI.WPF" Version="1.2.8" />
-		<PackageReference Include="iNKORE.UI.WPF.Modern" Version="0.10.2.1" />
-		<PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.10.2" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-		<PackageReference Include="QRCoder" Version="1.4.3" />
-		<PackageReference Include="ZXing.Net" Version="0.16.10" />
+		<Content Include="icon-d1tools.com.ico" />
 	</ItemGroup>
+
 	<ItemGroup>
-		<Resource Include="icons\*.png" />
-	  
-	</ItemGroup>
-	<ItemGroup>
-	  <None Update="SWECL.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
+		<PackageReference Include="Avalonia" Version="11.3.12" />
+		<PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />
+		<PackageReference Include="Avalonia.Diagnostics" Version="11.3.12">
+			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
+		</PackageReference>
+
+		<PackageReference Include="PdfiumViewer" Version="2.13.0" />
+		<PackageReference Include="OpenCvSharp4" Version="4.13.0.20260222" />
+		<PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260222" />
+		<PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
+		<PackageReference Include="SkiaSharp" Version="3.119.2" />
+		<PackageReference Include="Spire.PDF" Version="12.2.6" />
+		<PackageReference Include="Spire.Presentation" Version="11.2.1" />
+		<PackageReference Include="System.Drawing.Common" Version="10.0.3" />
+		<PackageReference Include="System.Management" Version="10.0.3" />
+		<PackageReference Include="DocumentFormat.OpenXml" Version="3.0.2" />
+		<PackageReference Include="Aspose.Slides.NET" Version="26.2.0" />
 	</ItemGroup>
 </Project>

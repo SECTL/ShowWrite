@@ -1,0 +1,81 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+        x:Class="ShowWrite.CameraSelectWindow"
+        Title="选择摄像头"
+        Width="400"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#2D2D2D">
+
+    <Window.Styles>
+        <Style Selector="Button.camera-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#3D3D3D"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,4"/>
+        </Style>
+        <Style Selector="Button.camera-btn:pointerover">
+            <Setter Property="Background" Value="#3D3D3D"/>
+            <Setter Property="BorderBrush" Value="#0078D4"/>
+        </Style>
+        <Style Selector="Button.camera-btn:selected">
+            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="BorderBrush" Value="#0078D4"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="选择摄像头"
+                   FontSize="18"
+                   FontWeight="Bold"
+                   Foreground="White"
+                   Margin="0,0,0,16"/>
+
+        <StackPanel Grid.Row="1" x:Name="CameraList" Spacing="4">
+            <TextBlock x:Name="NoCameraText"
+                       Text="正在扫描摄像头..."
+                       FontSize="14"
+                       Foreground="#AAAAAA"
+                       HorizontalAlignment="Center"
+                       Margin="0,20"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right"
+                    Spacing="12"
+                    Margin="0,16,0,0">
+            <Button x:Name="RefreshBtn"
+                    Content="刷新"
+                    Padding="20,8"
+                    Background="#3D3D3D"
+                    Foreground="White"
+                    CornerRadius="6"
+                    Cursor="Hand"
+                    Click="RefreshBtn_Click"/>
+            <Button x:Name="CancelBtn"
+                    Content="取消"
+                    Padding="20,8"
+                    Background="#3D3D3D"
+                    Foreground="White"
+                    CornerRadius="6"
+                    Cursor="Hand"
+                    Click="CancelBtn_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,1149 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ShowWrite"
+        x:Class="ShowWrite.MainWindow"
+        x:DataType="local:MainWindow"
+        Title="ShowWrite"
+        WindowState="FullScreen"
+        Background="{DynamicResource ThemeBackground}"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        CanResize="False"
+        Opened="Window_Opened"
+        Closing="Window_Closing">
+
+    <Window.Resources>
+        <local:SelectedBackgroundConverter x:Key="SelectedBackgroundConverter"/>
+        <local:SelectedForegroundConverter x:Key="SelectedForegroundConverter"/>
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Path.icon-path">
+            <Setter Property="Fill" Value="{DynamicResource ThemeIconColor}"/>
+        </Style>
+        <Style Selector="ToggleButton:checked Path.icon-path">
+            <Setter Property="Fill" Value="White"/>
+        </Style>
+        <Style Selector="Border.no-background">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="ToggleButton.no-background:checked">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.nav-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.nav-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemeHoverBackground}"/>
+        </Style>
+        <Style Selector="Button.nav-btn:pressed">
+            <Setter Property="Background" Value="{DynamicResource ThemePressedBackground}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource ThemeButtonCornerRadius}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn:checked">
+            <Setter Property="Background" Value="{DynamicResource ThemePrimary}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-square">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="{DynamicResource ThemeButtonPadding}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource ThemeButtonCornerRadius}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-square:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemeHoverBackground}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-square:pressed">
+            <Setter Property="Background" Value="{DynamicResource ThemePressedBackground}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-square:checked">
+            <Setter Property="Background" Value="{DynamicResource ThemePrimary}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource ThemeButtonCornerRadius}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-square.no-background:checked">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource ThemeButtonCornerRadius}"/>
+        </Style>
+        <Style Selector="Button.tool-btn-square">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="{DynamicResource ThemeButtonPadding}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource ThemeButtonCornerRadius}"/>
+        </Style>
+        <Style Selector="Button.tool-btn-square:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemeHoverBackground}"/>
+        </Style>
+        <Style Selector="Button.tool-btn-square:pressed">
+            <Setter Property="Background" Value="{DynamicResource ThemePressedBackground}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-transparent">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="{DynamicResource ThemeButtonPadding}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource ThemeButtonCornerRadius}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-transparent:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemeHoverBackground}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-transparent:pressed">
+            <Setter Property="Background" Value="{DynamicResource ThemePressedBackground}"/>
+        </Style>
+        <Style Selector="ToggleButton.tool-btn-transparent:checked">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.delete-btn">
+            <Setter Property="Background" Value="{DynamicResource ThemeDanger}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.delete-btn:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ThemeDangerHover}"/>
+        </Style>
+        <Style Selector="Button.delete-btn:pressed">
+            <Setter Property="Background" Value="#C62828"/>
+        </Style>
+        <Style Selector="CheckBox.ink-checkbox">
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}"/>
+        </Style>
+        <Style Selector="CheckBox.ink-checkbox:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}"/>
+        </Style>
+        <Style Selector="CheckBox.ink-checkbox:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <Grid x:Name="VideoAreaContainer" 
+              HorizontalAlignment="Stretch" 
+              VerticalAlignment="Stretch"
+              Background="{DynamicResource ThemeVideoBackground}">
+            <Image x:Name="VideoImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            
+            <Canvas x:Name="KeystoneOverlayCanvas" IsVisible="False">
+                <Polygon x:Name="KeystonePolygon" 
+                         Fill="#30FF0000" 
+                         Stroke="#FF0000" 
+                         StrokeThickness="2"
+                         Points="0,0 0,0 0,0 0,0"/>
+                
+                <Border x:Name="KeystonePointTL" 
+                        Canvas.Left="0" Canvas.Top="0"
+                        Width="24" Height="24"
+                        CornerRadius="12"
+                        Background="#FF0078D4"
+                        BorderBrush="White"
+                        BorderThickness="2"
+                        Cursor="Hand"
+                        Tag="0">
+                    <TextBlock Text="1" Foreground="White" FontSize="12" FontWeight="Bold" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                
+                <Border x:Name="KeystonePointTR" 
+                        Canvas.Left="0" Canvas.Top="0"
+                        Width="24" Height="24"
+                        CornerRadius="12"
+                        Background="#FF0078D4"
+                        BorderBrush="White"
+                        BorderThickness="2"
+                        Cursor="Hand"
+                        Tag="1">
+                    <TextBlock Text="2" Foreground="White" FontSize="12" FontWeight="Bold" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                
+                <Border x:Name="KeystonePointBR" 
+                        Canvas.Left="0" Canvas.Top="0"
+                        Width="24" Height="24"
+                        CornerRadius="12"
+                        Background="#FF0078D4"
+                        BorderBrush="White"
+                        BorderThickness="2"
+                        Cursor="Hand"
+                        Tag="2">
+                    <TextBlock Text="3" Foreground="White" FontSize="12" FontWeight="Bold" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                
+                <Border x:Name="KeystonePointBL" 
+                        Canvas.Left="0" Canvas.Top="0"
+                        Width="24" Height="24"
+                        CornerRadius="12"
+                        Background="#FF0078D4"
+                        BorderBrush="White"
+                        BorderThickness="2"
+                        Cursor="Hand"
+                        Tag="3">
+                    <TextBlock Text="4" Foreground="White" FontSize="12" FontWeight="Bold" 
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+            </Canvas>
+            
+            <StackPanel x:Name="LoadingContainer"
+                        Orientation="Vertical"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="20"
+                        IsVisible="True"
+                        IsHitTestVisible="False">
+                
+                <TextBlock x:Name="StatusText"
+                           FontSize="24"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           TextAlignment="Center">
+                    <Run Text="正在扫描可用摄像头"/>
+                    <LineBreak/>
+                    <Run Text="请等待20秒左右" FontSize="18" Foreground="#AAAAAA"/>
+                </TextBlock>
+
+                <StackPanel x:Name="LoadingElementsPanel"
+                            Orientation="Horizontal"
+                            Spacing="20"
+                            HorizontalAlignment="Center"
+                            IsVisible="True"
+                            IsHitTestVisible="False">
+
+                    <Canvas x:Name="ElemPyro" Width="50" Height="50">
+                        <Path x:Name="PyroFill" Width="50" Height="50"
+                              Fill="#EF7A35"
+                              Stretch="Uniform"
+                              Data="M210.844,500C206.378,496.417,201.966,492.807,197.487,489.277C167.727,465.894,137.591,443.099,103.9,425.384C88.1634,417.108,72.8952,407.856,57.8276,398.39C45.7815,390.836,33.6686,383.109,22.8124,374.004C4.42902,358.589,-3.61954,338.788,1.5278,314.522C5.81947,294.267,13.7343,275.523,24.6173,258.008C29.0694,250.842,33.8557,243.837,38.8426,237.031C61.9588,205.559,89.701,177.429,107.523,139.687C109.007,143.911,110.063,145.837,110.33,147.855C113.472,171.025,125.893,188.794,144.824,201.067C160.761,211.402,178.436,219.076,195.335,227.927C197.528,229.076,199.76,230.159,201.806,233.261C197.621,233.769,193.436,234.25,189.252,234.799C145.052,240.588,103.966,270.148,96.3992,322.277C93.4044,342.946,99.5143,360.902,111.026,377.547C113.285,380.809,115.865,383.857,118.874,387.735C117.029,387.975,115.638,388.617,115.037,388.176C100.771,377.641,85.075,368.496,72.7214,356.035C45.835,328.895,42.5059,298.144,60.5149,264.426C64.5927,256.778,69.6999,249.679,74.8873,241.47C35.6072,258.637,16.0607,299.829,28.5613,337.023C33.2541,350.995,41.9845,362.145,53.4156,371.023C61.1165,376.999,69.3255,382.494,77.8287,387.267C121.601,411.88,167.994,431.975,207.902,463.554C211.218,461.816,214.079,460.666,216.553,458.955C251.006,435.144,286.851,413.658,324.005,394.286C335.436,388.323,346.533,381.638,357.269,374.512C364.622,369.619,371.828,364.084,377.831,357.639C400.934,332.852,401.469,300.003,379.716,274.092C371.374,264.159,361.641,255.843,348.378,248.516C349.354,252.808,349.808,255.468,350.557,258.035C353.793,269.105,357.79,280.002,360.25,291.232C366.654,320.351,358.298,345.847,339.086,367.947C307.426,404.393,231.941,437.216,166.537,407.963C152.552,401.706,139.423,394.219,130.652,381.157C113.593,355.794,128.607,322.464,158.368,319.87C165.708,319.228,173.181,320.258,183.717,320.619C178.623,325.646,175.681,328.587,172.7,331.502C160.921,343,156.951,357.185,159.598,373.015C161.697,385.582,168.876,394.928,180.602,400.543C196.364,408.097,213.05,410.022,230.11,407.896C247.463,405.73,264.002,400.449,279.15,391.505C318.898,368.028,328.297,315.552,299.672,279.199C286.142,262.019,269.644,248.93,249.629,240.28C234.522,233.756,218.946,228.221,204.186,221.001C189.867,214.009,175.147,206.95,162.673,197.257C131.321,172.897,126.414,138.056,148.086,105.032C152.472,98.3475,157.245,91.8766,162.258,85.6329C182.313,60.6717,199.159,34.2264,201.859,0C204.333,1.39045,206.164,1.80491,206.913,2.92796C218.331,19.8674,230.965,36.1784,240.591,54.0938C253.48,78.0924,249.723,92.9863,228.813,110.447C215.256,121.771,203.678,134.406,196.712,150.757C186.605,174.448,193.757,196.548,217.275,211.161C215.617,208.34,214.935,206.923,214.012,205.666C201.03,188.072,202.194,169.982,212.488,151.853C223.01,133.323,238.145,119.552,257.985,109.712C249.469,141.077,243.827,171.801,259.697,202.23C269.336,220.707,285.3,241.136,300.849,252.166C300.073,241.925,294.806,234.959,289.979,227.646C285.112,220.266,279.925,212.886,276.529,204.81C270.58,190.652,271.208,175.972,277.706,162.027C282.492,151.759,287.225,141.251,296.557,133.042C297.479,135.034,298.201,136.09,298.469,137.253C307.239,174.421,328.163,203.407,358.365,226.148C376.16,239.545,389.249,256.912,399.704,276.205C404.531,285.109,408.127,294.842,411.002,304.588C416.456,323.092,414.09,341.248,402.726,356.784C394.156,368.509,384.53,380.207,373.112,388.938C355.156,402.669,335.957,415.102,316.09,425.905C279.912,445.599,245.939,468.06,215.924,496.363C214.708,497.567,213.117,498.409,210.844,500C210.844,500,210.844,500,210.844,500Z M148.01963806152344,301.3529909667969C156.72330806152343,275.3087909667969,180.25393806152343,258.81063096679685,207.75543806152342,260.1476003667969C219.09293806152345,260.69575796679686,230.80483806152344,262.94186096679687,241.40693806152342,266.91266096679686C264.6836380615234,275.6029909667969,276.9436380615234,294.09329096679687,281.00763806152344,317.99829096679684C283.1606380615234,330.6326909667969,278.60163806152343,341.64929096679685,269.6836380615234,350.6871909667969C259.58963806152343,360.92799096679687,247.46343806152345,368.04099096679687,232.34233806152344,374.0309909667969C233.25143806152346,371.11599096679686,233.51883806152344,369.64499096679685,234.14723806152344,368.3349909667969C247.79773806152343,340.24549096679686,235.91203806152345,310.1502909667969,206.59233806152344,298.6790909667969C191.08343806152345,292.60919096679686,175.40073806152344,292.5958909667969,159.61113806152343,297.3821909667969C155.96123806152343,298.49189096679686,152.39152806152345,299.85559096679685,148.01963806152344,301.3529909667969C148.01963806152344,301.3529909667969,148.01963806152344,301.3529909667969,148.01963806152344,301.3529909667969Z"/>
+                    </Canvas>
+
+                    <Canvas x:Name="ElemHydro" Width="50" Height="50">
+                        <Path x:Name="HydroFill" Width="50" Height="50"
+                              Fill="#4CC7F7"
+                              Stretch="Uniform"
+                              Data="M984.4,552.4c2.9,1.2,5.8,2.1,8.5,3.5c37.9,19.7,78.3,29.4,120.9,32.1c81.2,5.1,147.5-56.9,146.8-138c-0.6-64.8-51.2-121.5-115.9-130.7c-19.6-2.8-38.6-1.6-57.4,3.9c-9.2,2.7-18.6,4.6-27.7,0.5c-12.1-5.5-19.1-15.1-20.1-28.6c-1-13.5,3.9-24.8,16.1-30.6c10.9-5.3,22.7-9.6,34.6-12c119.6-24.1,224.2,77.3,208.5,192.4c-6.5,47.7-29.6,86-67.2,115.7c-4,3.1-8,6.1-11.2,10.8c2.4-1,4.9-1.8,7.1-3.1c64.3-38.4,98.3-95.4,101.4-169.7c4.9-115.8-85.8-192.3-163.9-205.4c-80.7-13.6-147.2,11-198.8,74.5c-15.3,18.9-33.2,23.1-51.7,11c-11.8-7.7-16.8-19.7-12.3-33.1c2.7-7.9,6.7-15.7,11.4-22.6c42.1-62,100.9-98.2,174.5-110C1200.5,95,1330.2,157,1368,298.7c38.6,144.6-57.4,272.9-183.2,304c-46.5,11.5-92.7,9.4-138.4-5.2C1021,589.3,1000.7,573.9,984.4,552.4L984.4,552.4z M1193.5,533.8c-17.7,26.7-53.3,40.8-86.5,34.3c-41.2-8.1-71.3-43.9-72.7-86.4c-1.3-39.4,27.6-77.5,67.5-87.2c30.3-7.4,58.1-1.4,82,19.3c14.3,12.3,21.7,28.4,24.6,46.6c2.1,13-2.6,24.3-11.6,33.6c-11.9,12.2-33,10.4-43.6-3.9c-4.1-5.6-6.6-12.5-9.1-19c-9-23.3-30.9-31-52.6-18.3c-29.4,17.3-35.7,53.1-14,80.2c19.6,24.5,54.5,32.7,84.8,19C1173.3,547,1183.2,539.9,1193.5,533.8L1193.5,533.8z M909.6,330.2c17.6,0,33.3,15.8,33.6,33.7c0.2,17.8-16.8,34.6-34.8,34.2c-17.7-0.3-33.4-16.2-33.4-34C874.9,345.6,890.6,330.2,909.6,330.2L909.6,330.2z M977.5,474.8c-0.2,12.9-11,23.4-23.7,23.1c-12.1-0.3-23.8-12-23.7-23.8c0.1-12.3,11.3-23.6,23.6-23.7C967.2,450.1,977.7,461,977.5,474.8L977.5,474.8z"/>
+                    </Canvas>
+
+                    <Canvas x:Name="ElemAnemo" Width="50" Height="50">
+                        <Path x:Name="AnemoFill" Width="50" Height="50"
+                              Fill="#74C2A8"
+                              Stretch="Uniform"
+                              Data="M1493.3,1083.8c5.7,1.7,11.3,3.4,17.9,5.4c12.4-14.7,21.6-31.4,28.3-49.3c6.6-17.7,11.7-36,18.4-57c8,40.1,20.9,75.4,44.6,106.3c6.5-2,12.2-3.7,18.8-5.8c-21.8,38.6-43,76.1-64.4,114.1c0.6,0,0.2,0.1-0.3,0c-0.4-0.1-0.8-0.2-1.1-0.5c-0.6-0.7-1.1-1.3-1.5-2.1C1536.1,1156.8,1515.6,1120.3,1493.3,1083.8L1493.3,1083.8z M1580,1099.4c-3.7-9.4-8.7-20.4-12.6-31.9c-3.9-11.4-6.6-23.1-10-34.9c-8.1,24-15.8,46.9-23.6,70.2c7.5,7.1,15.4,14.7,23.2,22.1C1564.8,1116.3,1571.7,1108.6,1580,1099.4L1580,1099.4z M1473.3,823.5c-6.6,6.1-11,10.1-15.8,14.5c15.2,37,39.9,66.3,69.3,92.7c-37.3-12.4-75.1-18.5-114.6-13.7c-1.6,6.3-3.1,12.3-4.7,18.7c-22.6-38.1-44.6-75.3-66.5-112.3C1383.9,823.5,1427.1,823.5,1473.3,823.5L1473.3,823.5z M1411.5,890.5c25.5,5.4,49.6,10.5,71.8,15.2c-15.4-17.3-32.1-35.9-48.9-54.8c-9.8,2.8-20.2,5.8-30.7,8.9C1406.4,870.3,1409,880.6,1411.5,890.5L1411.5,890.5z M1773.1,823.4c-22.1,37.3-44.1,74.5-66.6,112.5c-1.5-6.4-2.8-12.3-4.4-18.9c-39.2-4.9-77,0.9-114.5,13.6c28.9-26.3,53.5-55.4,69.4-93.5c-4.8-3.6-9.8-7.4-14.9-11.2c0.5-0.8,0.9-1.7,1.4-2.5C1686.7,823.4,1729.8,823.4,1773.1,823.4L1773.1,823.4z M1679.7,850.9c-17.4,19.4-33.9,37.8-49.1,54.8c22.7-4.8,47.1-9.9,71.9-15.1c2.5-9.7,5.1-20.1,7.9-30.7C1700,856.8,1689.7,853.8,1679.7,850.9L1679.7,850.9z M1556.3,697.5c21.7,38.5,42.7,75.9,64.4,114.4c-5.8-1.5-11.6-3.1-18.3-4.8c-23.8,30.6-36.6,66.2-45.4,104.2c-8.8-37.8-21.5-73.3-45.6-104.3c-6.1,1.8-11.8,3.6-20.3,6.1c12.5-20.5,24.1-38.4,34.6-57C1536.4,737.1,1545.9,717.6,1556.3,697.5L1556.3,697.5z M1534.2,794.4c7.7,22.7,15.3,45.4,22.8,67.6c7.5-22.3,15.2-44.9,23.2-68.4c-7.3-6.9-15.2-14.6-23.5-22.5C1548.5,779.5,1541,787.3,1534.2,794.4L1534.2,794.4z M1587.6,965.9c37.2,11.5,74.8,19.1,114.4,13.2c1.5-6.3,2.9-12.1,4.5-18.8c22.6,38.1,44.7,75.4,66.6,112.4c-42.6,0-86,0-132,0c6.2-5.8,10.4-9.8,15.6-14.6C1641.6,1021.8,1617.2,992.3,1587.6,965.9L1587.6,965.9z M1702.4,1005.5c-24.7-5.1-48.8-10-71.3-14.6c15.4,17.3,32,36,48.5,54.5c10.1-2.9,20.4-5.9,30.7-8.9C1707.4,1025.3,1704.8,1014.8,1702.4,1005.5L1702.4,1005.5z M1407.6,960.2c1.4,6.2,2.6,11.7,4.1,18.6c39.2,6.6,77-1.7,114.9-13.1c-29.2,26.2-53.9,55.4-69.8,93.7c4.6,3.7,9.5,7.6,16.6,13.2c-46.4,0-89.6,0-132.4,0C1362.7,1036,1384.7,998.8,1407.6,960.2L1407.6,960.2z M1411.5,1005.5c-2.4,9.8-5,20.5-7.7,31.2c11.3,3.2,21.6,6.1,30.6,8.6c17-19.1,33.3-37.3,48.4-54.4C1460.3,995.5,1436.2,1000.4,1411.5,1005.5L1411.5,1005.5z M1595.1,1014.3c-7.3-3.2-14.6-5.8-21.2-9.8c-2.9-1.7-5.1-5.9-6.1-9.3c-3.5-12-6.3-24.2-10.1-39c-1.9,4.5-3,6.5-3.5,8.6c-1.6,6.3-3.9,12.6-4.4,19c-1.4,19.3-14.1,26.1-31.2,29.8c-0.8-6.3-1.2-12.3-2.4-18.2c-1.2-6.2,0.7-10.9,5.2-15.1c5.8-5.3,11.3-10.8,17-16.3c3.4-3.3,6.7-6.6,9.2-11.8c-3.5,0.9-6.9,1.6-10.4,2.6c-3.8,1-7.5,2.3-11.3,3.3c-26.2,6.8-19.2,10.5-45.5-10.4c7.2-5.2,13.8-10.5,20.9-14.9c2.1-1.3,5.9-0.5,8.7,0.2c9.3,2.4,18.4,5.2,27.6,7.8c4.1,1.2,8.1,2.2,15,4.1c-10.7-10.2-18.8-18.6-27.7-26.2c-7.7-6.6-11.1-14-8.3-24c1-3.7,1.1-7.7,1.6-11.5c19.3,1.8,26.2,7.5,30.7,25.1c2.4,9.6,4.7,19.2,9.1,29.1c0.7-2,1.5-4,2-6c1.6-6.3,3.9-12.6,4.4-19c1.6-18.7,13.2-26.9,30.1-30c0.5,0.6,1.4,1.2,1.5,1.8c3.6,25,3.6,25-15,42.6c-5.7,5.3-11.3,10.7-16.1,17.6c10.7-3.2,21.5-5.9,32-9.8c10.5-3.9,19.3-2.7,27.3,5.3c2.7,2.7,5.9,4.8,10,8.1c-6.9,4.9-12.4,9.9-18.9,13c-3.8,1.8-9.3,1.8-13.5,0.8c-11.8-2.8-23.3-6.5-37.4-10.6c2.5,3.6,3.3,5.3,4.6,6.5c4.4,4.2,9.1,8.1,13.4,12.5C1600.9,989.4,1601.2,981.8,1595.1,1014.3L1595.1,1014.3z"/>
+                    </Canvas>
+
+                    <Canvas x:Name="ElemElectro" Width="50" Height="50">
+                        <Path x:Name="ElectroFill" Width="50" Height="50"
+                              Fill="#AF8EC1"
+                              Stretch="Uniform"
+                              Data="M2426.8,414.7c4.6,4.9,6.9,7.4,9.2,9.9c21.4,22.8,55,20.9,73.2-5.2c16.7-23.9,19.6-50.3,7.5-77.1c-21.8-48.2-80.6-67.2-129.2-42.6c-25.4,12.9-42.3,33.1-53.2,59c-11.3,27.1-14.2,55.6-15.3,84.5c-0.4,9.8-0.1,19.7-0.1,31c-54.5-86.7-36-233.5,61.7-307.2c-16.1,30.7-36.2,59.9-37.9,99c4.8-4.5,7.9-7.3,10.9-10.2c26.4-25.1,55.8-44.7,92.5-51.4c34.6-6.3,74.1,4.3,102.5,28.9c-5.8,1.5-11,2.6-16.1,4.1c-23.9,7-35.9,26.7-31.3,51.4c5.8,31.4,35.7,56.2,70.4,58.1c57.4,3.3,91.9-42.8,96.5-84.3c4-36.4-8.8-66.8-33.1-93.1c-18.3-19.8-40.2-34.9-63.7-47.7c-6.9-3.7-13.9-7.2-21.4-11.2c83.4-9.1,219.8,69.6,238.8,204.2c-18.2-29.8-35.3-60.4-67.5-81.5c3,14.9,6.1,27.4,8.1,40.2c5,32.2,2.2,63.4-11.8,93.3c-14.4,30.6-38.6,49.7-71.6,62.5c1.6-5.4,2.5-8.9,3.6-12.4c10.2-32.1-9.4-60.5-43.1-62.4c-39.6-2.3-75.3,26.6-83,67.2c-9.2,48.6,22.3,97.4,71.9,111.2c23.4,6.5,46.7,5.6,69.8-1.1c27.8-8.1,54.1-19.8,78.1-36.2c2.8-1.9,5.8-3.6,9.3-5.8c-13,37.8-74.9,87-133.2,107.2c-57.3,19.8-130.4,15.1-162.5-3.9c27.9-2.5,55.7-0.2,82.2-8.9c6.2-2,12.2-4.5,21.1-7.8c-5.9-2-9.2-3.3-12.5-4.3c-22.6-7.1-44.6-15.4-64.2-29c-28.4-19.6-48-45.5-55.4-79.7c-1.6-7.6-2.2-15.6-2.4-23.4C2425.4,432.9,2426.3,425.5,2426.8,414.7L2426.8,414.7z"/>
+                    </Canvas>
+
+                    <Canvas x:Name="ElemDendro" Width="50" Height="50">
+                        <Path x:Name="DendroFill" Width="50" Height="50"
+                              Fill="#A5C83B"
+                              Stretch="Uniform"
+                              Data="M668.7,977.4c-3.3,3.4-6.7,6.9-10.1,10.5c-6.1,6.4-12.8,9.4-21.3,4.6c-8.4-4.8-16.9-9.4-26.4-14.6c8.8-10.5,17.8-17.5,28.3-21.2c4.4-1.6,10.8,1,15.8,2.9c4.1,1.6,7.3,5.2,13.6,9.9c-2.5-22.8-0.8-42.4,3.1-62.1c4-20.4,14-37.5,27.4-56.9c-7,0.7-10.8,1-14.6,1.6c-23.2,3.9-36.7-3.1-46.2-24.7c-3.4-7.7-5.9-15.9-8.5-23.9c-0.8-2.5-1-5.3-1.6-8.7c3-0.7,5.2-1.7,7.4-1.6c9.9,0.5,19.7,1.3,29.5,2.1c18.3,1.4,30.1,12,33.6,30.1c1.1,5.5,2.2,11,3.4,16.6c5.6,2.7,8.6-1.7,12-4.5c19.7-16.3,42.5-26.3,67.7-29.3c30.4-3.6,56.5,7,78,28.3c9.5,9.4,9,17.1,0.1,27.1c-5.2,5.8-9.1,6.3-13.7-0.3c-15.3-21.8-38.1-25.1-61.5-23.9c-51.3,2.6-86.2,41-86.8,92.5c-0.5,48.7,19.6,86.3,60.5,112.1c16.2,10.3,33.6,18.8,51.2,26.6c25.5,11.2,48.6,24.9,62.4,50.4c0.7,1.2,1.7,2.2,3.2,4.2c2.7-2.9,5.1-4.9,6.7-7.5c12.4-19.1,29.4-32.6,50-42.1c18.3-8.4,36.6-17.1,54.3-26.7c37.4-20.4,60.8-51.9,67.5-93.8c6.2-39.2-3.5-74.9-36.6-99.2c-28.6-21-61.3-22.8-93.6-7.7c-8.5,3.9-14.9,12.4-22.6,19.2c-16.2-5.8-20.2-18.8-7.7-30.8c26.7-25.7,58-35.4,94.5-25c18.7,5.4,36.2,13.2,51,26.4c2.8,2.5,6.2,4.2,10.7,7.2c1.4-7.1,2.5-13.2,3.9-19.3c4.4-18.7,13.3-27.6,32.3-30.1c12.4-1.7,25.1-1.5,39.7-2.3c-5.3,17.1-8.6,33.1-18.5,46.5c-9.1,12.5-22.4,14.5-36.7,12.4c-4.3-0.7-8.6-1.5-13.9-1.1c23.9,35.4,33.3,73.4,27.2,117.2c4.3-2.4,6.4-3.2,8-4.5c13.8-11.9,18.6-10.1,32.6-1.6c5.9,3.5,10.8,8.7,17,13.7c-4.8,3.8-8.1,7.3-12,9.6c-23.1,13.7-26.4,11.9-41-4.2c-1.4-1.6-3.4-2.6-5.4-4.1c-4.6,12.7-8.4,24.6-13.3,36c-13.2,30.6-36.8,52-64.5,68.9c-18.4,11.3-37.3,22-56.7,31.4c-30.8,14.9-51.6,38.5-64.8,69.5c-1.8,4.1-3.9,8-7,14.3c-3.3-6.3-5.9-10.1-7.5-14.2c-12.6-33.4-36.1-56.1-67.9-71.9c-23.5-11.7-46.3-25-68.1-39.7c-32.5-21.9-52.9-52.8-61-91.5C671.6,979.6,670.5,979.1,668.7,977.4L668.7,977.4z M842.2,1033.3c-15.2-9.3-30.1-19-45.6-27.6c-15.6-8.7-32-15.8-50.7-13.4c-5.9,0.8-11.7,2-19,3.3c4.6-14.3,15.4-18.5,26.1-22c2.3-7-3.7-9.6-6-13.8c-5-8.9-12.2-16.6-12.8-27.7c-1.3-23.9,11-40.4,29.8-52c14.5-8.9,31.1-10.8,47.7-6c12,3.5,21.7,10.2,25.6,24.3c-4.7,0.3-8.3,0.8-11.9,0.6c-21.3-1.1-32.5,13.1-36.8,29.9c-5.6,21.9,0.5,40.9,14.7,57.4c9.8,11.4,20.9,21.6,31.2,32.5c3.7,3.9,6.6,8.6,9.9,13C843.7,1032.2,843,1032.7,842.2,1033.3L842.2,1033.3z M916.5,898.7c-0.5-11.6,7.6-16.5,15.1-20.7c33-18.4,80.7,5.5,86.4,42.9c1.9,12.3-1.7,23.2-8.7,33.2c-4,5.7-7.9,11.4-12.6,18.2c11.8,5.1,24.1,8.2,28,22.6c-6.5-1-11.9-1.9-17.3-2.6c-17.1-2.1-32.7,3.1-47.2,11.2c-14.7,8.2-28.9,17.6-43.3,26.4c-2.6,1.6-5.3,2.9-7.9,4.4c-0.7-0.8-1.4-1.6-2.1-2.4c8.6-9.6,16.9-19.4,25.8-28.6c11.4-11.8,23.7-22.8,29.5-39c5.6-15.5,5.3-30.2-1.9-45c-7.2-14.8-18.7-21.7-35.2-20.6C922.4,898.8,919.6,898.7,916.5,898.7L916.5,898.7z M876.1,833.1c-13.2-14-27-24.5-36.5-39.3c-5.7-8.8-7.4-18.2-4.7-28.2c1.5-5.9,3-12,6.1-17.1c10.7-17.4,22.1-34.4,32.9-51c2.8,0.8,4.1,0.8,4.5,1.4c12.7,17.9,26.6,34.9,35.5,55.3c8.2,18.8,4.4,34.9-8.3,49.3C897.1,813.4,887.2,822.1,876.1,833.1L876.1,833.1z"/>
+                    </Canvas>
+
+                    <Canvas x:Name="ElemCryo" Width="50" Height="50">
+                        <Path x:Name="CryoFill" Width="50" Height="50"
+                              Fill="#9FD6E3"
+                              Stretch="Uniform"
+                              Data="M1744,486c8.2-5.3,16.3-3.9,23.5,1.6c5.8,4.4,11.4,3.7,17.6,2c35.4-10.1,50.3-44.3,33.5-77.1c-11.9-23.3-32.3-36.7-56.2-44.4c-16.8-5.4-34.6-8.2-52.1-11.2c-18.6-3.2-36.6-8.1-52.6-18.2c-32.4-20.5-47.4-49.7-43.3-88.1c2.5-23.2,9-45.1,22.5-67.6c1.6,7.4,2.9,12.7,3.7,18c5.5,36.3,21.6,67.6,45.2,95.2c4.9,5.7,10.6,11,16.9,15c17.2,11,35,21.2,52.5,31.7c15.6,9.3,31.8,18,46.8,28.1c13.5,9.1,23.6,21.6,29.4,36.8c7.9-9.8,14.5-21.1,23.9-29c13.6-11.3,28.9-20.7,44-29.9c12.9-7.8,26.9-13.9,40.1-21.3c45.9-25.9,72.3-66,83.8-116.6c1.7-7.4,3-14.8,4.6-22.2c0.2-0.7,1.1-1.4,2.4-2.9c15.3,28.4,23.8,57.8,20.7,89.8c-2.3,23.9-14.6,42.6-33.9,56.7c-18,13.1-38.3,20.5-60.1,24.2c-14.9,2.5-29.9,5.1-44.5,8.7c-22.1,5.5-42,15.5-56,34.1c-6.3,8.3-12,18.1-14.6,28.1c-7.5,29.1,13.6,59,44,63.5c3.8,0.6,8.7-1.3,12.1-3.5c7.9-5.1,15.6-5.9,23.8-1.6c-16.9,19.4-35.2,37.7-50.1,58.4c-14.7,20.4-25.9,43.2-39,65.7c-13.3-22.7-24.8-45.9-39.6-66.6C1778.6,523,1760.5,505,1744,486L1744,486z M1854,531c-7.6-5-14.5-9.6-21.5-14.2c-7.2,5-14,9.7-21,14.5c7.1,11.9,13.9,23.1,21.4,35.7C1840.3,554.5,1846.9,543.1,1854,531L1854,531z M1868.5,508.6c-15.6-6.6-27.7-16.6-36-33.2c-7.5,17.4-20,26.1-36.7,33.2c16.1,5.5,26.8-1.2,37.2-8.7C1843.6,508.8,1854.7,513.7,1868.5,508.6L1868.5,508.6z M1748.9,454.1c8.2-1.8,15.7-2.9,22.8-5.2c15.5-5.1,22.2-17.3,18.4-32c-3.7-14.3-18-24.1-32.5-21.4c-6.4,1.2-12.6,4.2-18.8,6.6c-17.9,6.7-35.5,14.2-53.6,20.2c-33.8,11.3-69-4.6-86.5-29.1c-22.9-32-27.8-67.4-15.8-107.3c3.3,3.8,5.6,6.1,7.4,8.8c12.7,18.8,26.4,36.8,44.1,51.5c22.5,18.8,48.2,28.2,77.4,26.9c19.9-0.9,39,1.6,57.1,10.4c13.1,6.3,24.2,14.9,31.4,27.9c9.1,16.6,6.8,38.6-5.4,52.4c-9.4,10.7-24.1,13.9-36.4,8C1751.2,468.1,1749.3,464.8,1748.9,454.1L1748.9,454.1z M2081.6,286.1c16.9,42.5,3.7,96-29.7,122.2c-18.6,14.6-40,20.5-63.9,15.7c-22.5-4.5-43-14.2-63.7-23.5c-9-4.1-18-7.4-28.3-4.2c-12.9,4-21.5,14.4-21.5,27.3c0,12.8,7.3,22.2,20.8,25.9c6.8,1.9,13.8,2.9,20.6,4.2c0.1,12.3-3.9,18.1-14.7,20.1c-13.4,2.4-24.5-1.5-32.9-12.7c-15.2-20.3-9.4-52.1,13.2-68.6c20.1-14.7,43.1-20.4,67.9-19.8c9.3,0.2,18.8,0.4,27.9-1.1c29.4-4.9,52.8-20.5,71.8-42.9c8.1-9.5,15.2-19.7,22.7-29.6C2074.9,295.2,2077.7,291.3,2081.6,286.1L2081.6,286.1z M1920,110.2c34,13.5,61,34.4,71.8,70.3c12.1,40.2,6.8,77.9-23.8,108.6c-11.4,11.5-25.2,21.1-39.2,29.6c-20.2,12.3-43.3,17.7-66.6,23.8c33.8-28.6,57.1-63.7,68.8-106.2C1942.9,193.1,1940.8,151.1,1920,110.2L1920,110.2z M1805.2,344.4c-35-10.9-67.6-21.1-94.9-43.1c-41.4-33.4-53.6-88.2-30.4-135.9c11.5-23.7,38.9-47,65.5-55.5C1706.8,201.9,1734.3,277.1,1805.2,344.4L1805.2,344.4z"/>
+                    </Canvas>
+
+                    <Canvas x:Name="ElemGeo" Width="50" Height="50">
+                        <Path x:Name="GeoFill" Width="50" Height="50"
+                              Fill="#FFB23B"
+                              Stretch="Uniform"
+                              Data="M2439.1,946.8c-12.7,24.2-29.9,45.4-49.7,66.7c-39.3-112.8-107.6-205.5-184.7-294.1c-43.4,50.5-87.9,98.6-106.1,163.6c0.7,0.6,1.5,1.3,2.2,1.9c34.3-28.7,68.6-57.5,103.9-87c40.1,37.9,72.9,80.5,98.5,130.4c-24.8,28.1-54.5,49.9-84.9,73.1c-6.6-8-12.5-15.2-16.8-20.5c16.2-17.3,31.3-33.6,46.7-49.7c9.2-9.6,9.5-9.5,3.8-21.1c-11.1-22.6-27.6-40.7-48-57.4c-7.7,4.6-15.7,8.8-22.9,13.9c-33,23.5-63.2,50.2-91.1,79.5c-2,2.1-3.8,4.2-6.1,6.9c-1.8-2-3-3-3.7-4.3c-15.4-27-27.1-55.4-34.3-85.7c-1.7-7.1-0.4-12.5,3.9-18.2c27.3-36.5,59.8-68.1,94-97.9c16.8-14.6,34.3-28.4,51.5-42.4c3.1-2.6,6.6-4.8,9.6-7C2275.7,738.9,2411,883,2439.1,946.8L2439.1,946.8z M2204.3,1197.5c-28.4-24.3-56.5-47.2-83.4-71.5c-42-37.9-81-78.8-114.4-124.6c-10.7-14.6-19.9-30.3-30.1-45.3c-4.2-6.2-4.9-11.7-0.1-17.9c13.8-17.9,27.4-36,41.2-54c0.9-1.2,2.5-2,4.5-3.7c38.7,111.6,106.9,204,182.8,291.5c34.8-22.7,101.1-123.8,106.9-164.3c-36.4,28.7-69.6,58.3-105.4,87.5c-39.9-37.5-72.6-80.2-98.5-130.4c24.6-27.9,54.5-49.6,84.8-73c6.4,7.6,12.3,14.7,17.9,21.4c-7.7,8.3-14.4,16-21.6,23.3c-9.5,9.7-19.3,19.2-29.2,28.5c-4.3,4-5.1,7.9-2.8,13.2c10.3,23.6,26.7,42.3,46.1,58.8c3.5,3,6.9,2.1,10.2,0c8-5.1,16.2-9.8,23.8-15.5c31.1-23.2,60.3-48.7,86.6-77.3c1.1-1.2,2.4-2.2,3.4-3.2c1,0.4,1.9,0.5,2.2,1c16.9,28.1,28.9,58.2,36.4,90.1c1.5,6.4-0.6,10.9-4.2,15.9c-20.9,28.3-44.9,53.8-71,77.3c-23.6,21.2-48.2,41.3-72.4,61.8C2214.3,1190.3,2210.2,1193.1,2204.3,1197.5L2204.3,1197.5z"/>
+                    </Canvas>
+                </StackPanel>
+            </StackPanel>
+            
+            <TextBlock x:Name="CameraInfoText"
+                       FontSize="14"
+                       Foreground="#AAAAAA"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       Margin="20"
+                       IsVisible="False"/>
+            
+            <Border x:Name="PluginOverlay"
+                    Background="Transparent"
+                    IsVisible="False"
+                    ZIndex="500">
+            </Border>
+        </Grid>
+
+        <Border x:Name="PhotoPanel"
+                Width="280"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Stretch"
+                Background="{DynamicResource ThemeSurface}"
+                BorderBrush="{DynamicResource ThemeSurfaceVariant}"
+                BorderThickness="1,0,0,0"
+                IsVisible="False"
+                Margin="0,0,0,60"
+                ZIndex="300">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <Grid Grid.Row="0">
+                    <ScrollViewer Padding="8">
+                        <ItemsControl x:Name="PhotoList" ItemsSource="{Binding Photos}" x:CompileBindings="False">
+                            <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="local:PhotoItem">
+                                <Border x:Name="PhotoItemBorder"
+                                        Background="{Binding IsSelected, Converter={StaticResource SelectedBackgroundConverter}}"
+                                        CornerRadius="8" 
+                                        Margin="4"
+                                        Padding="8"
+                                        Cursor="Hand"
+                                        PointerPressed="PhotoItem_PointerPressed"
+                                        Tag="{Binding}">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <TextBlock Grid.Row="0"
+                                                   Text="{Binding Index}"
+                                                   FontSize="12"
+                                                   FontWeight="Bold"
+                                                   Foreground="{Binding IsSelected, Converter={StaticResource SelectedForegroundConverter}}"
+                                                   HorizontalAlignment="Left"
+                                                   Margin="0,0,0,4"/>
+                                        <Grid Grid.Row="1">
+                                            <Image Source="{Binding Thumbnail}"
+                                                   Stretch="Uniform"
+                                                   HorizontalAlignment="Stretch"/>
+                                            <Border IsVisible="{Binding IsSelected}"
+                                                    Background="#80000000"
+                                                    VerticalAlignment="Stretch"
+                                                    HorizontalAlignment="Stretch">
+                                                <TextBlock Text="再次点击&#10;返回实时"
+                                                           FontSize="14"
+                                                           FontWeight="Bold"
+                                                           Foreground="White"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           TextAlignment="Center"/>
+                                            </Border>
+                                            <Grid HorizontalAlignment="Left"
+                                                  VerticalAlignment="Bottom"
+                                                  Margin="4">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <CheckBox x:Name="PhotoCheckBox"
+                                                          Grid.Row="0"
+                                                          HorizontalAlignment="Left"
+                                                          IsChecked="{Binding IsChecked}"
+                                                          IsVisible="{Binding $parent[ItemsControl].((local:MainWindow)DataContext).IsSelectMode}"
+                                                          Background="White"
+                                                          BorderBrush="#CCCCCC"/>
+                                                <Button Width="28"
+                                                        Height="28"
+                                                        Grid.Row="1"
+                                                        HorizontalAlignment="Left"
+                                                        Classes="delete-btn"
+                                                        CornerRadius="14"
+                                                        Padding="0"
+                                                        Click="DeletePhoto_Click"
+                                                        Tag="{Binding}"
+                                                        IsVisible="{Binding !IsDeleting}">
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Path Fill="White" Data="M5.75 3V1.5h4.5V3zm-1.5 0V1a1 1 0 0 1 1-1h5.5a1 1 0 0 1 1 1v2h2.5a.75.75 0 0 1 0 1.5h-.365l-.743 9.653A2 2 0 0 1 11.148 16H4.852a2 2 0 0 1-1.994-1.847L2.115 4.5H1.75a.75.75 0 0 1 0-1.5zm-.63 1.5h8.76l-.734 9.538a.5.5 0 0 1-.498.462H4.852a.5.5 0 0 1-.498-.462z"/>
+                                                    </Viewbox>
+                                                </Button>
+                                                <StackPanel Orientation="Horizontal"
+                                                            Grid.Row="1"
+                                                            HorizontalAlignment="Left"
+                                                            Spacing="4"
+                                                            IsVisible="{Binding IsDeleting}">
+                                                    <Button Content="确认删除"
+                                                            FontSize="11"
+                                                            Classes="delete-btn"
+                                                            Foreground="White"
+                                                            CornerRadius="4"
+                                                            Padding="8,4"
+                                                            Click="ConfirmDeletePhoto_Click"
+                                                            Tag="{Binding}"/>
+                                                    <Button Content="取消"
+                                                            FontSize="11"
+                                                            Background="#555555"
+                                                            Foreground="White"
+                                                            CornerRadius="4"
+                                                            Padding="8,4"
+                                                            Click="CancelDeletePhoto_Click"
+                                                            Tag="{Binding}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+                
+                <Border x:Name="ImportingOverlay"
+                        Background="#E0000000"
+                        IsVisible="False"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center"
+                        CornerRadius="8"
+                        Padding="20,12">
+                    <StackPanel Orientation="Vertical" Spacing="8">
+                        <ProgressBar IsIndeterminate="True"
+                                     Width="120"
+                                     Height="6"
+                                     HorizontalAlignment="Center"/>
+                        <TextBlock Text="正在导入，请等待..."
+                                   FontSize="14"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            
+            <Border Grid.Row="1" 
+                        Background="Transparent" 
+                        Padding="12,8">
+                    <StackPanel Orientation="Vertical" 
+                                HorizontalAlignment="Center" 
+                                Spacing="8">
+                        <StackPanel x:Name="NormalButtons"
+                                    Orientation="Horizontal" 
+                                    HorizontalAlignment="Center" 
+                                    Spacing="16">
+                            <Button x:Name="SavePhotoBtn"
+                                    Classes="nav-btn"
+                                    Click="SavePhotoBtn_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="18" Height="18">
+                                        <Path Classes="icon-path" Data="M433.941 129.941l-83.882-83.882A48 48 0 0 0 316.118 32H48C21.49 32 0 53.49 0 80v352c0 26.51 21.49 48 48 48h352c26.51 0 48-21.49 48-48V163.882a48 48 0 0 0-14.059-33.941zM224 416c-35.346 0-64-28.654-64-64 0-35.346 28.654-64 64-64s64 28.654 64 64c0 35.346-28.654 64-64 64zm96-304.52V212c0 6.627-5.373 12-12 12H76c-6.627 0-12-5.373-12-12V108c0-6.627 5.373-12 12-12h228.52c3.183 0 6.235 1.264 8.485 3.515l3.48 3.48A11.996 11.996 0 0 1 320 111.48z"/>
+                                    </Viewbox>
+                                    <TextBlock Text="保存照片" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            
+                            <Button x:Name="ImportPhotoBtn"
+                                    Classes="nav-btn"
+                                    Click="ImportPhotoBtn_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Viewbox Width="18" Height="18">
+                                        <Path Classes="icon-path" Data="M432 320h-32a16 16 0 0 0-16 16v112H64V128h144a16 16 0 0 0 16-16V80a16 16 0 0 0-16-16H48a48 48 0 0 0-48 48v352a48 48 0 0 0 48 48h352a48 48 0 0 0 48-48V336a16 16 0 0 0-16-16zM488 0H360c-21.37 0-32.05 25.91-17 41l35.73 35.73L135 320.37a24 24 0 0 0 0 34L157.67 377a24 24 0 0 0 34 0l243.61-243.68L471 169c15 15 41 4.5 41-17V24a24 24 0 0 0-24-24z"/>
+                                    </Viewbox>
+                                    <TextBlock Text="导入" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        
+                        <StackPanel x:Name="SelectModeButtons"
+                                    Orientation="Horizontal" 
+                                    HorizontalAlignment="Center" 
+                                    Spacing="12"
+                                    IsVisible="False">
+                            <Button Classes="nav-btn"
+                                    Click="ConfirmSavePhotos_Click">
+                                <TextBlock Text="确定" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                            </Button>
+                            <Button Classes="nav-btn"
+                                    Click="CancelSelectMode_Click">
+                                <TextBlock Text="取消" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                            </Button>
+                            <Button Classes="nav-btn"
+                                    Click="InvertSelection_Click">
+                                <TextBlock Text="反选" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                            </Button>
+                        </StackPanel>
+                        
+                        <CheckBox x:Name="IncludeInkCheckBox"
+                                  Classes="ink-checkbox"
+                                  Content="保留墨迹注释"
+                                  HorizontalAlignment="Center"
+                                  Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Popup x:Name="MoreMenuPopup"
+               PlacementMode="Top"
+               IsLightDismissEnabled="True"
+               IsOpen="False">
+            <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="4" BorderBrush="{DynamicResource ThemeSurfaceVariant}" BorderThickness="1">
+                <StackPanel>
+                    <Button Content="切换摄像头" Click="SwitchCamera_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="梯形校正" Click="KeystoneCorrection_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="清除矫正" Click="ClearKeystone_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="设置" Click="OpenSettings_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="退出" Click="Exit_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <Border x:Name="PagePanel"
+                Grid.Row="0"
+                Grid.RowSpan="2"
+                Width="280"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Stretch"
+                Background="{DynamicResource ThemeSurface}"
+                BorderBrush="{DynamicResource ThemeSurfaceVariant}"
+                BorderThickness="1,0,0,0"
+                IsVisible="False"
+                Margin="0,0,0,60"
+                ZIndex="250">
+            <Border.RenderTransform>
+                <TranslateTransform X="280"/>
+            </Border.RenderTransform>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <Grid Grid.Row="0">
+                    <ScrollViewer Padding="8">
+                        <ItemsControl x:Name="PageList" ItemsSource="{Binding WhiteboardPageThumbnails}" x:CompileBindings="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="local:WhiteboardPageThumbnail">
+                                    <Border x:Name="PageItemBorder"
+                                            Background="{Binding IsSelected, Converter={StaticResource SelectedBackgroundConverter}}"
+                                            CornerRadius="8" 
+                                            Margin="4"
+                                            Padding="8"
+                                            Cursor="Hand"
+                                            PointerPressed="PageItem_PointerPressed"
+                                            Tag="{Binding PageNumber}">
+                                        <Grid RowDefinitions="Auto,*">
+                                            <TextBlock Grid.Row="0"
+                                                       Text="{Binding PageNumber, StringFormat='第{0}页'}"
+                                                       FontSize="12"
+                                                       FontWeight="Bold"
+                                                       Foreground="{Binding IsSelected, Converter={StaticResource SelectedForegroundConverter}}"
+                                                       HorizontalAlignment="Left"
+                                                       Margin="0,0,0,4"/>
+                                            <Border Grid.Row="1"
+                                                    Background="#2E5C4A"
+                                                    CornerRadius="4"
+                                                    Height="120">
+                                                <Image Source="{Binding Thumbnail}"
+                                                       Stretch="Uniform"
+                                                       HorizontalAlignment="Stretch"
+                                                       VerticalAlignment="Stretch"/>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    
+                    <Border x:Name="PageImportingOverlay"
+                            Background="#E0000000"
+                            IsVisible="False"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            CornerRadius="8"
+                            Padding="20,12">
+                        <StackPanel Orientation="Vertical" Spacing="8">
+                            <ProgressBar IsIndeterminate="True"
+                                         Width="120"
+                                         Height="6"
+                                         HorizontalAlignment="Center"/>
+                            <TextBlock Text="正在导入PPT，请等待..."
+                                       FontSize="14"
+                                       Foreground="White"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                
+                <Border Grid.Row="1" 
+                        Background="Transparent" 
+                        Padding="12,8">
+                    <StackPanel Orientation="Vertical" 
+                                HorizontalAlignment="Center" 
+                                Spacing="8">
+                        <Button Classes="nav-btn"
+                                Click="AddPageBtn_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="18" Height="18">
+                                    <Path Classes="icon-path" Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                                </Viewbox>
+                                <TextBlock Text="添加新页" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        
+                        <Button Classes="nav-btn"
+                                Click="ImportPptBtn_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Viewbox Width="18" Height="18">
+                                    <Path Classes="icon-path" Data="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>
+                                </Viewbox>
+                                <TextBlock Text="导入PPT" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Button x:Name="PluginCancelButton"
+                Classes="tool-btn-square"
+                Width="56"
+                Height="56"
+                IsVisible="False"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                ZIndex="300"
+                Click="PluginCancelButton_Click">
+            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                    <Path Classes="icon-path" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </Viewbox>
+                <TextBlock Grid.Row="1" Text="取消" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+            </Grid>
+        </Button>
+
+        <Popup x:Name="PenSettingsPopup"
+               PlacementMode="Top"
+               PlacementTarget="{Binding #PenBtn}"
+               IsLightDismissEnabled="True"
+               IsOpen="False">
+            <Border Background="{DynamicResource ThemeSurface}" CornerRadius="12" Padding="12" BorderBrush="{DynamicResource ThemeSurfaceVariant}" BorderThickness="1">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="颜色" FontSize="13" Foreground="{DynamicResource ThemeTextSecondary}" Margin="0,0,0,2"/>
+                    <Grid x:Name="ColorGrid" Width="200">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                    </Grid>
+                    
+                    <Border Height="1" Background="{DynamicResource ThemeSurfaceVariant}" Margin="0,4"/>
+                    
+                    <TextBlock Text="粗细" FontSize="13" Foreground="{DynamicResource ThemeTextSecondary}" Margin="0,0,0,2"/>
+                    <StackPanel x:Name="SizePanel" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <Popup x:Name="ClearSlidePopup"
+               PlacementMode="Top"
+               PlacementTarget="{Binding #EraserBtn}"
+               IsLightDismissEnabled="True"
+               IsOpen="False">
+            <Border Background="{DynamicResource ThemeSurface}" CornerRadius="12" Padding="16" BorderBrush="{DynamicResource ThemeSurfaceVariant}" BorderThickness="1">
+                <StackPanel Spacing="12" Width="200">
+                    <TextBlock Text="滑动清屏" FontSize="13" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center"/>
+                    <Grid>
+                        <Border x:Name="SlideTrack" 
+                                Height="44" 
+                                CornerRadius="22" 
+                                Background="{DynamicResource ThemeSurfaceVariant}">
+                            <TextBlock Text="→ 滑动清屏 →" 
+                                       FontSize="12" 
+                                       Foreground="{DynamicResource ThemeTextTertiary}" 
+                                       HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"/>
+                        </Border>
+                        <Border x:Name="SlideThumb"
+                                Width="44"
+                                Height="44"
+                                CornerRadius="22"
+                                Background="#FF6B6B"
+                                Cursor="Hand"
+                                HorizontalAlignment="Left"
+                                Margin="0,0,0,0">
+                            <Viewbox Width="20" Height="20">
+                                <Path Fill="White" Data="M16.5 4.478v.227a49 49 0 0 1 3.878.512a.75.75 0 1 1-.256 1.478l-.209-.035l-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A49 49 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a53 53 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951m-6.136-1.452a51 51 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a50 50 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452m-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058z"/>
+                            </Viewbox>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Popup>
+
+        <Border x:Name="WhiteboardBackground"
+                Background="#2E5C4A"
+                IsVisible="False"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                ZIndex="100"/>
+        
+        <local:InkCanvas x:Name="InkCanvasOverlay" 
+                         HorizontalAlignment="Stretch" 
+                         VerticalAlignment="Stretch" 
+                         IsHitTestVisible="False"
+                         ZIndex="150"/>
+
+        <Border x:Name="BottomToolbar" 
+                Background="Transparent"
+                Padding="20,12"
+                VerticalAlignment="Bottom"
+                ZIndex="200">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧按钮组 -->
+                <Border x:Name="LeftButtonGroup"
+                        Grid.Column="0"
+                        Background="{DynamicResource ThemeSurface}" 
+                        Opacity="0.8"
+                        CornerRadius="{DynamicResource ThemeButtonGroupCornerRadius}"
+                        Padding="{DynamicResource ThemeButtonGroupPadding}"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Left">
+                    <Grid>
+                        <!-- 普通模式左侧按钮 -->
+                        <StackPanel x:Name="NormalBottomButtons"
+                                    Orientation="Horizontal" 
+                                    Spacing="0">
+                            <Button x:Name="MoreButton" 
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="MoreButton_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M4 6a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1m0 12a1 1 0 0 1 1-1h14a1 1 0 1 1 0 2H5a1 1 0 0 1-1-1m1-7a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="更多" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Button x:Name="PictureInPictureBtn"
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="PictureInPicture_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="m15.989 4l-1.503 1.5H5.25l-.144.006A1.75 1.75 0 0 0 3.5 7.25v2.24l2.61-1.64a2.25 2.25 0 0 1 3.008.569l.095.139a2.25 2.25 0 0 1 .163 2.082l-.079.166l-1.208 2.286a.75.75 0 0 0 .933 1.05l.098-.046l1.76-.993a.75.75 0 0 1 .826 1.247l-.085.057l-1.765.996a2.25 2.25 0 0 1-3.163-2.867l.07-.145l1.208-2.286a.75.75 0 0 0-.964-1.037l-.098.052L3.5 11.262v5.493c0 .966.784 1.75 1.75 1.75h13.5a1.75 1.75 0 0 0 1.75-1.75V9.443L22 7.946v8.809a3.25 3.25 0 0 1-3.25 3.25H5.25A3.25 3.25 0 0 1 2 16.755V7.25a3.25 3.25 0 0 1 3.066-3.245L5.25 4zm5.186-.455l.13.12l.121.13a2.27 2.27 0 0 1-.121 3.08l-4.281 4.273a2.25 2.25 0 0 1-.943.562l-2.327.7a1 1 0 0 1-1.24-1.265l.739-2.295c.11-.34.299-.65.552-.903l4.29-4.283a2.27 2.27 0 0 1 3.08-.12m-2.02 1.18l-4.29 4.284a.75.75 0 0 0-.184.3l-.447 1.39l1.416-.425a.75.75 0 0 0 .314-.188l4.28-4.273l.075-.086a.769.769 0 0 0-1.163-1.002"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="版中版" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Button Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="Minimize_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M18 3.25H6A2.75 2.75 0 0 0 3.25 6v6a.75.75 0 0 0 1.5 0V6A1.25 1.25 0 0 1 6 4.75h12A1.25 1.25 0 0 1 19.25 6v12A1.25 1.25 0 0 1 18 19.25h-6a.75.75 0 0 0 0 1.5h6A2.75 2.75 0 0 0 20.75 18V6A2.75 2.75 0 0 0 18 3.25M11.21 13.19a.8.8 0 0 0 .29.06h4a.75.75 0 0 0 0-1.5h-2.19l3.22-3.22a.75.75 0 0 0-1.06-1.06l-3.22 3.22V8.5a.75.75 0 0 0-1.5 0v4a.8.8 0 0 0 .06.29a.7.7 0 0 0 .4.4M8 14.25H5A1.76 1.76 0 0 0 3.25 16v3A1.76 1.76 0 0 0 5 20.75h3A1.76 1.76 0 0 0 9.75 19v-3A1.76 1.76 0 0 0 8 14.25M8.25 19a.25.25 0 0 1-.25.25H5a.25.25 0 0 1-.25-.25v-3a.25.25 0 0 1 .25-.25h3a.25.25 0 0 1 .25.25Z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="最小化" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                        
+                        <!-- 白板模式左侧按钮 -->
+                        <StackPanel x:Name="WhiteboardModeButtons"
+                                    Orientation="Horizontal" 
+                                    Spacing="0"
+                                    IsVisible="False">
+                            <Button x:Name="ExitWhiteboardBtn" 
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="ExitWhiteboard_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="收起" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Button Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="Minimize_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M6 12h12v2H6z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="最小化" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 梯形校正模式左侧按钮组 -->
+                <Border x:Name="KeystoneButtonGroup"
+                        Grid.Column="0"
+                        Background="{DynamicResource ThemeSurface}" 
+                        Opacity="0.8"
+                        CornerRadius="{DynamicResource ThemeButtonGroupCornerRadius}"
+                        Padding="{DynamicResource ThemeButtonGroupPadding}"
+                        VerticalAlignment="Center"
+                        IsVisible="False">
+                    <StackPanel x:Name="KeystoneCorrectionButtons"
+                                Orientation="Horizontal" 
+                                Spacing="0">
+                        <Button Classes="tool-btn-square"
+                                Width="56"
+                                Height="56"
+                                Click="ConfirmKeystone_Click">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                    <Path Fill="#4CAF50" Data="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </Viewbox>
+                                <TextBlock Grid.Row="1" Text="确定" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                            </Grid>
+                        </Button>
+                        <Button Classes="tool-btn-square"
+                                Width="56"
+                                Height="56"
+                                Click="CancelKeystone_Click">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                    <Path Fill="#F44336" Data="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </Viewbox>
+                                <TextBlock Grid.Row="1" Text="取消" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                            </Grid>
+                        </Button>
+                        <Button Classes="tool-btn-square"
+                                Width="56"
+                                Height="56"
+                                Click="ResetKeystone_Click">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                    <Path Fill="#FFC107" Data="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+                                </Viewbox>
+                                <TextBlock Grid.Row="1" Text="重置" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- 中央按钮组 -->
+                <Border x:Name="CenterButtonGroup"
+                        Grid.Column="1" 
+                        Background="{DynamicResource ThemeSurface}" 
+                        Opacity="0.8"
+                        CornerRadius="{DynamicResource ThemeButtonGroupCornerRadius}"
+                        Padding="{DynamicResource ThemeButtonGroupPadding}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                    <Grid>
+                        <Border x:Name="ToolSliderBackground"
+                                Width="{DynamicResource ThemeSliderIndicatorSize}"
+                                Height="{DynamicResource ThemeSliderIndicatorSize}"
+                                Background="#0078D4"
+                                CornerRadius="{DynamicResource ThemeSliderIndicatorCornerRadius}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center">
+                            <Border.RenderTransform>
+                                <TranslateTransform X="0"/>
+                            </Border.RenderTransform>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="0">
+                            <ToggleButton x:Name="MoveBtn" 
+                                          Classes="tool-btn-transparent"
+                                          Width="56"
+                                          Height="56"
+                                          IsChecked="True"
+                                          Click="MoveBtn_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M302.189 329.126H196.105l55.831 135.993c3.889 9.428-.555 19.999-9.444 23.999l-49.165 21.427c-9.165 4-19.443-.571-23.332-9.714l-53.053-129.136l-86.664 89.138C18.729 472.71 0 463.554 0 447.977V18.299C0 1.899 19.921-6.096 30.277 5.443l284.412 292.542c11.472 11.179 3.007 31.141-12.5 31.141"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="移动" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </ToggleButton>
+                            
+                            <ToggleButton x:Name="PenBtn" 
+                                          Classes="tool-btn-transparent"
+                                          Width="56"
+                                          Height="56"
+                                          Click="PenBtn_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M4.2 20.975q-.525.125-.913-.262t-.262-.913l.875-4.25l4.55 4.55zm5.875-2.1l-4.95-4.95L15.45 3.6q.575-.575 1.425-.575T18.3 3.6l2.1 2.1q.575.575.575 1.425T20.4 8.55z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="画笔" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </ToggleButton>
+                            
+                            <ToggleButton x:Name="EraserBtn" 
+                                          Classes="tool-btn-transparent"
+                                          Width="56"
+                                          Height="56"
+                                          Click="EraserBtn_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M3.121 17.85a3 3 0 0 1 0-4.243l7.071-7.072l8.486 8.486l-3.243 3.242H20a1 1 0 1 1 0 2H6.778a3 3 0 0 1-2.121-.878L3.12 17.849zm16.97-4.243l1.415-1.415a3 3 0 0 0 0-4.242l-4.243-4.243a3 3 0 0 0-4.242 0l-1.414 1.414z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="橡皮擦" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </ToggleButton>
+
+                            <Border Width="1" Background="{DynamicResource ThemeSurfaceVariant}" Margin="4,8"/>
+
+                            <Button Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="UndoInk_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M16 3C12 3 8.4 4.8 6 7.7V4H4v8h8v-2H6.8c2-3 5.3-5 9.2-5c6.1 0 11 4.9 11 11s-4.9 11-11 11S5 22.1 5 16H3c0 7.2 5.8 13 13 13s13-5.8 13-13S23.2 3 16 3"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="撤销" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Button Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="ClearInk_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M7 4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2h4a1 1 0 1 1 0 2h-1.069l-.867 12.142A2 2 0 0 1 17.069 22H6.93a2 2 0 0 1-1.995-1.858L4.07 8H3a1 1 0 1 1 0-2h4zm2 2h6V4H9zM6.074 8l.857 12H17.07l.857-12zM10 10a1 1 0 0 1 1 1v6a1 1 0 0 1-2 0v-6a1 1 0 0 1 1-1m4 0a1 1 0 0 1 1 1v6a1 1 0 0 1-2 0v-6a1 1 0 0 1 1-1"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="清屏" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+
+                            <Border Width="1" Background="{DynamicResource ThemeSurfaceVariant}" Margin="4,8"/>
+
+                            <Button x:Name="CaptureBtn"
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="Capture_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M19 6.5h-1.28l-.32-1a3 3 0 0 0-2.84-2H9.44A3 3 0 0 0 6.6 5.55l-.32 1H5a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-8a3 3 0 0 0-3-3.05m1 11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h2a1 1 0 0 0 1-.68l.54-1.64a1 1 0 0 1 .95-.68h5.12a1 1 0 0 1 .95.68l.54 1.64a1 1 0 0 0 .9.68h2a1 1 0 0 1 1 1Zm-8-9a4 4 0 1 0 4 4a4 4 0 0 0-4-4m0 6a2 2 0 1 1 2-2a2 2 0 0 1-2 2"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="拍照" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Button x:Name="ScanBtn"
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="ScanDocument_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M4 22v-5h2v3h12v-3h2v5zm0-11V2h10l6 6v3h-2V9h-5V4H6v7zm-3 4v-2h22v2zm11 2"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="扫描" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- 右侧按钮组 -->
+                <Border x:Name="RightButtonGroup"
+                        Grid.Column="2"
+                        Background="{DynamicResource ThemeSurface}" 
+                        Opacity="0.8"
+                        CornerRadius="{DynamicResource ThemeButtonGroupCornerRadius}"
+                        Padding="{DynamicResource ThemeButtonGroupPadding}"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right">
+                    <Grid>
+                        <!-- 普通模式右侧按钮 -->
+                        <StackPanel x:Name="NormalRightButtons"
+                                    Orientation="Horizontal" 
+                                    Spacing="0">
+                            <Button x:Name="TogglePhotoBtn"
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="TogglePhotoPanel_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M19 4H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3M5 18a1 1 0 0 1-1-1v-2.42l3.3-3.29a1 1 0 0 1 1.4 0L15.41 18Zm15-1a1 1 0 0 1-1 1h-.77l-3.81-3.83l.88-.88a1 1 0 0 1 1.4 0l3.3 3.29Zm0-3.24l-1.88-1.87a3.06 3.06 0 0 0-4.24 0l-.88.88l-2.88-2.88a3.06 3.06 0 0 0-4.24 0L4 11.76V7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1Z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="照片" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Button x:Name="ConnectDeviceBtn"
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="ConnectDeviceBtn_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M640 384v64H448a128 128 0 0 0-128 128v128a128 128 0 0 0 128 128h320a128 128 0 0 0 128-128V576a128 128 0 0 0-64-110.848V394.88c74.56 26.368 128 97.472 128 181.056v128a192 192 0 0 1-192 192H448a192 192 0 0 1-192-192V576a192 192 0 0 1 192-192zM384 640v-64h192a128 128 0 0 0 128-128V320a128 128 0 0 0-128-128H256a128 128 0 0 0-128 128v128a128 128 0 0 0 64 110.848v70.272A192.06 192.06 0 0 1 64 448V320a192 192 0 0 1 192-192h320a192 192 0 0 1 192 192v128a192 192 0 0 1-192 192z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="连接设备" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                        
+                        <!-- 白板模式右侧按钮（翻页） -->
+                        <StackPanel x:Name="WhiteboardPageButtons"
+                                    Orientation="Horizontal" 
+                                    Spacing="4"
+                                    IsVisible="False">
+                            <Button x:Name="PrevPageBtn"
+                                    Classes="tool-btn-square"
+                                    Width="48"
+                                    Height="56"
+                                    Click="PrevPage_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="24" Height="24" HorizontalAlignment="Center">
+                                        <Path Classes="icon-path" Data="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="上一页" FontSize="9" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Border x:Name="PageInfoBorder"
+                                    Width="70"
+                                    Height="56"
+                                    Background="Transparent"
+                                    VerticalAlignment="Center"
+                                    Cursor="Hand"
+                                    PointerPressed="PageInfoBorder_PointerPressed">
+                                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock x:Name="PageInfoText" 
+                                               Text="1/1" 
+                                               FontSize="18" 
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource ThemeTextPrimary}" 
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <Button x:Name="NextPageBtn"
+                                    Classes="tool-btn-square"
+                                    Width="48"
+                                    Height="56"
+                                    Click="NextPage_Click">
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="24" Height="24" HorizontalAlignment="Center">
+                                        <Path x:Name="NextPagePath" Classes="icon-path" Data="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                                    </Viewbox>
+                                    <TextBlock x:Name="NextPageText" Grid.Row="1" Text="下一页" FontSize="9" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

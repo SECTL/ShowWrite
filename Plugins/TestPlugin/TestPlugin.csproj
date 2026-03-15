@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>TestPlugin</RootNamespace>
+    <AssemblyName>TestPlugin</AssemblyName>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ShowWrite">
+      <HintPath>..\..\bin\Debug\net8.0\ShowWrite.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="ZXing.Net" Version="0.16.9" />
+    <PackageReference Include="ZXing.Net.Bindings.Windows.Compatibility" Version="0.16.9" />
+  </ItemGroup>
+
+  <Target Name="CopyPluginToPKG" AfterTargets="Build">
+    <PropertyGroup>
+      <PluginDestination>$(AppData)\ShowWrite\PKG</PluginDestination>
+    </PropertyGroup>
+    <MakeDir Directories="$(PluginDestination)" Condition="!Exists('$(PluginDestination)')" />
+    <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(PluginDestination)" />
+    <Copy SourceFiles="$(OutputPath)ZXing.dll" DestinationFolder="$(PluginDestination)" Condition="Exists('$(OutputPath)ZXing.dll')" />
+    <Copy SourceFiles="$(OutputPath)ZXing.Windows.Compatibility.dll" DestinationFolder="$(PluginDestination)" Condition="Exists('$(OutputPath)ZXing.Windows.Compatibility.dll')" />
+  </Target>
+
+</Project>
