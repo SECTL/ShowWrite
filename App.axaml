@@ -6,4 +6,21 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+	<TrayIcon.Icons>
+		<TrayIcons>
+			<TrayIcon Icon="/icon-d1tools.com.ico"
+					  ToolTipText="随心记"
+					  IsVisible="False">
+				<TrayIcon.Menu>
+					<NativeMenu>
+						<NativeMenuItem Header="开始录制" />
+						<NativeMenuItem Header="结束录制" IsEnabled="False" />
+						<NativeMenuItemSeparator />
+						<NativeMenuItem Header="设置" />
+						<NativeMenuItem Header="退出" />
+					</NativeMenu>
+				</TrayIcon.Menu>
+			</TrayIcon>
+		</TrayIcons>
+	</TrayIcon.Icons>
 </Application>

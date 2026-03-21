@@ -29,6 +29,16 @@ namespace ShowWrite
         public bool EnablePalmEraser { get; set; } = true;
     }
 
+    public class RandomNoteConfig
+    {
+        public bool Enabled { get; set; } = false;
+        public int DefaultCameraIndex { get; set; } = -1;
+        public int MicrophoneIndex { get; set; } = -1;
+        public string SavePath { get; set; } = "";
+        public string ShortcutKey { get; set; } = "Alt+Z";
+        public int RecordingDurationMinutes { get; set; } = 5;
+    }
+
     public class Config
     {
         public List<int> AvailableCameraIndices { get; set; } = new();
@@ -38,6 +48,7 @@ namespace ShowWrite
         public PenSettings PenSettings { get; set; } = new PenSettings();
         public List<string> EnabledPlugins { get; set; } = new();
         public string Theme { get; set; } = "Dark";
+        public RandomNoteConfig RandomNote { get; set; } = new RandomNoteConfig();
 
         private static readonly string ConfigPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

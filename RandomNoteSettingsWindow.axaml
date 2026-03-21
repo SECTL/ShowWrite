@@ -1,0 +1,77 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="ShowWrite.RandomNoteSettingsWindow"
+        Title="随心记设置"
+        Width="550"
+        Height="580"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="随心记设置" FontSize="18" FontWeight="Bold" Margin="0,0,0,20" Grid.Row="0"/>
+
+        <!-- 启用开关 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,0,20">
+            <TextBlock Text="启用随心记" VerticalAlignment="Center" Margin="0,0,15,0"/>
+            <ToggleSwitch x:Name="EnableToggleSwitch" OffContent="关闭" OnContent="开启"/>
+        </StackPanel>
+
+        <!-- 设置面板，根据开关启用/禁用 -->
+        <StackPanel x:Name="SettingsPanel" Grid.Row="2" IsEnabled="{Binding IsChecked, ElementName=EnableToggleSwitch}" Margin="0,0,0,15">
+            <!-- 默认摄像头 -->
+            <TextBlock Text="默认摄像头：" Margin="0,0,0,5"/>
+            <ComboBox x:Name="CameraComboBox" Width="300" HorizontalAlignment="Left"/>
+
+            <!-- 默认麦克风 -->
+            <TextBlock Text="默认麦克风：" Margin="0,15,0,5"/>
+            <DockPanel LastChildFill="True">
+                <Button x:Name="TestMicrophoneButton" Content="测试" DockPanel.Dock="Right" Width="60" Margin="10,0,0,0"/>
+                <ComboBox x:Name="MicrophoneComboBox" Width="230" HorizontalAlignment="Left"/>
+            </DockPanel>
+            
+            <!-- 麦克风测试指示器 -->
+            <StackPanel x:Name="MicrophoneTestPanel" Orientation="Horizontal" Margin="0,5,0,0" IsVisible="False">
+                <TextBlock Text="音量：" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <ProgressBar x:Name="MicrophoneLevelBar" Width="200" Height="10" Minimum="0" Maximum="100" Value="0"/>
+            </StackPanel>
+
+            <!-- 保存路径 -->
+            <TextBlock Text="保存路径：" Margin="0,15,0,5"/>
+            <DockPanel LastChildFill="True">
+                <Button x:Name="BrowseButton" Content="浏览" DockPanel.Dock="Right" Width="60"/>
+                <TextBox x:Name="SavePathTextBox" IsReadOnly="True" VerticalAlignment="Center" Background="{DynamicResource ThemeControlBackground}"/>
+            </DockPanel>
+
+            <!-- 唤起方式 -->
+            <TextBlock Text="唤起方式：" Margin="0,15,0,5"/>
+            <DockPanel LastChildFill="True">
+                <Button x:Name="SetShortcutButton" Content="设置" DockPanel.Dock="Right" Width="60"/>
+                <TextBox x:Name="ShortcutTextBox" IsReadOnly="True" Text="Alt+Z" VerticalAlignment="Center" Background="{DynamicResource ThemeControlBackground}"/>
+            </DockPanel>
+
+            <!-- 默认录制时间 -->
+            <TextBlock Text="默认录制时间：" Margin="0,15,0,5"/>
+            <StackPanel Orientation="Horizontal">
+                <NumericUpDown x:Name="DurationNumericUpDown" Minimum="1" Maximum="60" Value="5" Width="100"/>
+                <TextBlock Text="分钟" Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 按钮 -->
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+            <Button Content="确定" Click="OkButton_Click" Width="80"/>
+            <Button Content="取消" Click="CancelButton_Click" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

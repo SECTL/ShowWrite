@@ -145,6 +145,23 @@ namespace ShowWrite
             });
         }
 
+        public List<string> GetAvailableCameraNames()
+        {
+            var names = new List<string>();
+            for (int i = 0; i < _availableCameraIndices.Count; i++)
+            {
+                names.Add($"摄像头 {_availableCameraIndices[i]}");
+            }
+            return names;
+        }
+        public int GetCameraIndexByName(string name)
+        {
+            var parts = name.Split(' ');
+            if (parts.Length > 1 && int.TryParse(parts[1], out int idx))
+                return idx;
+            return -1;
+        }
+
         /// <summary>
         /// 启动指定索引的摄像头
         /// </summary>

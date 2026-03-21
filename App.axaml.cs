@@ -1,17 +1,25 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using System;
+using System.Linq;
 
 namespace ShowWrite
 {
     public partial class App : Application
     {
         public static MainWindow? MainWindow { get; private set; }
+        public static TrayIcon? RandomNoteTrayIcon { get; private set; }
+        public static NativeMenuItem? StartMenuItem { get; private set; }
+        public static NativeMenuItem? StopMenuItem { get; private set; }
+        public static NativeMenuItem? SettingsMenuItem { get; private set; }
+        public static NativeMenuItem? ExitMenuItem { get; private set; }
+        public static RandomNoteModeWindow? RandomNoteWindow { get; private set; }
 
         public override void Initialize()
         {
             ThemeManager.InitializeTheme(this);
-
             AvaloniaXamlLoader.Load(this);
 
             var config = Config.Load();
@@ -27,17 +35,216 @@ namespace ShowWrite
                 ThemeManager.SetTheme(themeType);
                 ThemeManager.ApplyTheme(this, themeType);
             }
+
+            if (TrayIcon.GetIcons(this)?.FirstOrDefault() is TrayIcon trayIcon)
+            {
+                RandomNoteTrayIcon = trayIcon;
+
+                if (trayIcon.Menu is NativeMenu menu)
+                {
+                    StartMenuItem = menu.Items.OfType<NativeMenuItem>()
+                        .FirstOrDefault(item => item.Header?.ToString() == "开始录制");
+                    StopMenuItem = menu.Items.OfType<NativeMenuItem>()
+                        .FirstOrDefault(item => item.Header?.ToString() == "结束录制");
+                    SettingsMenuItem = menu.Items.OfType<NativeMenuItem>()
+                        .FirstOrDefault(item => item.Header?.ToString() == "设置");
+                    ExitMenuItem = menu.Items.OfType<NativeMenuItem>()
+                        .FirstOrDefault(item => item.Header?.ToString() == "退出");
+                }
+            }
         }
 
         public override void OnFrameworkInitializationCompleted()
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
-                desktop.MainWindow = new MainWindow();
-                MainWindow = desktop.MainWindow as MainWindow;
+                if (Program.RandomNoteMode)
+                {
+                    var randomNoteWindow = new RandomNoteModeWindow();
+                    desktop.MainWindow = randomNoteWindow;
+                    RandomNoteWindow = randomNoteWindow;
+                    randomNoteWindow.Show();
+                    randomNoteWindow.Hide();
+                }
+                else
+                {
+                    desktop.MainWindow = new MainWindow();
+                    MainWindow = desktop.MainWindow as MainWindow;
+                }
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+    }
+
+    public class RandomNoteModeWindow : Window
+    {
+        private CameraService? _cameraService;
+        private GlobalHotKey? _globalHotKey;
+        private bool _isShuttingDown = false;
+
+        public RandomNoteModeWindow()
+        {
+            SystemDecorations = SystemDecorations.None;
+            WindowState = WindowState.Minimized;
+            ShowInTaskbar = false;
+            Width = 0;
+            Height = 0;
+            Opacity = 0;
+
+            Loaded += (s, e) => InitializeRandomNote();
+        }
+
+        private void InitializeRandomNote()
+        {
+            var config = Config.Load();
+            var settings = config.RandomNote;
+
+            _cameraService = new CameraService();
+            Application.Current!.Resources["CameraService"] = _cameraService;
+
+            _cameraService.DetectAndConnectCamera();
+
+            InitializeTrayIcon();
+            InitializeGlobalHotKey();
+        }
+
+        private void InitializeTrayIcon()
+        {
+            var trayIcon = App.RandomNoteTrayIcon;
+            if (trayIcon != null)
+            {
+                trayIcon.IsVisible = true;
+
+                if (trayIcon.Menu is NativeMenu menu)
+                {
+                    foreach (var item in menu.Items.OfType<NativeMenuItem>())
+                    {
+                        if (item.Header?.ToString() == "开始录制")
+                        {
+                            item.Click += (s, e) => StartRecording();
+                        }
+                        else if (item.Header?.ToString() == "结束录制")
+                        {
+                            item.Click += (s, e) => StopRecording();
+                            item.IsEnabled = false;
+                        }
+                        else if (item.Header?.ToString() == "设置")
+                        {
+                            item.Click += (s, e) => OpenSettings();
+                        }
+                        else if (item.Header?.ToString() == "退出")
+                        {
+                            item.Click += (s, e) => Shutdown();
+                        }
+                    }
+                }
+
+                trayIcon.Clicked += (s, e) =>
+                {
+                    var config = Config.Load();
+                    if (config.RandomNote.Enabled)
+                    {
+                        if (RandomNoteSettingsWindow.IsRecording())
+                            StopRecording();
+                        else
+                            StartRecording();
+                    }
+                };
+            }
+        }
+
+        private void InitializeGlobalHotKey()
+        {
+            try
+            {
+                var handle = TryGetWindowHandle();
+                if (handle != IntPtr.Zero)
+                {
+                    _globalHotKey = new GlobalHotKey(handle);
+                    var settings = Config.Load().RandomNote;
+                    if (!string.IsNullOrEmpty(settings.ShortcutKey))
+                    {
+                        if (_globalHotKey.Register(settings.ShortcutKey))
+                        {
+                            _globalHotKey.HotKeyPressed += OnGlobalHotKeyPressed;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void OnGlobalHotKeyPressed()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                var settings = Config.Load().RandomNote;
+                RandomNoteSettingsWindow.TryTriggerShortcut(settings.ShortcutKey, _cameraService!, ShowNotification);
+            });
+        }
+
+        private IntPtr TryGetWindowHandle()
+        {
+            var platformHandle = this.TryGetPlatformHandle();
+            return platformHandle?.Handle ?? IntPtr.Zero;
+        }
+
+        private void StartRecording()
+        {
+            if (_cameraService == null) return;
+            RandomNoteSettingsWindow.StartRecordingFromTray(_cameraService, ShowNotification);
+            UpdateTrayMenuState(true);
+        }
+
+        private void StopRecording()
+        {
+            RandomNoteSettingsWindow.StopRecording();
+            UpdateTrayMenuState(false);
+        }
+
+        private void UpdateTrayMenuState(bool isRecording)
+        {
+            if (App.StartMenuItem != null)
+                App.StartMenuItem.IsEnabled = !isRecording;
+            if (App.StopMenuItem != null)
+                App.StopMenuItem.IsEnabled = isRecording;
+        }
+
+        private void OpenSettings()
+        {
+            if (_cameraService == null) return;
+            var settingsWindow = new RandomNoteSettingsWindow(_cameraService);
+            settingsWindow.Show();
+        }
+
+        private void ShowNotification(string message)
+        {
+            RandomNoteSettingsWindow.ShowNotification("随心记", message);
+        }
+
+        public void Shutdown()
+        {
+            _isShuttingDown = true;
+            this.Close();
+        }
+
+        protected override void OnClosing(WindowClosingEventArgs e)
+        {
+            if (_isShuttingDown)
+            {
+                _globalHotKey?.Dispose();
+                _cameraService?.StopCapture();
+                _cameraService?.Dispose();
+
+                if (App.RandomNoteTrayIcon != null)
+                {
+                    App.RandomNoteTrayIcon.IsVisible = false;
+                }
+            }
+            base.OnClosing(e);
         }
     }
 }

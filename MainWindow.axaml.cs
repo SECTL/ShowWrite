@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using Path = System.IO.Path;
 using Point = Avalonia.Point;
 using Rect = Avalonia.Rect;
+using PathShape = Avalonia.Controls.Shapes.Path; // 解决 Path 类名冲突
 
 namespace ShowWrite
 {
@@ -33,6 +34,7 @@ namespace ShowWrite
     {
         private readonly CameraService _cameraService;
         private List<IPluginWindow> _pluginWindows = new();
+        private GlobalHotKey? _globalHotKey;
 
         private Control[] _loadingElements;
         private CancellationTokenSource? _loadingAnimationCts;
@@ -42,6 +44,13 @@ namespace ShowWrite
         private Point _panOffset = new Point(0, 0);
         private Point _lastPanPoint;
         private bool _isPanning;
+
+        private readonly Dictionary<IPointer, Point> _activePointers = new();
+        private double _initialPinchDistance;
+        private double _initialPinchZoom;
+        private Point _initialPinchCenter;
+        private Point _initialPinchPanOffset;
+        private bool _isPinching;
 
         private int _videoWidth;
         private int _videoHeight;
@@ -137,10 +146,15 @@ namespace ShowWrite
 
         public ObservableCollection<WhiteboardPageThumbnail> WhiteboardPageThumbnails => _whiteboardManager?.WhiteboardPageThumbnails ?? new ObservableCollection<WhiteboardPageThumbnail>();
 
+        // 橡皮光标相关
+        private Canvas? _cursorCanvas;
+        private Border? _eraserCursor;
+
         public MainWindow()
         {
             InitializeComponent();
             this.WindowState = WindowState.FullScreen;
+            this.KeyDown += MainWindow_KeyDown;
 
             _clearSlidePopup = this.FindControl<Popup>("ClearSlidePopup");
             _normalButtons = this.FindControl<StackPanel>("NormalButtons");
@@ -271,6 +285,116 @@ namespace ShowWrite
             PluginManager.Instance.LoadPlugins();
             PluginDebugger.PrintPluginStatus();
             InitializePluginButtons();
+
+            // 创建橡皮光标覆盖层
+            CreateEraserCursorOverlay();
+            // 订阅橡皮光标事件
+            InkCanvasOverlay.EraserCursorUpdate += UpdateEraserCursor;
+        }
+
+        private void CreateEraserCursorOverlay()
+        {
+            _cursorCanvas = new Canvas
+            {
+                IsHitTestVisible = false,
+                Background = Brushes.Transparent,
+            };
+
+            // 将覆盖层添加到 VideoAreaContainer 的父容器中
+            var parent = VideoAreaContainer.Parent as Panel;
+            if (parent != null)
+            {
+                parent.Children.Add(_cursorCanvas);
+                _cursorCanvas.SetValue(Canvas.ZIndexProperty, 300);
+            }
+            else
+            {
+                var root = this.Content as Grid;
+                if (root != null)
+                {
+                    root.Children.Add(_cursorCanvas);
+                    _cursorCanvas.SetValue(Canvas.ZIndexProperty, 300);
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            VideoAreaContainer.LayoutUpdated += (s, e) => UpdateCursorCanvasLayout();
+            UpdateCursorCanvasLayout();
+
+            _eraserCursor = new Border
+            {
+                Width = 400,  // 临时宽度，实际大小会在更新时调整
+                Height = 500, // 临时高度，实际大小会在更新时调整
+                Background = new SolidColorBrush(Color.FromArgb(200, 240, 240, 240)), // 浅白色半透
+                BorderThickness = new Thickness(0), // 无边框
+                CornerRadius = new CornerRadius(4),
+                IsHitTestVisible = false,
+                Child = new Viewbox
+                {
+                    Child = new PathShape
+                    {
+                        Data = Geometry.Parse("M10,2 L22,2 L22,6 L10,6 Z M8,4 L4,8 L4,12 L8,16 L12,16 L16,12 L16,8 L12,4 Z M10,6 L12,6 L12,10 L10,10 Z M14,6 L16,6 L16,8 L14,8 Z"),
+                        Fill = new SolidColorBrush(Colors.White),
+                        Stretch = Stretch.Uniform,
+                        Margin = new Thickness(4),
+                    }
+                }
+            };
+            _cursorCanvas.Children.Add(_eraserCursor);
+            _eraserCursor.IsVisible = false;
+        }
+
+        private void UpdateCursorCanvasLayout()
+        {
+            if (_cursorCanvas == null || VideoAreaContainer == null) return;
+
+            // 获取 VideoAreaContainer 相对于覆盖层父容器的位置
+            var parent = _cursorCanvas.Parent as Visual;
+            if (parent == null) return;
+
+            var containerBounds = VideoAreaContainer.Bounds;
+            var containerPos = VideoAreaContainer.TranslatePoint(new Point(0, 0), parent);
+            if (containerPos == null) return;
+
+            // 设置覆盖层大小和位置
+            _cursorCanvas.Width = containerBounds.Width;
+            _cursorCanvas.Height = containerBounds.Height;
+            // 使用 SetValue 设置附加属性，避免静态方法调用冲突
+            _cursorCanvas.SetValue(Canvas.LeftProperty, containerPos.Value.X);
+            _cursorCanvas.SetValue(Canvas.TopProperty, containerPos.Value.Y);
+        }
+
+        private void UpdateEraserCursor(Point position, float size, bool visible)
+        {
+            if (_eraserCursor == null || _cursorCanvas == null) return;
+
+            _eraserCursor.IsVisible = visible;
+            if (!visible) return;
+
+            // 竖长方形：宽度为 size * 0.6，高度为 size * 1.0
+            double width = size * 1.6;
+            double height = size * 2.0;
+            _eraserCursor.Width = width;
+            _eraserCursor.Height = height;
+
+            double left = position.X - width / 2;
+            double top = position.Y - height / 2;
+
+            // 限制在画布范围内
+            left = Math.Max(0, Math.Min(_cursorCanvas.Width - width, left));
+            top = Math.Max(0, Math.Min(_cursorCanvas.Height - height, top));
+
+            _eraserCursor.SetValue(Canvas.LeftProperty, left);
+            _eraserCursor.SetValue(Canvas.TopProperty, top);
+        }
+
+        protected override void OnSizeChanged(SizeChangedEventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateCursorCanvasLayout();
         }
 
         private void UpdateButtonVisibility()
@@ -899,6 +1023,47 @@ namespace ShowWrite
             _ = InitializeLicenseAsync();
 
             _cameraService.DetectAndConnectCamera();
+
+            InitializeGlobalHotKey();
+        }
+
+        private void InitializeGlobalHotKey()
+        {
+            try
+            {
+                var handle = TryGetWindowHandle();
+                if (handle != IntPtr.Zero)
+                {
+                    _globalHotKey = new GlobalHotKey(handle);
+                    var settings = Config.Load().RandomNote;
+                    if (settings.Enabled && !string.IsNullOrEmpty(settings.ShortcutKey))
+                    {
+                        if (_globalHotKey.Register(settings.ShortcutKey))
+                        {
+                            _globalHotKey.HotKeyPressed += OnGlobalHotKeyPressed;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MainWindow] 全局快捷键初始化失败: {ex.Message}");
+            }
+        }
+
+        private void OnGlobalHotKeyPressed()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                var settings = Config.Load().RandomNote;
+                RandomNoteSettingsWindow.TryTriggerShortcut(settings.ShortcutKey, _cameraService, ShowNotificationAction);
+            });
+        }
+
+        private IntPtr TryGetWindowHandle()
+        {
+            var platformHandle = this.TryGetPlatformHandle();
+            return platformHandle?.Handle ?? IntPtr.Zero;
         }
 
         private async Task InitializeLicenseAsync()
@@ -928,6 +1093,22 @@ namespace ShowWrite
             _whiteboardManager?.Dispose();
 
             InkCanvasOverlay.Dispose();
+
+            // 取消事件订阅
+            InkCanvasOverlay.EraserCursorUpdate -= UpdateEraserCursor;
+
+            // 清理全局快捷键
+            _globalHotKey?.Dispose();
+
+            // 如果不是独立随心记模式，关闭时同时关闭随心记
+            if (!Program.RandomNoteMode)
+            {
+                if (App.RandomNoteTrayIcon != null)
+                {
+                    App.RandomNoteTrayIcon.IsVisible = false;
+                }
+                RandomNoteSettingsWindow.StopRecording();
+            }
         }
 
         #endregion
@@ -1009,6 +1190,9 @@ namespace ShowWrite
 
                 LoadKeystoneSettings();
             }
+
+            // 更新光标覆盖层布局
+            UpdateCursorCanvasLayout();
         }
 
         private void CenterVideo()
@@ -1063,7 +1247,8 @@ namespace ShowWrite
 
         private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            // 如果处于梯形校正模式且点击的元素是校正点或校正画布的子元素，则忽略平移
+            if (_whiteboardManager?.IsWhiteboardMode == true) return;
+
             if (_isKeystoneCorrectionMode)
             {
                 var source = e.Source as Visual;
@@ -1073,33 +1258,87 @@ namespace ShowWrite
                         source == _keystonePointBR || source == _keystonePointBL ||
                         source == _keystoneOverlayCanvas)
                     {
-                        // 不处理平移，让事件继续传递给校正点
                         return;
                     }
-                    source = source.GetVisualParent(); // 使用扩展方法
+                    source = source.GetVisualParent();
                 }
             }
 
             if (_whiteboardManager?.HandleCanvasPointerPressed() == true) return;
 
-            var props = e.GetCurrentPoint(VideoAreaContainer).Properties;
-            bool left = props.IsLeftButtonPressed;
-            bool wantPan =
-                props.IsMiddleButtonPressed ||
-                props.IsRightButtonPressed ||
-                (left && (!InkCanvasOverlay.IsPenMode && !InkCanvasOverlay.IsEraserMode));
+            var position = e.GetPosition(VideoAreaContainer);
+            _activePointers[e.Pointer] = position;
 
-            if (!wantPan) return;
+            if (_activePointers.Count == 2)
+            {
+                _isPinching = true;
+                _isPanning = false;
 
-            _isPanning = true;
-            _lastPanPoint = e.GetPosition(VideoAreaContainer);
-            e.Pointer.Capture(VideoAreaContainer);
-            VideoAreaContainer.Cursor = new Cursor(StandardCursorType.SizeAll);
-            e.Handled = true;
+                var points = _activePointers.Values.ToArray();
+                _initialPinchDistance = GetDistance(points[0], points[1]);
+                _initialPinchZoom = _zoom;
+                _initialPinchCenter = new Point(
+                    (points[0].X + points[1].X) / 2,
+                    (points[0].Y + points[1].Y) / 2
+                );
+                _initialPinchPanOffset = _panOffset;
+
+                e.Pointer.Capture(VideoAreaContainer);
+                e.Handled = true;
+            }
+            else if (_activePointers.Count == 1)
+            {
+                var props = e.GetCurrentPoint(VideoAreaContainer).Properties;
+                bool left = props.IsLeftButtonPressed;
+                bool wantPan =
+                    props.IsMiddleButtonPressed ||
+                    props.IsRightButtonPressed ||
+                    (left && (!InkCanvasOverlay.IsPenMode && !InkCanvasOverlay.IsEraserMode));
+
+                if (!wantPan) return;
+
+                _isPanning = true;
+                _lastPanPoint = position;
+                e.Pointer.Capture(VideoAreaContainer);
+                VideoAreaContainer.Cursor = new Cursor(StandardCursorType.SizeAll);
+                e.Handled = true;
+            }
         }
 
         private void OnCanvasPointerMoved(object? sender, PointerEventArgs e)
         {
+            if (_isPinching && _activePointers.ContainsKey(e.Pointer))
+            {
+                _activePointers[e.Pointer] = e.GetPosition(VideoAreaContainer);
+
+                if (_activePointers.Count == 2)
+                {
+                    var points = _activePointers.Values.ToArray();
+                    var currentDistance = GetDistance(points[0], points[1]);
+
+                    if (_initialPinchDistance > 0)
+                    {
+                        var scale = currentDistance / _initialPinchDistance;
+                        var newZoom = Math.Clamp(_initialPinchZoom * scale, MinZoom, MaxZoom);
+
+                        var currentCenter = new Point(
+                            (points[0].X + points[1].X) / 2,
+                            (points[0].Y + points[1].Y) / 2
+                        );
+
+                        var centerOffset = currentCenter - _initialPinchCenter;
+                        _zoom = newZoom;
+                        _panOffset = new Point(
+                            _initialPinchPanOffset.X + centerOffset.X,
+                            _initialPinchPanOffset.Y + centerOffset.Y
+                        );
+
+                        UpdateTransform();
+                    }
+                }
+                return;
+            }
+
             if (!_isPanning) return;
 
             var currentPoint = e.GetPosition(VideoAreaContainer);
@@ -1112,12 +1351,30 @@ namespace ShowWrite
 
         private void OnCanvasPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
+            _activePointers.Remove(e.Pointer);
+
+            if (_isPinching)
+            {
+                if (_activePointers.Count < 2)
+                {
+                    _isPinching = false;
+                    e.Pointer.Capture(null);
+                }
+            }
+
             if (_isPanning)
             {
                 _isPanning = false;
                 e.Pointer.Capture(null);
                 VideoAreaContainer.Cursor = Cursor.Default;
             }
+        }
+
+        private static double GetDistance(Point p1, Point p2)
+        {
+            var dx = p2.X - p1.X;
+            var dy = p2.Y - p1.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
         }
 
         private void UpdateTransform()
@@ -1808,6 +2065,9 @@ namespace ShowWrite
             }
 
             StatusText.IsVisible = false;
+
+            // 更新光标覆盖层布局
+            UpdateCursorCanvasLayout();
         }
 
         public void ExitPhotoAnnotationMode()
@@ -1841,6 +2101,9 @@ namespace ShowWrite
                 StartLoadingAnimation();
             }
             _cameraService?.DetectAndConnectCamera();
+
+            // 更新光标覆盖层布局
+            UpdateCursorCanvasLayout();
         }
 
         private void DeletePhoto_Click(object? sender, RoutedEventArgs e)
@@ -2044,6 +2307,43 @@ namespace ShowWrite
             UpdateKeystonePointsDisplay();
             UpdateKeystonePolygon();
         }
+        private async void OpenRandomNoteWindow_Click(object? sender, RoutedEventArgs e)
+        {
+            MoreMenuPopup.IsOpen = false; // 关闭菜单
+
+            var dialog = new RandomNoteSettingsWindow(_cameraService);
+            await dialog.ShowDialog(this);
+        }
+
+        public void ShowNotificationAction(string message)
+        {
+            // 这里调用原始的 ShowNotification 方法，并传递默认的 durationMs
+            ShowNotification(message, 3000);
+        }
+        private void MainWindow_KeyDown(object? sender, KeyEventArgs e)
+        {
+            string pressed = GetKeyString(e);
+            var settings = Config.Load().RandomNote;
+            if (pressed == settings.ShortcutKey)
+            {
+                RandomNoteSettingsWindow.TryTriggerShortcut(pressed, _cameraService, new Action<string>(ShowNotificationAction));
+                e.Handled = true;
+            }
+        }
+
+        private string GetKeyString(KeyEventArgs e)
+        {
+            var parts = new List<string>();
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control)) parts.Add("Ctrl");
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Alt)) parts.Add("Alt");
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) parts.Add("Shift");
+            if (e.Key != Key.LeftCtrl && e.Key != Key.RightCtrl && e.Key != Key.LeftAlt && e.Key != Key.RightAlt &&
+                e.Key != Key.LeftShift && e.Key != Key.RightShift && e.Key != Key.LWin && e.Key != Key.RWin)
+            {
+                parts.Add(e.Key.ToString());
+            }
+            return string.Join("+", parts);
+        }
 
         private void ExitKeystoneCorrectionMode()
         {
@@ -2209,17 +2509,18 @@ namespace ShowWrite
             var offsetX = -12;
             var offsetY = -12;
 
-            Canvas.SetLeft(_keystonePointTL, _keystonePoints[0].X * _zoom + _panOffset.X + offsetX);
-            Canvas.SetTop(_keystonePointTL, _keystonePoints[0].Y * _zoom + _panOffset.Y + offsetY);
+            // 使用完全限定名避免与 SkiaSharp.SKCanvas 冲突
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointTL, _keystonePoints[0].X * _zoom + _panOffset.X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointTL, _keystonePoints[0].Y * _zoom + _panOffset.Y + offsetY);
 
-            Canvas.SetLeft(_keystonePointTR, _keystonePoints[1].X * _zoom + _panOffset.X + offsetX);
-            Canvas.SetTop(_keystonePointTR, _keystonePoints[1].Y * _zoom + _panOffset.Y + offsetY);
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointTR, _keystonePoints[1].X * _zoom + _panOffset.X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointTR, _keystonePoints[1].Y * _zoom + _panOffset.Y + offsetY);
 
-            Canvas.SetLeft(_keystonePointBR, _keystonePoints[2].X * _zoom + _panOffset.X + offsetX);
-            Canvas.SetTop(_keystonePointBR, _keystonePoints[2].Y * _zoom + _panOffset.Y + offsetY);
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointBR, _keystonePoints[2].X * _zoom + _panOffset.X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointBR, _keystonePoints[2].Y * _zoom + _panOffset.Y + offsetY);
 
-            Canvas.SetLeft(_keystonePointBL, _keystonePoints[3].X * _zoom + _panOffset.X + offsetX);
-            Canvas.SetTop(_keystonePointBL, _keystonePoints[3].Y * _zoom + _panOffset.Y + offsetY);
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointBL, _keystonePoints[3].X * _zoom + _panOffset.X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointBL, _keystonePoints[3].Y * _zoom + _panOffset.Y + offsetY);
         }
 
         private void UpdateKeystonePolygon()

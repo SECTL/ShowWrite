@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -36,8 +36,8 @@ namespace ShowWrite
         private bool _currentIsEraser;
         private float _currentSize;
         private SKColor _currentColor;
-        private float _currentRatio = 1.0f;
-        private float _prevRatio = 1.0f;
+        private float _currentRatio = 0.5f;
+        private float _prevRatio = 0.5f;
 
         private List<InkStroke>? _tempStrokes;
         private SKPoint _lastEraserPoint;
@@ -57,6 +57,9 @@ namespace ShowWrite
         private double _palmEraserThreshold = 5000.0;
         private double _currentTouchArea = 0.0;
         private bool _enablePalmEraser = true;
+
+        // 橡皮光标事件
+        public event Action<Point, float, bool>? EraserCursorUpdate;
 
         public int PenSize { get; set; } = 4;
         public SKColor PenColor { get; set; } = SKColors.Red;
@@ -140,9 +143,11 @@ namespace ShowWrite
             IsEraserMode = false;
             if (_videoImage != null)
             {
-                _videoImage.Cursor = new Cursor(StandardCursorType.Cross);
+                _videoImage.Cursor = Cursor.Default;
             }
             IsHitTestVisible = true;
+            Cursor = Cursor.Default;
+            EraserCursorUpdate?.Invoke(default, 0, false);
         }
 
         public void SetEraserMode()
@@ -151,9 +156,11 @@ namespace ShowWrite
             IsEraserMode = true;
             if (_videoImage != null)
             {
-                _videoImage.Cursor = new Cursor(StandardCursorType.Cross);
+                _videoImage.Cursor = Cursor.Default;
             }
             IsHitTestVisible = true;
+            Cursor = Cursor.Default;
+            EraserCursorUpdate?.Invoke(default, EraserSize, true);
         }
 
         public void SetMoveMode()
@@ -165,6 +172,8 @@ namespace ShowWrite
                 _videoImage.Cursor = Cursor.Default;
             }
             IsHitTestVisible = false;
+            Cursor = Cursor.Default;
+            EraserCursorUpdate?.Invoke(default, 0, false);
         }
 
         public void SetPenColor(SKColor color)
@@ -247,7 +256,7 @@ namespace ShowWrite
 
         private SKPoint ScreenToVideo(Point screenPoint)
         {
-            if (_isWhiteboardMode || _isPhotoMode)
+            if (_isWhiteboardMode)
             {
                 return new SKPoint((float)screenPoint.X, (float)screenPoint.Y);
             }
@@ -259,7 +268,7 @@ namespace ShowWrite
 
         private SKPoint VideoToScreen(SKPoint videoPoint)
         {
-            if (_isWhiteboardMode || _isPhotoMode)
+            if (_isWhiteboardMode)
             {
                 return videoPoint;
             }
@@ -297,21 +306,24 @@ namespace ShowWrite
             _currentSize = IsEraserMode ? EraserSize : PenSize;
             _currentColor = PenColor;
 
-            float zoomFactor = (_isWhiteboardMode || _isPhotoMode) ? 1.0f : (float)_currentZoom;
+            float zoomFactor = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
 
             if (_currentIsEraser)
             {
                 _lastEraserPoint = videoPoint;
                 _hasLastEraserPoint = true;
                 _tempStrokes = CloneStrokes(_strokes);
-                ApplyEraserToPoint(videoPoint, _currentSize / zoomFactor);
+                float eraserWidthScreen = _currentSize * 1.6f;
+                float eraserHeightScreen = _currentSize * 2.0f;
+                var eraserRectVideo = GetEraserRectInVideo(videoPoint, eraserWidthScreen, eraserHeightScreen);
+                ApplyEraserToPoint(videoPoint, eraserRectVideo);
             }
             else
             {
                 _currentRatio = 0.5f;
                 _prevRatio = 0.5f;
-                float baseWidth = _currentSize / zoomFactor;
-                _currentPointWidths = new List<float> { baseWidth * _currentRatio };
+                float baseWidthVideo = _currentSize / zoomFactor;
+                _currentPointWidths = new List<float> { baseWidthVideo * _currentRatio };
                 _currentTimestamps = new List<long> { DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() };
             }
         }
@@ -322,6 +334,11 @@ namespace ShowWrite
 
             var currentPoint = e.GetPosition(this);
             var videoPoint = ScreenToVideo(currentPoint);
+
+            if (IsEraserMode && !_isPalmEraserActive)
+            {
+                EraserCursorUpdate?.Invoke(currentPoint, EraserSize, true);
+            }
 
             if (EnablePalmEraser && IsPenMode)
             {
@@ -334,7 +351,8 @@ namespace ShowWrite
                     {
                         ActivatePalmEraser(currentPoint);
                     }
-                    ApplyEraserAtPoint(videoPoint, CalculatePalmEraserSize(touchArea));
+                    float eraserSize = CalculatePalmEraserSize(touchArea);
+                    ApplyEraserAtPoint(videoPoint, eraserSize);
                     InvalidateVisual();
                     return;
                 }
@@ -350,13 +368,16 @@ namespace ShowWrite
             var lastVideoPoint = _currentVideoPoints[^1];
             _currentVideoPoints.Add(videoPoint);
 
-            float zoomFactor = (_isWhiteboardMode || _isPhotoMode) ? 1.0f : (float)_currentZoom;
+            float zoomFactor = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
 
             if (_currentIsEraser)
             {
                 if (_hasLastEraserPoint)
                 {
-                    ApplyEraserToSegment(_lastEraserPoint, videoPoint, _currentSize / zoomFactor);
+                    float eraserWidthScreen = _currentSize * 1.6f;
+                    float eraserHeightScreen = _currentSize * 2.0f;
+                    var eraserRectVideo = GetEraserRectInVideo(videoPoint, eraserWidthScreen, eraserHeightScreen);
+                    ApplyEraserToSegment(_lastEraserPoint, videoPoint, eraserRectVideo);
                 }
                 _lastEraserPoint = videoPoint;
                 _hasLastEraserPoint = true;
@@ -367,19 +388,19 @@ namespace ShowWrite
                 _currentTimestamps!.Add(currentTime);
 
                 float videoDistance = CalculateDistance(lastVideoPoint, videoPoint);
-                float screenDistance = (_isWhiteboardMode || _isPhotoMode) ? videoDistance : videoDistance * (float)_currentZoom;
+                float screenDistance = (_isWhiteboardMode) ? videoDistance : videoDistance * zoomFactor;
 
                 UpdateRatioBySpeed(screenDistance);
 
-                float baseWidth = _currentSize / zoomFactor;
-                float width = baseWidth * _currentRatio;
-                _currentPointWidths!.Add(width);
+                float baseWidthVideo = _currentSize / zoomFactor;
+                float widthVideo = baseWidthVideo * _currentRatio;
+                _currentPointWidths!.Add(widthVideo);
 
                 var screenFrom = VideoToScreen(lastVideoPoint);
                 var screenTo = VideoToScreen(videoPoint);
 
-                float screenFromWidth = (_isWhiteboardMode || _isPhotoMode) ? baseWidth * _prevRatio : baseWidth * _prevRatio * (float)_currentZoom;
-                float screenToWidth = (_isWhiteboardMode || _isPhotoMode) ? width : width * (float)_currentZoom;
+                float screenFromWidth = baseWidthVideo * _prevRatio * zoomFactor;
+                float screenToWidth = widthVideo * zoomFactor;
 
                 DrawSmoothSegment(_wetInkCanvas, screenFrom, screenTo,
                     screenFromWidth, screenToWidth, _currentColor);
@@ -476,14 +497,15 @@ namespace ShowWrite
                 }
                 else if (_currentPointWidths != null)
                 {
-                    ApplyInkStyle(_currentPointWidths);
+                    float zoomFactor = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
+                    ApplyInkStyle(_currentPointWidths, zoomFactor);
 
                     var stroke = new InkStroke
                     {
                         VideoPoints = new List<SKPoint>(_currentVideoPoints),
                         PointWidths = new List<float>(_currentPointWidths),
                         IsEraser = false,
-                        Size = _currentSize / (float)_currentZoom,
+                        Size = _currentSize / zoomFactor,
                         Color = _currentColor
                     };
                     _strokes.Add(stroke);
@@ -500,14 +522,20 @@ namespace ShowWrite
             _wetInkCanvas?.Clear(SKColors.Transparent);
             InvalidateVisual();
             e.Pointer.Capture(null);
+
+            if (IsEraserMode && EraserCursorUpdate != null)
+            {
+                var pos = e.GetPosition(this);
+                EraserCursorUpdate(pos, EraserSize, true);
+            }
         }
 
-        private void ApplyInkStyle(List<float> widths)
+        private void ApplyInkStyle(List<float> widths, float zoomFactor)
         {
             if (widths.Count < 2) return;
 
             int n = widths.Count - 1;
-            float baseWidth = _currentSize / (float)_currentZoom;
+            float baseWidthVideo = _currentSize / zoomFactor;
             float minPressure = 0.2f;
             int taperLength = Math.Min(widths.Count / 5, 12);
 
@@ -517,17 +545,17 @@ namespace ShowWrite
                 {
                     float factor = (float)i / taperLength;
                     float pressure = minPressure + (1.0f - minPressure) * factor;
-                    float targetWidth = baseWidth * pressure;
-                    widths[i] = widths[i] * factor + targetWidth * (1 - factor);
+                    float targetWidthVideo = baseWidthVideo * pressure;
+                    widths[i] = widths[i] * factor + targetWidthVideo * (1 - factor);
                 }
 
                 for (int i = 0; i < taperLength; i++)
                 {
                     float factor = (float)i / taperLength;
                     float pressure = minPressure + (1.0f - minPressure) * factor;
-                    float targetWidth = baseWidth * pressure;
+                    float targetWidthVideo = baseWidthVideo * pressure;
                     int idx = n - i;
-                    widths[idx] = widths[idx] * factor + targetWidth * (1 - factor);
+                    widths[idx] = widths[idx] * factor + targetWidthVideo * (1 - factor);
                 }
             }
             else
@@ -538,9 +566,9 @@ namespace ShowWrite
                     float endFactor = (float)(n - i) / n;
                     float positionFactor = Math.Min(startFactor, endFactor) * 2.0f;
                     float pressure = minPressure + (1.0f - minPressure) * Math.Min(positionFactor, 1.0f);
-                    float targetWidth = baseWidth * pressure;
+                    float targetWidthVideo = baseWidthVideo * pressure;
                     float blendFactor = 1.0f - Math.Min(positionFactor, 1.0f);
-                    widths[i] = widths[i] * (1 - blendFactor) + targetWidth * blendFactor;
+                    widths[i] = widths[i] * (1 - blendFactor) + targetWidthVideo * blendFactor;
                 }
             }
         }
@@ -556,14 +584,15 @@ namespace ShowWrite
                 }
                 else if (_currentPointWidths != null)
                 {
-                    ApplyInkStyle(_currentPointWidths);
+                    float zoomFactor = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
+                    ApplyInkStyle(_currentPointWidths, zoomFactor);
 
                     var stroke = new InkStroke
                     {
                         VideoPoints = new List<SKPoint>(_currentVideoPoints),
                         PointWidths = new List<float>(_currentPointWidths),
                         IsEraser = false,
-                        Size = _currentSize / (float)_currentZoom,
+                        Size = _currentSize / zoomFactor,
                         Color = _currentColor
                     };
                     _strokes.Add(stroke);
@@ -596,7 +625,19 @@ namespace ShowWrite
             return result;
         }
 
-        private void ApplyEraserToPoint(SKPoint eraserCenter, float eraserRadius)
+        private SKRect GetEraserRectInVideo(SKPoint videoCenter, float eraserWidthScreen, float eraserHeightScreen)
+        {
+            float zoom = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
+            float halfWidthVideo = (eraserWidthScreen / 2) / zoom;
+            float halfHeightVideo = (eraserHeightScreen / 2) / zoom;
+            return new SKRect(
+                videoCenter.X - halfWidthVideo,
+                videoCenter.Y - halfHeightVideo,
+                videoCenter.X + halfWidthVideo,
+                videoCenter.Y + halfHeightVideo);
+        }
+
+        private void ApplyEraserToPoint(SKPoint eraserCenter, SKRect eraserRectVideo)
         {
             if (_tempStrokes == null) return;
 
@@ -610,14 +651,14 @@ namespace ShowWrite
                     continue;
                 }
 
-                var segments = EraseStrokeWithCircle(stroke, eraserCenter, eraserRadius);
+                var segments = EraseStrokeWithRectangle(stroke, eraserRectVideo);
                 newStrokes.AddRange(segments);
             }
 
             _tempStrokes = newStrokes;
         }
 
-        private void ApplyEraserToSegment(SKPoint from, SKPoint to, float eraserRadius)
+        private void ApplyEraserToSegment(SKPoint from, SKPoint to, SKRect eraserRectVideo)
         {
             if (_tempStrokes == null) return;
 
@@ -630,7 +671,7 @@ namespace ShowWrite
 
             if (length < step)
             {
-                ApplyEraserToPoint(to, eraserRadius);
+                ApplyEraserToPoint(to, eraserRectVideo);
                 return;
             }
 
@@ -642,11 +683,11 @@ namespace ShowWrite
                     from.X + dx * t,
                     from.Y + dy * t
                 );
-                ApplyEraserToPoint(point, eraserRadius);
+                ApplyEraserToPoint(point, eraserRectVideo);
             }
         }
 
-        private List<InkStroke> EraseStrokeWithCircle(InkStroke stroke, SKPoint circleCenter, float circleRadius)
+        private List<InkStroke> EraseStrokeWithRectangle(InkStroke stroke, SKRect rectVideo)
         {
             var result = new List<InkStroke>();
             var currentSegment = new List<SKPoint>();
@@ -657,99 +698,29 @@ namespace ShowWrite
             {
                 var point = stroke.VideoPoints[i];
                 var width = hasWidths ? stroke.PointWidths![i] : stroke.Size;
+                float radius = width / 2;
 
-                if (i == 0)
+                // 判断圆是否与矩形相交
+                bool intersects = CircleIntersectsRect(point, radius, rectVideo);
+
+                if (!intersects)
                 {
-                    if (!IsPointInCircle(point, circleCenter, circleRadius))
-                    {
-                        currentSegment.Add(point);
-                        currentWidths.Add(width);
-                    }
-                    continue;
-                }
-
-                var prevPoint = stroke.VideoPoints[i - 1];
-                var prevWidth = hasWidths ? stroke.PointWidths![i - 1] : stroke.Size;
-                var intersections = LineCircleIntersection(prevPoint, point, circleCenter, circleRadius);
-
-                if (intersections.Count == 0)
-                {
-                    if (!IsPointInCircle(point, circleCenter, circleRadius))
-                    {
-                        currentSegment.Add(point);
-                        currentWidths.Add(width);
-                    }
-                    else
-                    {
-                        if (currentSegment.Count >= 2)
-                        {
-                            result.Add(CreateStrokeSegment(currentSegment, currentWidths, stroke));
-                        }
-                        currentSegment.Clear();
-                        currentWidths.Clear();
-                    }
-                }
-                else if (intersections.Count == 1)
-                {
-                    var inter = intersections[0];
-                    var interWidth = InterpolateWidth(prevWidth, width, prevPoint, point, inter);
-
-                    if (IsPointInCircle(prevPoint, circleCenter, circleRadius))
-                    {
-                        if (currentSegment.Count >= 2)
-                        {
-                            result.Add(CreateStrokeSegment(currentSegment, currentWidths, stroke));
-                        }
-                        currentSegment.Clear();
-                        currentWidths.Clear();
-                        currentSegment.Add(inter);
-                        currentWidths.Add(interWidth);
-                        currentSegment.Add(point);
-                        currentWidths.Add(width);
-                    }
-                    else
-                    {
-                        currentSegment.Add(inter);
-                        currentWidths.Add(interWidth);
-                        if (currentSegment.Count >= 2)
-                        {
-                            result.Add(CreateStrokeSegment(currentSegment, currentWidths, stroke));
-                        }
-                        currentSegment.Clear();
-                        currentWidths.Clear();
-                    }
+                    currentSegment.Add(point);
+                    currentWidths.Add(width);
                 }
                 else
                 {
-                    var inter1 = intersections[0];
-                    var inter2 = intersections[1];
-
-                    float t1 = GetParameterOnLine(prevPoint, point, inter1);
-                    float t2 = GetParameterOnLine(prevPoint, point, inter2);
-
-                    SKPoint first = t1 < t2 ? inter1 : inter2;
-                    SKPoint second = t1 < t2 ? inter2 : inter1;
-                    float firstT = Math.Min(t1, t2);
-                    float secondT = Math.Max(t1, t2);
-
-                    var firstWidth = InterpolateWidth(prevWidth, width, firstT);
-                    var secondWidth = InterpolateWidth(prevWidth, width, secondT);
-
-                    currentSegment.Add(first);
-                    currentWidths.Add(firstWidth);
+                    // 擦除该点，结束当前段
                     if (currentSegment.Count >= 2)
                     {
                         result.Add(CreateStrokeSegment(currentSegment, currentWidths, stroke));
                     }
                     currentSegment.Clear();
                     currentWidths.Clear();
-                    currentSegment.Add(second);
-                    currentWidths.Add(secondWidth);
-                    currentSegment.Add(point);
-                    currentWidths.Add(width);
                 }
             }
 
+            // 添加最后一段
             if (currentSegment.Count >= 2)
             {
                 result.Add(CreateStrokeSegment(currentSegment, currentWidths, stroke));
@@ -758,20 +729,13 @@ namespace ShowWrite
             return result;
         }
 
-        private float InterpolateWidth(float w1, float w2, float t)
+        private bool CircleIntersectsRect(SKPoint center, float radius, SKRect rect)
         {
-            return w1 + (w2 - w1) * t;
-        }
-
-        private float InterpolateWidth(float w1, float w2, SKPoint p1, SKPoint p2, SKPoint inter)
-        {
-            float dx = p2.X - p1.X;
-            float dy = p2.Y - p1.Y;
-            float length = (float)Math.Sqrt(dx * dx + dy * dy);
-            if (length < 0.001f) return w1;
-
-            float t = ((inter.X - p1.X) * dx + (inter.Y - p1.Y) * dy) / (length * length);
-            return InterpolateWidth(w1, w2, t);
+            float closestX = Math.Max(rect.Left, Math.Min(center.X, rect.Right));
+            float closestY = Math.Max(rect.Top, Math.Min(center.Y, rect.Bottom));
+            float dx = center.X - closestX;
+            float dy = center.Y - closestY;
+            return (dx * dx + dy * dy) < radius * radius;
         }
 
         private InkStroke CreateStrokeSegment(List<SKPoint> points, List<float> widths, InkStroke source)
@@ -784,73 +748,6 @@ namespace ShowWrite
                 Size = source.Size,
                 Color = source.Color
             };
-        }
-
-        private bool IsPointInCircle(SKPoint point, SKPoint center, float radius)
-        {
-            float dx = point.X - center.X;
-            float dy = point.Y - center.Y;
-            return dx * dx + dy * dy < radius * radius;
-        }
-
-        private List<SKPoint> LineCircleIntersection(SKPoint lineStart, SKPoint lineEnd, SKPoint circleCenter, float circleRadius)
-        {
-            var result = new List<SKPoint>();
-
-            float dx = lineEnd.X - lineStart.X;
-            float dy = lineEnd.Y - lineStart.Y;
-            float fx = lineStart.X - circleCenter.X;
-            float fy = lineStart.Y - circleCenter.Y;
-
-            float a = dx * dx + dy * dy;
-            float b = 2 * (fx * dx + fy * dy);
-            float c = fx * fx + fy * fy - circleRadius * circleRadius;
-
-            float discriminant = b * b - 4 * a * c;
-
-            if (discriminant < 0 || a == 0)
-            {
-                return result;
-            }
-
-            discriminant = (float)Math.Sqrt(discriminant);
-
-            float t1 = (-b - discriminant) / (2 * a);
-            float t2 = (-b + discriminant) / (2 * a);
-
-            if (t1 >= 0 && t1 <= 1)
-            {
-                result.Add(new SKPoint(
-                    lineStart.X + t1 * dx,
-                    lineStart.Y + t1 * dy
-                ));
-            }
-
-            if (t2 >= 0 && t2 <= 1 && Math.Abs(t1 - t2) > 0.0001f)
-            {
-                result.Add(new SKPoint(
-                    lineStart.X + t2 * dx,
-                    lineStart.Y + t2 * dy
-                ));
-            }
-
-            return result;
-        }
-
-        private float GetParameterOnLine(SKPoint lineStart, SKPoint lineEnd, SKPoint point)
-        {
-            float dx = lineEnd.X - lineStart.X;
-            float dy = lineEnd.Y - lineStart.Y;
-
-            if (Math.Abs(dx) > Math.Abs(dy))
-            {
-                return (point.X - lineStart.X) / dx;
-            }
-            else if (Math.Abs(dy) > 0.0001f)
-            {
-                return (point.Y - lineStart.Y) / dy;
-            }
-            return 0;
         }
 
         private SKPaint CreatePenPaint(SKColor color, float size)
@@ -944,23 +841,25 @@ namespace ShowWrite
 
         private void RenderStrokes(SKCanvas canvas, List<InkStroke> strokes)
         {
+            float zoom = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
+
             foreach (var stroke in strokes)
             {
-                RenderStroke(canvas, stroke);
+                RenderStroke(canvas, stroke, zoom);
             }
         }
 
-        private void RenderStroke(SKCanvas canvas, InkStroke stroke)
+        private void RenderStroke(SKCanvas canvas, InkStroke stroke, float zoom)
         {
             if (stroke.VideoPoints == null || stroke.VideoPoints.Count < 2) return;
 
             if (stroke.PointWidths != null && stroke.PointWidths.Count == stroke.VideoPoints.Count)
             {
-                RenderVariableWidthStroke(canvas, stroke);
+                RenderVariableWidthStroke(canvas, stroke, zoom);
             }
             else
             {
-                var displaySize = stroke.Size * (float)_currentZoom;
+                var displaySize = stroke.Size * zoom;
                 var paint = CreatePenPaint(stroke.Color, displaySize);
 
                 for (int i = 1; i < stroke.VideoPoints.Count; i++)
@@ -972,7 +871,7 @@ namespace ShowWrite
             }
         }
 
-        private void RenderVariableWidthStroke(SKCanvas canvas, InkStroke stroke)
+        private void RenderVariableWidthStroke(SKCanvas canvas, InkStroke stroke, float zoom)
         {
             if (stroke.VideoPoints == null || stroke.PointWidths == null) return;
 
@@ -987,8 +886,8 @@ namespace ShowWrite
             {
                 var p1 = VideoToScreen(stroke.VideoPoints[i]);
                 var p2 = VideoToScreen(stroke.VideoPoints[i + 1]);
-                var w1 = stroke.PointWidths[i] * (float)_currentZoom;
-                var w2 = stroke.PointWidths[i + 1] * (float)_currentZoom;
+                var w1 = stroke.PointWidths[i] * zoom;
+                var w2 = stroke.PointWidths[i + 1] * zoom;
 
                 RenderSmoothSegment(canvas, p1, p2, w1, w2, paint);
             }
@@ -1097,9 +996,11 @@ namespace ShowWrite
                 _tempStrokes = CloneStrokes(_strokes);
             }
 
-            var newStrokes = new List<InkStroke>();
-            float eraserRadius = eraserSize / 2f;
+            float eraserWidthScreen = eraserSize * 1.6f;
+            float eraserHeightScreen = eraserSize * 2.0f;
+            var eraserRectVideo = GetEraserRectInVideo(videoPoint, eraserWidthScreen, eraserHeightScreen);
 
+            var newStrokes = new List<InkStroke>();
             foreach (var stroke in _tempStrokes)
             {
                 if (stroke.VideoPoints == null || stroke.VideoPoints.Count < 2)
@@ -1108,7 +1009,7 @@ namespace ShowWrite
                     continue;
                 }
 
-                var segments = EraseStrokeWithCircle(stroke, videoPoint, eraserRadius);
+                var segments = EraseStrokeWithRectangle(stroke, eraserRectVideo);
                 newStrokes.AddRange(segments);
             }
 

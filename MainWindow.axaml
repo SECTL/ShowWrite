@@ -128,6 +128,18 @@
         <Style Selector="CheckBox.ink-checkbox:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource ThemeTextSecondary}"/>
         </Style>
+        <Style Selector="TextBlock.button-text-label">
+            <Setter Property="FontFamily" Value="avares://ShowWrite/font/HarmonyOS_Sans_SC_Medium.ttf#HarmonyOS Sans SC"/>
+        </Style>
+        <Style Selector="Button.nav-btn TextBlock">
+            <Setter Property="FontFamily" Value="avares://ShowWrite/font/HarmonyOS_Sans_SC_Medium.ttf#HarmonyOS Sans SC"/>
+        </Style>
+        <Style Selector="CheckBox.ink-checkbox">
+            <Setter Property="FontFamily" Value="avares://ShowWrite/font/HarmonyOS_Sans_SC_Medium.ttf#HarmonyOS Sans SC"/>
+        </Style>
+        <Style Selector="Button.menu-btn">
+            <Setter Property="FontFamily" Value="avares://ShowWrite/font/HarmonyOS_Sans_SC_Medium.ttf#HarmonyOS Sans SC"/>
+        </Style>
     </Window.Styles>
 
     <Grid>
@@ -488,11 +500,12 @@
                IsOpen="False">
             <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="4" BorderBrush="{DynamicResource ThemeSurfaceVariant}" BorderThickness="1">
                 <StackPanel>
-                    <Button Content="切换摄像头" Click="SwitchCamera_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
-                    <Button Content="梯形校正" Click="KeystoneCorrection_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
-                    <Button Content="清除矫正" Click="ClearKeystone_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
-                    <Button Content="设置" Click="OpenSettings_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
-                    <Button Content="退出" Click="Exit_Click" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="切换摄像头" Click="SwitchCamera_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="梯形校正" Click="KeystoneCorrection_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="清除矫正" Click="ClearKeystone_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+					<Button Content="随心记" Click="OpenRandomNoteWindow_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+					<Button Content="设置" Click="OpenSettings_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+                    <Button Content="退出" Click="Exit_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
                 </StackPanel>
             </Border>
         </Popup>
