@@ -44,13 +44,16 @@ namespace ShowWrite
         private List<InkStroke> _videoStrokesBackup = new();
         private bool _hasWhiteboardData = false;
 
+        // PptService fields
+        private PptService? _pptService;
+        private bool _isPowerPointMode = false;
+
+        // PptXmlService fields
+        private bool _isPptXmlMode = false;
+
         // AsposeSlidesService fields
         private Aspose.Slides.Presentation? _asposePresentation;
         private int _asposeCurrentIndex;
-
-        // PowerPointService fields
-        private PowerPointService? _powerPointService;
-        private bool _isPowerPointMode = false;
 
         public bool IsWhiteboardMode => _isWhiteboardMode;
         public int CurrentPage => _whiteboardCurrentPage;
@@ -62,16 +65,24 @@ namespace ShowWrite
         public int AsposeSlideCount => _asposePresentation?.Slides.Count ?? 0;
         public int AsposeCurrentIndex => _asposeCurrentIndex;
 
-        // PowerPointService properties
+        // PptService properties
         public bool IsPowerPointMode => _isPowerPointMode;
-        public bool IsPowerPointOpen => _powerPointService?.IsOpen ?? false;
-        public int PowerPointSlideCount => _powerPointService?.SlideCount ?? 0;
-        public int PowerPointCurrentSlide => _powerPointService?.CurrentSlideIndex ?? 1;
+        public bool IsPowerPointOpen => _pptService?.IsOpen ?? false;
+        public int PowerPointSlideCount => _pptService?.SlideCount ?? 0;
+        public int PowerPointCurrentSlide => _pptService?.CurrentSlideIndex ?? 1;
+
+        // PptXmlService properties
+        public bool IsPptXmlMode => _isPptXmlMode;
+        public int PptXmlSlideCount => _pptService?.PptXmlSlideCount ?? 0;
+        public int PptXmlCurrentIndex => _pptService?.PptXmlCurrentIndex ?? 0;
 
         public event PropertyChangedEventHandler? PropertyChanged;
         public event Action? WhiteboardModeEntered;
         public event Action? WhiteboardModeExited;
         public event Action? ImportPptRequested;
+        public event Action<PptSlideControl>? PptSlideControlReady;
+        private PptSlideControl? _pendingPptSlideControl;
+        public PptSlideControl? PendingPptSlideControl => _pendingPptSlideControl;
 
         public WhiteboardManager(
             InkCanvas inkCanvas,
@@ -278,8 +289,21 @@ namespace ShowWrite
 
         public void PrevPage_Click(object? sender, RoutedEventArgs e)
         {
-            if (_whiteboardCurrentPage > 1)
+            if (_isPptXmlMode)
             {
+                // PPT XML模式下切换幻灯片
+                PptXmlPreviousSlide();
+                var slideControl = RenderPptXmlCurrentSlide();
+                if (slideControl != null)
+                {
+                    SetWhiteboardBackgroundFromPptControl(slideControl);
+                }
+                // 更新页码信息
+                UpdatePageInfo();
+            }
+            else if (_whiteboardCurrentPage > 1)
+            {
+                // 普通白板模式下切换页面
                 _whiteboardPages[_whiteboardCurrentPage - 1] = _inkCanvas.GetStrokes();
                 _whiteboardCurrentPage--;
                 _inkCanvas.SetStrokes(_whiteboardPages[_whiteboardCurrentPage - 1]);
@@ -293,8 +317,21 @@ namespace ShowWrite
 
         public void NextPage_Click(object? sender, RoutedEventArgs e)
         {
-            if (_whiteboardCurrentPage == _whiteboardTotalPages)
+            if (_isPptXmlMode)
             {
+                // PPT XML模式下切换幻灯片
+                PptXmlNextSlide();
+                var slideControl = RenderPptXmlCurrentSlide();
+                if (slideControl != null)
+                {
+                    SetWhiteboardBackgroundFromPptControl(slideControl);
+                }
+                // 更新页码信息
+                UpdatePageInfo();
+            }
+            else if (_whiteboardCurrentPage == _whiteboardTotalPages)
+            {
+                // 普通白板模式下添加新页
                 _whiteboardPages[_whiteboardCurrentPage - 1] = _inkCanvas.GetStrokes();
                 _whiteboardPages.Add(new List<InkStroke>());
                 _pageBackgrounds.Add(null);
@@ -306,6 +343,7 @@ namespace ShowWrite
             }
             else
             {
+                // 普通白板模式下切换页面
                 _whiteboardPages[_whiteboardCurrentPage - 1] = _inkCanvas.GetStrokes();
                 _whiteboardCurrentPage++;
                 _inkCanvas.SetStrokes(_whiteboardPages[_whiteboardCurrentPage - 1]);
@@ -321,12 +359,27 @@ namespace ShowWrite
         {
             if (_pageInfoText != null)
             {
-                _pageInfoText.Text = $"{_whiteboardCurrentPage}/{_whiteboardTotalPages}";
+                if (_isPptXmlMode)
+                {
+                    // PPT XML模式下显示PPT页码
+                    _pageInfoText.Text = $"{PptXmlCurrentIndex}/{PptXmlSlideCount}";
+                }
+                else
+                {
+                    // 普通白板模式下显示白板页码
+                    _pageInfoText.Text = $"{_whiteboardCurrentPage}/{_whiteboardTotalPages}";
+                }
             }
 
             if (_nextPagePath != null && _nextPageText != null)
             {
-                if (_whiteboardCurrentPage == _whiteboardTotalPages)
+                if (_isPptXmlMode)
+                {
+                    // PPT XML模式下始终显示"下一页"
+                    _nextPagePath.Data = Geometry.Parse("M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z");
+                    _nextPageText.Text = "下一页";
+                }
+                else if (_whiteboardCurrentPage == _whiteboardTotalPages)
                 {
                     _nextPagePath.Data = Geometry.Parse("M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z");
                     _nextPageText.Text = "加页";
@@ -674,11 +727,9 @@ namespace ShowWrite
             {
                 ClosePowerPointPresentation();
 
-                _powerPointService = new PowerPointService();
-                _powerPointService.SlideChanged += OnPowerPointSlideChanged;
-                _powerPointService.PresentationEnded += OnPowerPointPresentationEnded;
+                _pptService = new PptService();
 
-                return _powerPointService.OpenPresentation(filePath);
+                return _pptService.OpenPresentation(filePath);
             }
             catch (Exception ex)
             {
@@ -692,12 +743,12 @@ namespace ShowWrite
         /// </summary>
         public bool StartPowerPointSlideShow(IntPtr hostWindowHandle, int width, int height)
         {
-            if (_powerPointService == null) return false;
+            if (_pptService == null) return false;
 
             try
             {
                 _isPowerPointMode = true;
-                return _powerPointService.StartSlideShow(hostWindowHandle, width, height);
+                return _pptService.StartSlideShow(hostWindowHandle, width, height);
             }
             catch (Exception ex)
             {
@@ -712,7 +763,7 @@ namespace ShowWrite
         /// </summary>
         public void PowerPointNextSlide()
         {
-            _powerPointService?.NextSlide();
+            _pptService?.NextSlide();
         }
 
         /// <summary>
@@ -720,7 +771,7 @@ namespace ShowWrite
         /// </summary>
         public void PowerPointPreviousSlide()
         {
-            _powerPointService?.PreviousSlide();
+            _pptService?.PreviousSlide();
         }
 
         /// <summary>
@@ -728,7 +779,7 @@ namespace ShowWrite
         /// </summary>
         public void PowerPointGoToSlide(int slideIndex)
         {
-            _powerPointService?.GoToSlide(slideIndex);
+            _pptService?.GoToSlide(slideIndex);
         }
 
         /// <summary>
@@ -736,7 +787,7 @@ namespace ShowWrite
         /// </summary>
         public void StopPowerPointSlideShow()
         {
-            _powerPointService?.StopSlideShow();
+            _pptService?.StopSlideShow();
             _isPowerPointMode = false;
         }
 
@@ -745,12 +796,10 @@ namespace ShowWrite
         /// </summary>
         public void ClosePowerPointPresentation()
         {
-            if (_powerPointService != null)
+            if (_pptService != null)
             {
-                _powerPointService.SlideChanged -= OnPowerPointSlideChanged;
-                _powerPointService.PresentationEnded -= OnPowerPointPresentationEnded;
-                _powerPointService.Dispose();
-                _powerPointService = null;
+                _pptService.Dispose();
+                _pptService = null;
             }
             _isPowerPointMode = false;
         }
@@ -770,10 +819,68 @@ namespace ShowWrite
 
         #endregion
 
+        #region PptXmlService Methods
+
+        public void OpenPptXmlPresentation(string filePath)
+        {
+            ClosePptXmlPresentation();
+            
+            _pptService = new PptService();
+            _pptService.OpenPptXmlPresentation(filePath);
+            _isPptXmlMode = true;
+        }
+
+        public void ClosePptXmlPresentation()
+        {
+            if (_pptService != null)
+            {
+                _pptService.Dispose();
+                _pptService = null;
+            }
+            _isPptXmlMode = false;
+        }
+
+        public void PptXmlNextSlide()
+        {
+            _pptService?.PptXmlNextSlide();
+        }
+
+        public void PptXmlPreviousSlide()
+        {
+            _pptService?.PptXmlPreviousSlide();
+        }
+
+        public PptSlideControl? RenderPptXmlCurrentSlide()
+        {
+            return _pptService?.RenderPptXmlCurrentSlide();
+        }
+
+        public void SetWhiteboardBackgroundFromPptControl(PptSlideControl slideControl)
+        {
+            if (_inkCanvas == null || slideControl == null) return;
+            
+            // 设置幻灯片控件的拉伸模式
+            slideControl.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+            slideControl.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+            
+            // 将幻灯片控件添加到VideoAreaContainer
+            // 这需要在主窗口中执行，暂时设置一个标记
+            _pendingPptSlideControl = slideControl;
+            
+            // 触发事件让主窗口处理
+            PptSlideControlReady?.Invoke(slideControl);
+            
+            // 更新页码信息
+            UpdatePageInfo();
+        }
+
+        #endregion
+
         public void Dispose()
         {
             CloseAsposePresentation();
             ClosePowerPointPresentation();
+            ClosePptXmlPresentation();
             GC.SuppressFinalize(this);
         }
     }

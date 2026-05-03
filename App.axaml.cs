@@ -68,8 +68,14 @@ namespace ShowWrite
                 }
                 else
                 {
-                    desktop.MainWindow = new MainWindow();
-                    MainWindow = desktop.MainWindow as MainWindow;
+                    var mainWindow = new MainWindow();
+                    desktop.MainWindow = mainWindow;
+                    MainWindow = mainWindow;
+
+                    if (Program.FilesToOpen.Count > 0)
+                    {
+                        mainWindow.OpenFiles(Program.FilesToOpen);
+                    }
                 }
             }
 
@@ -222,7 +228,7 @@ namespace ShowWrite
 
         private void ShowNotification(string message)
         {
-            RandomNoteSettingsWindow.ShowNotification("随心记", message);
+            RandomNoteSettingsWindow.ShowNotification("闪记", message);
         }
 
         public void Shutdown()

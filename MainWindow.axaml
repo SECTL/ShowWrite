@@ -3,6 +3,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ShowWrite"
+        xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+        xmlns:sys="clr-namespace:System;assembly=netstandard"
         x:Class="ShowWrite.MainWindow"
         x:DataType="local:MainWindow"
         Title="ShowWrite"
@@ -142,12 +144,35 @@
         </Style>
     </Window.Styles>
 
-    <Grid>
-        <Grid x:Name="VideoAreaContainer" 
-              HorizontalAlignment="Stretch" 
-              VerticalAlignment="Stretch"
-              Background="{DynamicResource ThemeVideoBackground}">
-            <Image x:Name="VideoImage" Stretch="None" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+    <Grid x:Name="MainGrid">
+        <paz:ZoomBorder x:Name="ZoomBorder" 
+                        HorizontalAlignment="Stretch" 
+                        VerticalAlignment="Stretch"
+                        Stretch="None"
+                        ZoomSpeed="1.2"
+                        MinZoomX="0.1"
+                        MaxZoomX="5.0"
+                        MinZoomY="0.1"
+                        MaxZoomY="5.0"
+                        EnablePan="True"
+                        EnableZoom="True"
+                        EnableGestureZoom="False"
+                        EnableGestureTranslation="True"
+                        ClipToBounds="True"
+                        Focusable="True"
+                        PanButton="Left"
+                        Background="{DynamicResource ThemeVideoBackground}">
+            <Grid x:Name="VideoAreaContainer" 
+                  HorizontalAlignment="Left" 
+                  VerticalAlignment="Top"
+                  Background="Transparent"
+                  RenderTransformOrigin="0,0">
+                <Grid.Transitions>
+                    <Transitions>
+                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut"/>
+                    </Transitions>
+                </Grid.Transitions>
+                <Image x:Name="VideoImage" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Top"/>
             
             <Canvas x:Name="KeystoneOverlayCanvas" IsVisible="False">
                 <Polygon x:Name="KeystonePolygon" 
@@ -209,30 +234,46 @@
                 </Border>
             </Canvas>
             
-            <StackPanel x:Name="LoadingContainer"
-                        Orientation="Vertical"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
+            <Border x:Name="PluginOverlay"
+                    Background="Transparent"
+                    IsVisible="False"
+                    ZIndex="500">
+            </Border>
+            
+            </Grid>
+        </paz:ZoomBorder>
+
+        <local:InkCanvas x:Name="InkCanvasOverlay" 
+                         HorizontalAlignment="Stretch" 
+                         VerticalAlignment="Stretch" 
+                         IsHitTestVisible="False"
+                         ZIndex="150"/>
+
+        <StackPanel x:Name="LoadingContainer"
+                    Orientation="Vertical"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="20"
+                    IsVisible="True"
+                    IsHitTestVisible="False"
+                    ZIndex="50">
+            
+            <TextBlock x:Name="StatusText"
+                       FontSize="24"
+                       Foreground="White"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center">
+                <Run Text="正在扫描可用摄像头"/>
+                <LineBreak/>
+                <Run Text="请等待20秒左右" FontSize="18" Foreground="#AAAAAA"/>
+            </TextBlock>
+
+            <StackPanel x:Name="LoadingElementsPanel"
+                        Orientation="Horizontal"
                         Spacing="20"
+                        HorizontalAlignment="Center"
                         IsVisible="True"
                         IsHitTestVisible="False">
-                
-                <TextBlock x:Name="StatusText"
-                           FontSize="24"
-                           Foreground="White"
-                           HorizontalAlignment="Center"
-                           TextAlignment="Center">
-                    <Run Text="正在扫描可用摄像头"/>
-                    <LineBreak/>
-                    <Run Text="请等待20秒左右" FontSize="18" Foreground="#AAAAAA"/>
-                </TextBlock>
-
-                <StackPanel x:Name="LoadingElementsPanel"
-                            Orientation="Horizontal"
-                            Spacing="20"
-                            HorizontalAlignment="Center"
-                            IsVisible="True"
-                            IsHitTestVisible="False">
 
                     <Canvas x:Name="ElemPyro" Width="50" Height="50">
                         <Path x:Name="PyroFill" Width="50" Height="50"
@@ -284,21 +325,15 @@
                     </Canvas>
                 </StackPanel>
             </StackPanel>
-            
-            <TextBlock x:Name="CameraInfoText"
-                       FontSize="14"
-                       Foreground="#AAAAAA"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Top"
-                       Margin="20"
-                       IsVisible="False"/>
-            
-            <Border x:Name="PluginOverlay"
-                    Background="Transparent"
-                    IsVisible="False"
-                    ZIndex="500">
-            </Border>
-        </Grid>
+
+        <TextBlock x:Name="CameraInfoText"
+                   FontSize="14"
+                   Foreground="#AAAAAA"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Top"
+                   Margin="20"
+                   IsVisible="False"
+                   ZIndex="50"/>
 
         <Border x:Name="PhotoPanel"
                 Width="280"
@@ -328,6 +363,8 @@
                                         Padding="8"
                                         Cursor="Hand"
                                         PointerPressed="PhotoItem_PointerPressed"
+                                        PointerMoved="PhotoItem_PointerMoved"
+                                        PointerReleased="PhotoItem_PointerReleased"
                                         Tag="{Binding}">
                                     <Grid RowDefinitions="Auto,*">
                                         <TextBlock Grid.Row="0"
@@ -503,7 +540,7 @@
                     <Button Content="切换摄像头" Click="SwitchCamera_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
                     <Button Content="梯形校正" Click="KeystoneCorrection_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
                     <Button Content="清除矫正" Click="ClearKeystone_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
-					<Button Content="随心记" Click="OpenRandomNoteWindow_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
+					<Button Content="闪记" Click="OpenRandomNoteWindow_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
 					<Button Content="设置" Click="OpenSettings_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
                     <Button Content="退出" Click="Exit_Click" Classes="menu-btn" Background="Transparent" Foreground="{DynamicResource ThemeTextPrimary}" HorizontalContentAlignment="Center" Padding="20,12"/>
                 </StackPanel>
@@ -527,11 +564,17 @@
             </Border.RenderTransform>
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 
-                <Grid Grid.Row="0">
+                <!-- PPT页数信息 -->
+                <Border Grid.Row="0" Background="Transparent" Padding="12,8">
+                    <TextBlock x:Name="PptPageInfo" Text="" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center"/>
+                </Border>
+                
+                <Grid Grid.Row="1">
                     <ScrollViewer Padding="8">
                         <ItemsControl x:Name="PageList" ItemsSource="{Binding WhiteboardPageThumbnails}" x:CompileBindings="False">
                             <ItemsControl.ItemTemplate>
@@ -588,7 +631,7 @@
                     </Border>
                 </Grid>
                 
-                <Border Grid.Row="1" 
+                <Border Grid.Row="2" 
                         Background="Transparent" 
                         Padding="12,8">
                     <StackPanel Orientation="Vertical" 
@@ -711,18 +754,39 @@
             </Border>
         </Popup>
 
+        <Popup x:Name="VideoAdjustPopup"
+               PlacementMode="Top"
+               PlacementTarget="{Binding #VideoAdjustBtn}"
+               IsLightDismissEnabled="True"
+               IsOpen="False">
+            <Border Background="{DynamicResource ThemeSurface}" CornerRadius="12" Padding="12" BorderBrush="{DynamicResource ThemeSurfaceVariant}" BorderThickness="1">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Width="48"
+                            Height="48"
+                            Classes="tool-btn-square"
+                            Click="RotateLeft_Click">
+                        <Viewbox Width="24" Height="24">
+                            <Path Classes="icon-path" Data="M4.596 12.05q-.255 0-.405-.173q-.149-.173-.081-.423q.15-.798.448-1.498t.719-1.327q.134-.194.372-.215q.237-.022.42.155q.129.129.14.294t-.086.304q-.385.58-.64 1.205q-.254.626-.399 1.294q-.036.17-.18.277t-.308.107m6.354 8.335q0 .28-.183.427q-.182.146-.432.079q-.754-.175-1.464-.47q-.71-.296-1.342-.717q-.195-.135-.216-.363t.156-.41q.129-.129.293-.14q.165-.012.305.086q.58.385 1.205.63t1.274.37q.171.037.288.19q.116.152.116.318M6.07 17.53q-.184.177-.421.156q-.238-.021-.372-.216q-.44-.652-.726-1.361q-.286-.71-.441-1.464q-.068-.25.079-.423q.146-.173.407-.173q.171 0 .312.107t.176.278q.145.667.4 1.293t.639 1.205q.098.14.077.317t-.13.28m7.47 3.355q-.25.067-.42-.08t-.17-.401q0-.171.107-.312t.278-.176q2.453-.524 4.034-2.444t1.581-4.422q0-2.925-2.037-4.962T11.95 6.05h-.777l1.746 1.746q.16.16.16.354t-.16.354t-.353.16q-.195 0-.354-.16L9.823 6.116q-.13-.131-.183-.268q-.053-.136-.053-.298t.053-.298q.052-.136.183-.267l2.383-2.389q.165-.16.36-.16t.353.16q.166.165.166.36t-.16.353l-1.74 1.741h.765q3.327 0 5.664 2.337t2.336 5.663q0 2.889-1.813 5.077t-4.596 2.758"/>
+                        </Viewbox>
+                    </Button>
+                    <Button Width="48"
+                            Height="48"
+                            Classes="tool-btn-square"
+                            Click="RotateRight_Click">
+                        <Viewbox Width="24" Height="24">
+                            <Path Classes="icon-path" Data="M13.05 21v-1.05q.85-.125 1.663-.45t1.537-.85l.708.72q-.858.645-1.844 1.056T13.05 21m-2 0q-3.008-.392-5.004-2.651T4.05 13.05q0-1.664.626-3.118T6.39 7.39t2.542-1.714t3.118-.626h.766l-2.089-2.088l.708-.72l3.307 3.308l-3.308 3.308l-.707-.708l2.1-2.1h-.777q-2.925 0-4.962 2.038T5.05 13.05q0 2.6 1.7 4.563t4.3 2.376zm7.32-3.042l-.72-.708q.525-.725.86-1.528t.479-1.672H20q-.125 1.058-.545 2.044t-1.086 1.864M20 12.05h-1.012q-.144-.87-.479-1.672q-.334-.803-.859-1.528l.72-.708q.646.802 1.063 1.794T20 12.05"/>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Popup>
+
         <Border x:Name="WhiteboardBackground"
                 Background="#2E5C4A"
                 IsVisible="False"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 ZIndex="100"/>
-        
-        <local:InkCanvas x:Name="InkCanvasOverlay" 
-                         HorizontalAlignment="Stretch" 
-                         VerticalAlignment="Stretch" 
-                         IsHitTestVisible="False"
-                         ZIndex="150"/>
 
         <Border x:Name="BottomToolbar" 
                 Background="Transparent"
@@ -899,6 +963,25 @@
                                 <TextBlock Grid.Row="1" Text="重置" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
                             </Grid>
                         </Button>
+                        <Grid Width="80" Height="56" Margin="8,0,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <ComboBox x:Name="AspectRatioDropDown"
+                                      Grid.Row="0"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center"
+                                      Width="72"
+                                      Height="36"
+                                      Background="{DynamicResource ThemeSurface}"
+                                      CornerRadius="6">
+                                <ComboBoxItem Content="自由" IsSelected="True"/>
+                                <ComboBoxItem Content="A4 (1:1.414)"/>
+                                <ComboBoxItem Content="B4"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="1" Text="比例" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -1043,6 +1126,23 @@
                                         <Path Classes="icon-path" Data="M4 22v-5h2v3h12v-3h2v5zm0-11V2h10l6 6v3h-2V9h-5V4H6v7zm-3 4v-2h22v2zm11 2"/>
                                     </Viewbox>
                                     <TextBlock Grid.Row="1" Text="扫描" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
+                                </Grid>
+                            </Button>
+                            
+                            <Button x:Name="VideoAdjustBtn"
+                                    Classes="tool-btn-square"
+                                    Width="56"
+                                    Height="56"
+                                    Click="VideoAdjustBtn_Click">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Viewbox Grid.Row="0" Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Path Classes="icon-path" Fill="{x:Null}" Stroke="{DynamicResource ThemeIconColor}" StrokeThickness="2" Data="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M1 14h6m2-6h6m2 8h6Z"/>
+                                    </Viewbox>
+                                    <TextBlock Grid.Row="1" Text="画面调节" FontSize="10" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center" Margin="0,4,0,0" Classes="button-text-label"/>
                                 </Grid>
                             </Button>
                         </StackPanel>

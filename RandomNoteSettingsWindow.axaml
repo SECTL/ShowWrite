@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="ShowWrite.RandomNoteSettingsWindow"
-        Title="随心记设置"
+        Title="闪记设置"
         Width="550"
         Height="580"
         WindowStartupLocation="CenterOwner"
@@ -19,11 +19,11 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="随心记设置" FontSize="18" FontWeight="Bold" Margin="0,0,0,20" Grid.Row="0"/>
+        <TextBlock Text="闪记设置" FontSize="18" FontWeight="Bold" Margin="0,0,0,20" Grid.Row="0"/>
 
         <!-- 启用开关 -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,0,20">
-            <TextBlock Text="启用随心记" VerticalAlignment="Center" Margin="0,0,15,0"/>
+            <TextBlock Text="启用闪记" VerticalAlignment="Center" Margin="0,0,15,0"/>
             <ToggleSwitch x:Name="EnableToggleSwitch" OffContent="关闭" OnContent="开启"/>
         </StackPanel>
 

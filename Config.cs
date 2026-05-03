@@ -15,6 +15,7 @@ namespace ShowWrite
         public float BRY { get; set; }
         public float BLX { get; set; }
         public float BLY { get; set; }
+        public string AspectRatio { get; set; } = "自由";
     }
 
     public class PenSettings
@@ -27,6 +28,10 @@ namespace ShowWrite
         public float RatioChangeCoefficient { get; set; } = 0.95f;
         public double PalmEraserThreshold { get; set; } = 5000.0;
         public bool EnablePalmEraser { get; set; } = true;
+        public bool IsInfraredScreen { get; set; } = false;
+        public double PalmTouchMultiplier { get; set; } = 1.0;
+        public int PalmActivationSamples { get; set; } = 2;
+        public int PalmReleaseSamples { get; set; } = 3;
     }
 
     public class RandomNoteConfig

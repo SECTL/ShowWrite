@@ -1,5 +1,7 @@
 using Avalonia;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace ShowWrite
@@ -13,6 +15,11 @@ namespace ShowWrite
         private static extern bool FreeConsole();
 
         public static bool RandomNoteMode { get; private set; }
+        public static List<string> FilesToOpen { get; private set; } = new List<string>();
+
+        private static readonly string[] SupportedImageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif" };
+        private static readonly string[] SupportedPdfExtensions = { ".pdf" };
+        private static readonly string[] SupportedPptExtensions = { ".pptx", ".ppt" };
 
         [STAThread]
         public static void Main(string[] args)
@@ -25,6 +32,12 @@ namespace ShowWrite
                     RandomNoteMode = true;
                     break;
                 }
+
+                var ext = Path.GetExtension(arg).ToLowerInvariant();
+                if (IsSupportedExtension(ext) && File.Exists(arg))
+                {
+                    FilesToOpen.Add(arg);
+                }
             }
 
             if (!RandomNoteMode)
@@ -34,6 +47,17 @@ namespace ShowWrite
             }
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
+
+        private static bool IsSupportedExtension(string ext)
+        {
+            foreach (var supported in SupportedImageExtensions)
+                if (ext == supported) return true;
+            foreach (var supported in SupportedPdfExtensions)
+                if (ext == supported) return true;
+            foreach (var supported in SupportedPptExtensions)
+                if (ext == supported) return true;
+            return false;
         }
 
         public static AppBuilder BuildAvaloniaApp()

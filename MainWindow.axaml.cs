@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.PanAndZoom;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Data.Converters;
@@ -40,28 +41,21 @@ namespace ShowWrite
         private CancellationTokenSource? _loadingAnimationCts;
         private bool _isLoadingAnimationRunning;
 
-        private double _zoom = 1.0;
-        private Point _panOffset = new Point(0, 0);
-        private Point _lastPanPoint;
-        private bool _isPanning;
-
-        private readonly Dictionary<IPointer, Point> _activePointers = new();
-        private double _initialPinchDistance;
-        private double _initialPinchZoom;
-        private Point _initialPinchCenter;
-        private Point _initialPinchPanOffset;
-        private bool _isPinching;
-
         private int _videoWidth;
         private int _videoHeight;
-
-        private TransformGroup? _videoTransform;
-        private ScaleTransform? _scaleTransform;
-        private TranslateTransform? _translateTransform;
+        private WriteableBitmap? _attachedVideoBitmap;
 
         public static readonly double MinZoom = 0.1;
         public static readonly double MaxZoom = 5.0;
         public static readonly double ZoomStep = 0.1;
+
+        private double _zoom => ZoomBorder?.ZoomX ?? 1.0;
+        private Point _panOffset => new Point(ZoomBorder?.OffsetX ?? 0, ZoomBorder?.OffsetY ?? 0);
+        private readonly Dictionary<int, Point> _activeTouchPoints = new();
+        private bool _isNativePinchZoomActive;
+        private double _nativePinchInitialDistance;
+        private double _nativePinchInitialZoom = 1.0;
+        private Point _nativePinchContentAnchor;
 
         public ObservableCollection<PhotoItem> Photos { get; } = new();
 
@@ -78,7 +72,7 @@ namespace ShowWrite
             new SKColor(0, 0, 139), new SKColor(139, 69, 19), new SKColor(105, 105, 105)
         };
 
-        private static readonly int[] PenSizes = new int[] { 2, 4, 8, 12 };
+        private static readonly int[] PenSizes = new int[] { 1, 2, 4, 8 };
 
         private int _currentPenSizeIndex = 1;
         private int _currentPenColorIndex = 0;
@@ -88,6 +82,11 @@ namespace ShowWrite
         private bool _isPhotoAnnotationMode = false;
         private bool _isSelectMode;
         private bool _includeInkAnnotations = true;
+
+        private bool _isPhotoItemDragging = false;
+        private Point _photoItemDragStartPoint;
+        private const double PhotoItemDragThreshold = 5.0;
+        private bool _isPhotoItemDragInProgress = false;
 
         public bool IsSelectMode
         {
@@ -140,6 +139,9 @@ namespace ShowWrite
         private OpenCvSharp.Point2f[] _keystonePoints = new OpenCvSharp.Point2f[4];
         private OpenCvSharp.Point2f[] _originalKeystonePoints = new OpenCvSharp.Point2f[4];
 
+        private ComboBox? _aspectRatioDropDown;
+        private string _selectedAspectRatio = "自由";
+
         private bool _wasMinimized = false;
 
         private WhiteboardManager? _whiteboardManager;
@@ -170,6 +172,12 @@ namespace ShowWrite
             _keystonePointBR = this.FindControl<Border>("KeystonePointBR");
             _keystonePointBL = this.FindControl<Border>("KeystonePointBL");
             _toolSliderBackground = this.FindControl<Border>("ToolSliderBackground");
+            _aspectRatioDropDown = this.FindControl<ComboBox>("AspectRatioDropDown");
+
+            if (_aspectRatioDropDown != null)
+            {
+                _aspectRatioDropDown.SelectionChanged += AspectRatioDropDown_SelectionChanged;
+            }
 
             var whiteboardBackground = this.FindControl<Border>("WhiteboardBackground");
             var whiteboardModeButtons = this.FindControl<StackPanel>("WhiteboardModeButtons");
@@ -191,6 +199,7 @@ namespace ShowWrite
                 nextPageText,
                 pageImportingOverlay);
             _whiteboardManager.ImportPptRequested += OnImportPptRequested;
+            _whiteboardManager.PptSlideControlReady += OnPptSlideControlReady;
 
             var moreButton = this.FindControl<Button>("MoreButton");
             if (moreButton != null && MoreMenuPopup != null)
@@ -249,15 +258,6 @@ namespace ShowWrite
                 }
             };
 
-            _scaleTransform = new ScaleTransform(1, 1);
-            _translateTransform = new TranslateTransform(0, 0);
-            _videoTransform = new TransformGroup();
-            _videoTransform.Children.Add(_scaleTransform);
-            _videoTransform.Children.Add(_translateTransform);
-
-            VideoImage.RenderTransform = _videoTransform;
-            VideoImage.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Absolute);
-
             InkCanvasOverlay.SetVideoImage(VideoImage);
 
             _cameraService = new CameraService();
@@ -267,14 +267,10 @@ namespace ShowWrite
             _cameraService.ScanComplete += OnScanComplete;
             _cameraService.UsingCachedCameras += OnUsingCachedCameras;
 
-            VideoAreaContainer.AddHandler(InputElement.PointerWheelChangedEvent, OnPointerWheelChanged, RoutingStrategies.Tunnel);
-            VideoAreaContainer.AddHandler(InputElement.PointerPressedEvent, OnCanvasPointerPressed, RoutingStrategies.Tunnel);
-            VideoAreaContainer.AddHandler(InputElement.PointerMovedEvent, OnCanvasPointerMoved, RoutingStrategies.Tunnel);
-            VideoAreaContainer.AddHandler(InputElement.PointerReleasedEvent, OnCanvasPointerReleased, RoutingStrategies.Tunnel);
-
-            InkCanvasOverlay.AddHandler(InputElement.PointerPressedEvent, OnCanvasPointerPressed, RoutingStrategies.Tunnel);
-            InkCanvasOverlay.AddHandler(InputElement.PointerMovedEvent, OnCanvasPointerMoved, RoutingStrategies.Tunnel);
-            InkCanvasOverlay.AddHandler(InputElement.PointerReleasedEvent, OnCanvasPointerReleased, RoutingStrategies.Tunnel);
+            ZoomBorder.ZoomChanged += OnZoomChanged;
+            ZoomBorder.AddHandler(PointerPressedEvent, ZoomBorder_PointerPressed, RoutingStrategies.Tunnel, true);
+            ZoomBorder.AddHandler(PointerMovedEvent, ZoomBorder_PointerMoved, RoutingStrategies.Tunnel, true);
+            ZoomBorder.AddHandler(PointerReleasedEvent, ZoomBorder_PointerReleased, RoutingStrategies.Tunnel, true);
 
             PenBtn.AddHandler(PointerPressedEvent, PenBtn_PointerPressed, RoutingStrategies.Tunnel);
             EraserBtn.AddHandler(PointerPressedEvent, EraserBtn_PointerPressed, RoutingStrategies.Tunnel);
@@ -286,10 +282,206 @@ namespace ShowWrite
             PluginDebugger.PrintPluginStatus();
             InitializePluginButtons();
 
+            // 监听窗口大小变化
+            this.SizeChanged += MainWindow_SizeChanged;
+
             // 创建橡皮光标覆盖层
             CreateEraserCursorOverlay();
             // 订阅橡皮光标事件
             InkCanvasOverlay.EraserCursorUpdate += UpdateEraserCursor;
+        }
+
+        private void MainWindow_SizeChanged(object? sender, SizeChangedEventArgs e)
+        {
+            // 当窗口大小变化时，确保PPT控件能正确缩放
+            if (_whiteboardManager?.IsPptXmlMode == true)
+            {
+                var slideControl = _whiteboardManager.RenderPptXmlCurrentSlide();
+                if (slideControl != null)
+                {
+                    OnPptSlideControlReady(slideControl);
+                }
+            }
+        }
+
+        private void OnZoomChanged(object? sender, ZoomChangedEventArgs e)
+        {
+            InkCanvasOverlay.SetTransform(e.ZoomX, new Point(e.OffsetX, e.OffsetY));
+            InkCanvasOverlay.InvalidateVisual();
+
+            if (_isKeystoneCorrectionMode)
+            {
+                UpdateKeystonePointsDisplay();
+                UpdateKeystonePolygon();
+            }
+        }
+
+        private void ZoomBorder_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (e.Pointer.Type != PointerType.Touch)
+            {
+                return;
+            }
+
+            _activeTouchPoints[e.Pointer.Id] = e.GetPosition(ZoomBorder);
+
+            if (_activeTouchPoints.Count == 2)
+            {
+                BeginNativePinchZoom();
+                e.Handled = true;
+            }
+            else if (_isNativePinchZoomActive)
+            {
+                UpdateNativePinchZoom();
+                e.Handled = true;
+            }
+        }
+
+        private void ZoomBorder_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (e.Pointer.Type != PointerType.Touch)
+            {
+                return;
+            }
+
+            if (!_activeTouchPoints.ContainsKey(e.Pointer.Id))
+            {
+                return;
+            }
+
+            _activeTouchPoints[e.Pointer.Id] = e.GetPosition(ZoomBorder);
+
+            if (!_isNativePinchZoomActive && _activeTouchPoints.Count == 2)
+            {
+                BeginNativePinchZoom();
+            }
+
+            if (_isNativePinchZoomActive)
+            {
+                UpdateNativePinchZoom();
+                e.Handled = true;
+            }
+        }
+
+        private void ZoomBorder_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (e.Pointer.Type != PointerType.Touch)
+            {
+                return;
+            }
+
+            _activeTouchPoints.Remove(e.Pointer.Id);
+
+            if (!_isNativePinchZoomActive)
+            {
+                return;
+            }
+
+            if (_activeTouchPoints.Count >= 2)
+            {
+                BeginNativePinchZoom();
+            }
+            else
+            {
+                EndNativePinchZoom();
+            }
+
+            e.Handled = true;
+        }
+
+        private void BeginNativePinchZoom()
+        {
+            if (!TryGetPinchPoints(out var firstPoint, out var secondPoint))
+            {
+                EndNativePinchZoom();
+                return;
+            }
+
+            var distance = GetDistance(firstPoint, secondPoint);
+            if (distance <= 0.001)
+            {
+                EndNativePinchZoom();
+                return;
+            }
+
+            var currentZoom = ZoomBorder.ZoomX > 0 ? ZoomBorder.ZoomX : 1.0;
+            var center = GetMidpoint(firstPoint, secondPoint);
+
+            _isNativePinchZoomActive = true;
+            _nativePinchInitialDistance = distance;
+            _nativePinchInitialZoom = currentZoom;
+            _nativePinchContentAnchor = new Point(
+                (center.X - ZoomBorder.OffsetX) / currentZoom,
+                (center.Y - ZoomBorder.OffsetY) / currentZoom);
+        }
+
+        private void UpdateNativePinchZoom()
+        {
+            if (!_isNativePinchZoomActive || !TryGetPinchPoints(out var firstPoint, out var secondPoint))
+            {
+                return;
+            }
+
+            var currentDistance = GetDistance(firstPoint, secondPoint);
+            if (currentDistance <= 0.001 || _nativePinchInitialDistance <= 0.001)
+            {
+                return;
+            }
+
+            var minZoom = Math.Max(ZoomBorder.MinZoomX, ZoomBorder.MinZoomY);
+            var maxZoom = Math.Min(ZoomBorder.MaxZoomX, ZoomBorder.MaxZoomY);
+            if (maxZoom < minZoom)
+            {
+                maxZoom = minZoom;
+            }
+
+            var targetZoom = Math.Clamp(
+                _nativePinchInitialZoom * (currentDistance / _nativePinchInitialDistance),
+                minZoom,
+                maxZoom);
+
+            var center = GetMidpoint(firstPoint, secondPoint);
+            var offsetX = center.X - _nativePinchContentAnchor.X * targetZoom;
+            var offsetY = center.Y - _nativePinchContentAnchor.Y * targetZoom;
+            var matrix = MatrixHelper.ScaleAndTranslate(targetZoom, targetZoom, offsetX, offsetY);
+            ZoomBorder.SetMatrix(matrix, true);
+        }
+
+        private void EndNativePinchZoom()
+        {
+            _isNativePinchZoomActive = false;
+            _nativePinchInitialDistance = 0;
+        }
+
+        private bool TryGetPinchPoints(out Point firstPoint, out Point secondPoint)
+        {
+            if (_activeTouchPoints.Count < 2)
+            {
+                firstPoint = default;
+                secondPoint = default;
+                return false;
+            }
+
+            using var enumerator = _activeTouchPoints.Values.GetEnumerator();
+            enumerator.MoveNext();
+            firstPoint = enumerator.Current;
+            enumerator.MoveNext();
+            secondPoint = enumerator.Current;
+            return true;
+        }
+
+        private static Point GetMidpoint(Point firstPoint, Point secondPoint)
+        {
+            return new Point(
+                (firstPoint.X + secondPoint.X) / 2.0,
+                (firstPoint.Y + secondPoint.Y) / 2.0);
+        }
+
+        private static double GetDistance(Point firstPoint, Point secondPoint)
+        {
+            var dx = secondPoint.X - firstPoint.X;
+            var dy = secondPoint.Y - firstPoint.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
         }
 
         private void CreateEraserCursorOverlay()
@@ -300,25 +492,12 @@ namespace ShowWrite
                 Background = Brushes.Transparent,
             };
 
-            // 将覆盖层添加到 VideoAreaContainer 的父容器中
-            var parent = VideoAreaContainer.Parent as Panel;
-            if (parent != null)
+            // 将覆盖层添加到 MainGrid 中（ZoomBorder 外部）
+            var root = this.Content as Panel;
+            if (root != null)
             {
-                parent.Children.Add(_cursorCanvas);
+                root.Children.Add(_cursorCanvas);
                 _cursorCanvas.SetValue(Canvas.ZIndexProperty, 300);
-            }
-            else
-            {
-                var root = this.Content as Grid;
-                if (root != null)
-                {
-                    root.Children.Add(_cursorCanvas);
-                    _cursorCanvas.SetValue(Canvas.ZIndexProperty, 300);
-                }
-                else
-                {
-                    return;
-                }
             }
 
             VideoAreaContainer.LayoutUpdated += (s, e) => UpdateCursorCanvasLayout();
@@ -374,18 +553,19 @@ namespace ShowWrite
             _eraserCursor.IsVisible = visible;
             if (!visible) return;
 
+            // InkCanvas 回传的是自身坐标，需要转换到光标覆盖层坐标系
+            var mappedPosition = InkCanvasOverlay.TranslatePoint(position, _cursorCanvas);
+            if (mappedPosition == null) return;
+            var cursorPos = mappedPosition.Value;
+
             // 竖长方形：宽度为 size * 0.6，高度为 size * 1.0
             double width = size * 1.6;
             double height = size * 2.0;
             _eraserCursor.Width = width;
             _eraserCursor.Height = height;
 
-            double left = position.X - width / 2;
-            double top = position.Y - height / 2;
-
-            // 限制在画布范围内
-            left = Math.Max(0, Math.Min(_cursorCanvas.Width - width, left));
-            top = Math.Max(0, Math.Min(_cursorCanvas.Height - height, top));
+            double left = cursorPos.X - width / 2;
+            double top = cursorPos.Y - height / 2;
 
             _eraserCursor.SetValue(Canvas.LeftProperty, left);
             _eraserCursor.SetValue(Canvas.TopProperty, top);
@@ -395,6 +575,11 @@ namespace ShowWrite
         {
             base.OnSizeChanged(e);
             UpdateCursorCanvasLayout();
+
+            if (_isPhotoAnnotationMode)
+            {
+                QueueFitPhotoToViewportHeight();
+            }
         }
 
         private void UpdateButtonVisibility()
@@ -853,6 +1038,37 @@ namespace ShowWrite
             _loadingAnimationCts = null;
         }
 
+        private void CompleteLoadingAnimation()
+        {
+            if (!_isLoadingAnimationRunning || _loadingElements == null) return;
+
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                double iconWidth = 50;
+                foreach (var elem in _loadingElements)
+                {
+                    if (elem != null)
+                    {
+                        elem.Clip = new RectangleGeometry(new Rect(0, 0, iconWidth, 50));
+                    }
+                }
+            });
+
+            Task.Delay(300).ContinueWith(_ =>
+            {
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    var loadingContainer = this.FindControl<StackPanel>("LoadingContainer");
+                    if (loadingContainer != null)
+                    {
+                        loadingContainer.IsVisible = false;
+                    }
+                });
+            });
+
+            StopLoadingAnimation();
+        }
+
         private async Task RunLoadingAnimationAsync(CancellationToken token)
         {
             if (_loadingElements == null || _loadingElements.Length == 0) return;
@@ -860,83 +1076,72 @@ namespace ShowWrite
             double iconWidth = 50;
             double spacing = 20;
             double totalWidth = iconWidth * _loadingElements.Length + spacing * (_loadingElements.Length - 1);
-            double animationDuration = 5000;
+            double targetWidth = totalWidth - iconWidth * 0.7;
+            double animationDuration = 2000;
 
-            while (!token.IsCancellationRequested)
+            var startTime = DateTime.UtcNow;
+            var duration = TimeSpan.FromMilliseconds(animationDuration);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                var startTime = DateTime.UtcNow;
-                var duration = TimeSpan.FromMilliseconds(animationDuration);
-
-                await Dispatcher.UIThread.InvokeAsync(() =>
+                foreach (var elem in _loadingElements)
                 {
-                    foreach (var elem in _loadingElements)
+                    if (elem != null)
                     {
-                        if (elem != null)
-                        {
-                            elem.Opacity = 1.0;
-                            elem.Clip = new RectangleGeometry(new Rect(0, 0, 0, 50));
-                        }
+                        elem.Opacity = 1.0;
+                        elem.Clip = new RectangleGeometry(new Rect(0, 0, 0, 50));
                     }
-                });
-
-                while (true)
-                {
-                    if (token.IsCancellationRequested) break;
-
-                    var elapsed = DateTime.UtcNow - startTime;
-                    if (elapsed >= duration) break;
-
-                    var progress = elapsed.TotalMilliseconds / duration.TotalMilliseconds;
-                    var currentWidth = totalWidth * progress;
-
-                    await Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        double currentX = 0;
-
-                        for (int i = 0; i < _loadingElements.Length; i++)
-                        {
-                            var elem = _loadingElements[i];
-                            if (elem == null) continue;
-
-                            double elemStartX = currentX;
-                            double elemEndX = currentX + iconWidth;
-
-                            if (currentWidth >= elemEndX)
-                            {
-                                elem.Clip = new RectangleGeometry(new Rect(0, 0, iconWidth, 50));
-                            }
-                            else if (currentWidth > elemStartX)
-                            {
-                                double fillWidth = currentWidth - elemStartX;
-                                elem.Clip = new RectangleGeometry(new Rect(0, 0, fillWidth, 50));
-                            }
-                            else
-                            {
-                                elem.Clip = new RectangleGeometry(new Rect(0, 0, 0, 50));
-                            }
-
-                            currentX += iconWidth + spacing;
-                        }
-                    });
-
-                    await Task.Delay(16, token);
                 }
+            });
 
+            while (true)
+            {
                 if (token.IsCancellationRequested) break;
 
+                var elapsed = DateTime.UtcNow - startTime;
+                var rawProgress = Math.Min(elapsed.TotalMilliseconds / duration.TotalMilliseconds, 1.0);
+                var progress = EaseOutCubic(rawProgress);
+                var currentWidth = targetWidth * progress;
+
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    foreach (var elem in _loadingElements)
+                    double currentX = 0;
+
+                    for (int i = 0; i < _loadingElements.Length; i++)
                     {
-                        if (elem != null)
+                        var elem = _loadingElements[i];
+                        if (elem == null) continue;
+
+                        double elemStartX = currentX;
+                        double elemEndX = currentX + iconWidth;
+
+                        if (currentWidth >= elemEndX)
                         {
                             elem.Clip = new RectangleGeometry(new Rect(0, 0, iconWidth, 50));
                         }
+                        else if (currentWidth > elemStartX)
+                        {
+                            double fillWidth = currentWidth - elemStartX;
+                            elem.Clip = new RectangleGeometry(new Rect(0, 0, fillWidth, 50));
+                        }
+                        else
+                        {
+                            elem.Clip = new RectangleGeometry(new Rect(0, 0, 0, 50));
+                        }
+
+                        currentX += iconWidth + spacing;
                     }
                 });
 
-                await Task.Delay(2000, token);
+                if (rawProgress >= 1.0) break;
+
+                await Task.Delay(16, token);
             }
+        }
+
+        private double EaseOutCubic(double t)
+        {
+            return 1 - Math.Pow(1 - t, 3);
         }
 
         private void SlideThumb_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -1006,11 +1211,18 @@ namespace ShowWrite
 
         private void CloseLoadingWindow()
         {
-            StopLoadingAnimation();
-            var loadingContainer = this.FindControl<StackPanel>("LoadingContainer");
-            if (loadingContainer != null)
+            if (_isLoadingAnimationRunning)
             {
-                loadingContainer.IsVisible = false;
+                CompleteLoadingAnimation();
+            }
+            else
+            {
+                StopLoadingAnimation();
+                var loadingContainer = this.FindControl<StackPanel>("LoadingContainer");
+                if (loadingContainer != null)
+                {
+                    loadingContainer.IsVisible = false;
+                }
             }
         }
 
@@ -1100,7 +1312,7 @@ namespace ShowWrite
             // 清理全局快捷键
             _globalHotKey?.Dispose();
 
-            // 如果不是独立随心记模式，关闭时同时关闭随心记
+            // 如果不是独立闪记模式，关闭时同时关闭闪记
             if (!Program.RandomNoteMode)
             {
                 if (App.RandomNoteTrayIcon != null)
@@ -1143,16 +1355,7 @@ namespace ShowWrite
 
         private void OnFrameReady()
         {
-            if (_cameraService.FrameBitmap == null)
-            {
-                Console.WriteLine("[MainWindow] FrameBitmap is null!");
-                return;
-            }
-
-            VideoImage.Source = _cameraService.FrameBitmap;
-            VideoImage.InvalidateVisual();
-            InkCanvasOverlay.SetVideoFrame(_cameraService.LatestFrame);
-            InkCanvasOverlay.InvalidateVisual();
+            PresentCameraFrame(centerOnSizeChange: false);
 
             foreach (var pluginWindow in _pluginWindows)
             {
@@ -1173,227 +1376,161 @@ namespace ShowWrite
 
             CloseLoadingWindow();
 
-            VideoImage.Source = _cameraService.FrameBitmap;
-
-            var frame = _cameraService.LatestFrame;
-            if (frame != null && !frame.Empty())
-            {
-                _videoWidth = frame.Width;
-                _videoHeight = frame.Height;
-
-                VideoImage.Width = _videoWidth;
-                VideoImage.Height = _videoHeight;
-
-                InkCanvasOverlay.SetVideoFrame(frame);
-
-                CenterVideo();
-
-                LoadKeystoneSettings();
-            }
+            PresentCameraFrame(centerOnSizeChange: true);
+            LoadKeystoneSettings();
 
             // 更新光标覆盖层布局
             UpdateCursorCanvasLayout();
         }
 
-        private void CenterVideo()
+        private void PresentCameraFrame(bool centerOnSizeChange)
         {
-            if (_videoWidth <= 0 || _videoHeight <= 0) return;
-
-            var containerWidth = VideoAreaContainer.Bounds.Width;
-            var containerHeight = VideoAreaContainer.Bounds.Height;
-
-            var scaleX = containerWidth / _videoWidth;
-            var scaleY = containerHeight / _videoHeight;
-            _zoom = Math.Min(scaleX, scaleY);
-
-            var scaledWidth = _videoWidth * _zoom;
-            var scaledHeight = _videoHeight * _zoom;
-
-            _panOffset = new Point(
-                (containerWidth - scaledWidth) / 2,
-                (containerHeight - scaledHeight) / 2
-            );
-
-            UpdateTransform();
-        }
-
-        #endregion
-
-        #region 缩放和平移
-
-        private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
-        {
-            if (_whiteboardManager?.HandlePointerWheel() == true) return;
-
-            var delta = e.Delta.Y;
-            if (Math.Abs(delta) < 0.001) return;
-
-            var mousePos = e.GetPosition(VideoAreaContainer);
-
-            var videoPos = new Point(
-                (mousePos.X - _panOffset.X) / _zoom,
-                (mousePos.Y - _panOffset.Y) / _zoom
-            );
-
-            _zoom = Math.Clamp(_zoom + delta * ZoomStep, MinZoom, MaxZoom);
-
-            _panOffset = new Point(
-                mousePos.X - videoPos.X * _zoom,
-                mousePos.Y - videoPos.Y * _zoom
-            );
-
-            UpdateTransform();
-        }
-
-        private void OnCanvasPointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            if (_whiteboardManager?.IsWhiteboardMode == true) return;
-
-            if (_isKeystoneCorrectionMode)
+            var frameBitmap = _cameraService.FrameBitmap;
+            if (frameBitmap == null)
             {
-                var source = e.Source as Visual;
-                while (source != null)
-                {
-                    if (source == _keystonePointTL || source == _keystonePointTR ||
-                        source == _keystonePointBR || source == _keystonePointBL ||
-                        source == _keystoneOverlayCanvas)
-                    {
-                        return;
-                    }
-                    source = source.GetVisualParent();
-                }
-            }
-
-            if (_whiteboardManager?.HandleCanvasPointerPressed() == true) return;
-
-            var position = e.GetPosition(VideoAreaContainer);
-            _activePointers[e.Pointer] = position;
-
-            if (_activePointers.Count == 2)
-            {
-                _isPinching = true;
-                _isPanning = false;
-
-                var points = _activePointers.Values.ToArray();
-                _initialPinchDistance = GetDistance(points[0], points[1]);
-                _initialPinchZoom = _zoom;
-                _initialPinchCenter = new Point(
-                    (points[0].X + points[1].X) / 2,
-                    (points[0].Y + points[1].Y) / 2
-                );
-                _initialPinchPanOffset = _panOffset;
-
-                e.Pointer.Capture(VideoAreaContainer);
-                e.Handled = true;
-            }
-            else if (_activePointers.Count == 1)
-            {
-                var props = e.GetCurrentPoint(VideoAreaContainer).Properties;
-                bool left = props.IsLeftButtonPressed;
-                bool wantPan =
-                    props.IsMiddleButtonPressed ||
-                    props.IsRightButtonPressed ||
-                    (left && (!InkCanvasOverlay.IsPenMode && !InkCanvasOverlay.IsEraserMode));
-
-                if (!wantPan) return;
-
-                _isPanning = true;
-                _lastPanPoint = position;
-                e.Pointer.Capture(VideoAreaContainer);
-                VideoAreaContainer.Cursor = new Cursor(StandardCursorType.SizeAll);
-                e.Handled = true;
-            }
-        }
-
-        private void OnCanvasPointerMoved(object? sender, PointerEventArgs e)
-        {
-            if (_isPinching && _activePointers.ContainsKey(e.Pointer))
-            {
-                _activePointers[e.Pointer] = e.GetPosition(VideoAreaContainer);
-
-                if (_activePointers.Count == 2)
-                {
-                    var points = _activePointers.Values.ToArray();
-                    var currentDistance = GetDistance(points[0], points[1]);
-
-                    if (_initialPinchDistance > 0)
-                    {
-                        var scale = currentDistance / _initialPinchDistance;
-                        var newZoom = Math.Clamp(_initialPinchZoom * scale, MinZoom, MaxZoom);
-
-                        var currentCenter = new Point(
-                            (points[0].X + points[1].X) / 2,
-                            (points[0].Y + points[1].Y) / 2
-                        );
-
-                        var centerOffset = currentCenter - _initialPinchCenter;
-                        _zoom = newZoom;
-                        _panOffset = new Point(
-                            _initialPinchPanOffset.X + centerOffset.X,
-                            _initialPinchPanOffset.Y + centerOffset.Y
-                        );
-
-                        UpdateTransform();
-                    }
-                }
+                Console.WriteLine("[MainWindow] FrameBitmap is null!");
                 return;
             }
 
-            if (!_isPanning) return;
+            if (!ReferenceEquals(_attachedVideoBitmap, frameBitmap))
+            {
+                _attachedVideoBitmap = frameBitmap;
+                VideoImage.Source = frameBitmap;
+            }
 
-            var currentPoint = e.GetPosition(VideoAreaContainer);
-            var delta = currentPoint - _lastPanPoint;
-            _panOffset = new Point(_panOffset.X + delta.X, _panOffset.Y + delta.Y);
-            _lastPanPoint = currentPoint;
+            var frame = _cameraService.LatestFrame;
+            bool sizeChanged = false;
 
-            UpdateTransform();
+            if (frame != null && !frame.Empty())
+            {
+                var contentSizeMismatch =
+                    Math.Abs(VideoAreaContainer.Width - frame.Width) > 0.5 ||
+                    Math.Abs(VideoAreaContainer.Height - frame.Height) > 0.5;
+
+                if (_videoWidth != frame.Width || _videoHeight != frame.Height)
+                {
+                    _videoWidth = frame.Width;
+                    _videoHeight = frame.Height;
+                    sizeChanged = true;
+                }
+
+                if (sizeChanged || contentSizeMismatch)
+                {
+                    // 从照片模式切回直播时，分辨率可能没变，但容器仍停留在照片尺寸。
+                    SetVideoContentSize(frame.Width, frame.Height);
+                }
+
+                InkCanvasOverlay.SetVideoFrame(frame);
+            }
+
+            if (centerOnSizeChange || sizeChanged)
+            {
+                QueueCenterVideo();
+            }
+
+            VideoImage.InvalidateVisual();
         }
 
-        private void OnCanvasPointerReleased(object? sender, PointerReleasedEventArgs e)
+        private void QueueCenterVideo()
         {
-            _activePointers.Remove(e.Pointer);
+            Dispatcher.UIThread.Post(CenterVideo, DispatcherPriority.Loaded);
+        }
 
-            if (_isPinching)
+        private void CenterVideo()
+        {
+            if (_videoWidth <= 0 || _videoHeight <= 0)
             {
-                if (_activePointers.Count < 2)
+                var frameBitmap = _cameraService.FrameBitmap;
+                if (frameBitmap != null)
                 {
-                    _isPinching = false;
-                    e.Pointer.Capture(null);
+                    _videoWidth = (int)frameBitmap.Size.Width;
+                    _videoHeight = (int)frameBitmap.Size.Height;
+                    SetVideoContentSize(_videoWidth, _videoHeight);
+                }
+                else
+                {
+                    return;
                 }
             }
 
-            if (_isPanning)
+            var viewportWidth = ZoomBorder.Bounds.Width;
+            var viewportHeight = ZoomBorder.Bounds.Height;
+            if (viewportWidth <= 0 || viewportHeight <= 0)
             {
-                _isPanning = false;
-                e.Pointer.Capture(null);
-                VideoAreaContainer.Cursor = Cursor.Default;
+                // 布局尚未稳定时重试，避免高分辨率首帧无法正确居中
+                QueueCenterVideo();
+                return;
             }
+
+            var contentWidth = VideoAreaContainer.Width;
+            var contentHeight = VideoAreaContainer.Height;
+            if (contentWidth <= 0 || contentHeight <= 0)
+            {
+                contentWidth = _videoWidth;
+                contentHeight = _videoHeight;
+            }
+
+            double fitZoom;
+            double offsetX;
+            double offsetY;
+
+            // 0/180 度：按高度贴合上下边缘；90/270 度：按宽度贴合左右边缘。
+            if (_currentVideoRotation == 90 || _currentVideoRotation == 270)
+            {
+                fitZoom = viewportWidth / contentWidth;
+                offsetX = 0;
+                offsetY = (viewportHeight - contentHeight * fitZoom) / 2.0;
+            }
+            else
+            {
+                fitZoom = viewportHeight / contentHeight;
+                offsetX = (viewportWidth - contentWidth * fitZoom) / 2.0;
+                offsetY = 0;
+            }
+
+            // 允许稍微缩小于归位比例，便于用户后续手势微调
+            var minZoom = Math.Max(0.001, fitZoom * 0.8);
+            if (ZoomBorder.MinZoomX > minZoom) ZoomBorder.MinZoomX = minZoom;
+            if (ZoomBorder.MinZoomY > minZoom) ZoomBorder.MinZoomY = minZoom;
+
+            var matrix = MatrixHelper.ScaleAndTranslate(fitZoom, fitZoom, offsetX, offsetY);
+            ZoomBorder.SetMatrix(matrix, true);
         }
 
-        private static double GetDistance(Point p1, Point p2)
+        private void SetVideoContentSize(double width, double height)
         {
-            var dx = p2.X - p1.X;
-            var dy = p2.Y - p1.Y;
-            return Math.Sqrt(dx * dx + dy * dy);
+            if (width <= 0 || height <= 0) return;
+
+            VideoAreaContainer.Width = width;
+            VideoAreaContainer.Height = height;
+            VideoImage.Width = width;
+            VideoImage.Height = height;
         }
 
-        private void UpdateTransform()
+        private void QueueFitPhotoToViewportHeight()
         {
-            if (_scaleTransform == null || _translateTransform == null) return;
+            Dispatcher.UIThread.Post(FitPhotoToViewportHeight, DispatcherPriority.Loaded);
+        }
 
-            _scaleTransform.ScaleX = _zoom;
-            _scaleTransform.ScaleY = _zoom;
-            _translateTransform.X = _panOffset.X;
-            _translateTransform.Y = _panOffset.Y;
+        private void FitPhotoToViewportHeight()
+        {
+            if (!_isPhotoAnnotationMode) return;
 
-            InkCanvasOverlay.SetTransform(_zoom, _panOffset);
-            InkCanvasOverlay.InvalidateVisual();
+            var contentWidth = VideoAreaContainer.Width;
+            var contentHeight = VideoAreaContainer.Height;
+            var viewportWidth = ZoomBorder.Bounds.Width;
+            var viewportHeight = ZoomBorder.Bounds.Height;
 
-            if (_isKeystoneCorrectionMode)
+            if (contentWidth <= 0 || contentHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0)
             {
-                UpdateKeystonePointsDisplay();
-                UpdateKeystonePolygon();
+                return;
             }
+
+            var zoom = viewportHeight / contentHeight;
+            var offsetX = (viewportWidth - contentWidth * zoom) / 2.0;
+
+            var matrix = MatrixHelper.ScaleAndTranslate(zoom, zoom, offsetX, 0);
+            ZoomBorder.SetMatrix(matrix, true);
         }
 
         #endregion
@@ -1425,6 +1562,7 @@ namespace ShowWrite
                     EraserBtn.IsChecked = false;
                     InkCanvasOverlay.SetMoveMode();
                     VideoAreaContainer.Cursor = Cursor.Default;
+                    ZoomBorder.PanButton = ButtonName.Left;
                     if (_toolSliderBackground != null)
                         await UIAnimations.SlideToolBackground(_toolSliderBackground, 0);
                     break;
@@ -1433,6 +1571,7 @@ namespace ShowWrite
                     MoveBtn.IsChecked = false;
                     EraserBtn.IsChecked = false;
                     InkCanvasOverlay.SetPenMode();
+                    ZoomBorder.PanButton = ButtonName.Right;
                     if (_toolSliderBackground != null)
                         await UIAnimations.SlideToolBackground(_toolSliderBackground, ThemeManager.CurrentColors.SliderIndicatorSize);
                     break;
@@ -1441,6 +1580,7 @@ namespace ShowWrite
                     MoveBtn.IsChecked = false;
                     PenBtn.IsChecked = false;
                     InkCanvasOverlay.SetEraserMode();
+                    ZoomBorder.PanButton = ButtonName.Right;
                     if (_toolSliderBackground != null)
                         await UIAnimations.SlideToolBackground(_toolSliderBackground, ThemeManager.CurrentColors.SliderIndicatorSize * 2);
                     break;
@@ -1494,7 +1634,7 @@ namespace ShowWrite
 
         private void Capture_Click(object? sender, RoutedEventArgs e)
         {
-            var frame = _cameraService.LatestFrame;
+            var frame = _cameraService.GetProcessedFrame();
             if (frame == null || frame.Empty())
                 return;
 
@@ -1524,6 +1664,103 @@ namespace ShowWrite
         }
 
         private void ScanDocument_Click(object? sender, RoutedEventArgs e) { }
+
+        private void VideoAdjustBtn_Click(object? sender, RoutedEventArgs e)
+        {
+            VideoAdjustPopup.IsOpen = !VideoAdjustPopup.IsOpen;
+        }
+
+        private void RotateLeft_Click(object? sender, RoutedEventArgs e)
+        {
+            VideoAdjustPopup.IsOpen = false;
+            ApplyVideoRotation(-90);
+        }
+
+        private void RotateRight_Click(object? sender, RoutedEventArgs e)
+        {
+            VideoAdjustPopup.IsOpen = false;
+            ApplyVideoRotation(90);
+        }
+
+        private double _currentVideoRotation = 0;
+
+        private void ApplyVideoRotation(double angle)
+        {
+            var oldContentWidth = VideoAreaContainer.Width > 0 ? VideoAreaContainer.Width : (VideoImage.Source?.Size.Width ?? 1);
+            var oldContentHeight = VideoAreaContainer.Height > 0 ? VideoAreaContainer.Height : (VideoImage.Source?.Size.Height ?? 1);
+            var viewportCenterX = ZoomBorder.Bounds.Width / 2.0;
+            var viewportCenterY = ZoomBorder.Bounds.Height / 2.0;
+            var currentZoom = ZoomBorder.ZoomX > 0 ? ZoomBorder.ZoomX : 1.0;
+            var currentOffsetX = ZoomBorder.OffsetX;
+            var currentOffsetY = ZoomBorder.OffsetY;
+
+            var centerContentX = (viewportCenterX - currentOffsetX) / currentZoom;
+            var centerContentY = (viewportCenterY - currentOffsetY) / currentZoom;
+
+            _currentVideoRotation = (_currentVideoRotation + angle) % 360;
+            if (_currentVideoRotation < 0) _currentVideoRotation += 360;
+
+            var sourceWidth = VideoImage.Source?.Size.Width ?? 1;
+            var sourceHeight = VideoImage.Source?.Size.Height ?? 1;
+
+            // 以左上角为旋转原点，并为 90/180/270 度补偿平移，避免旋转后内容偏移出容器。
+            VideoImage.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Relative);
+            var transformGroup = new TransformGroup();
+            transformGroup.Children.Add(new RotateTransform(_currentVideoRotation));
+
+            if (_currentVideoRotation == 90)
+            {
+                transformGroup.Children.Add(new TranslateTransform(sourceHeight, 0));
+            }
+            else if (_currentVideoRotation == 180)
+            {
+                transformGroup.Children.Add(new TranslateTransform(sourceWidth, sourceHeight));
+            }
+            else if (_currentVideoRotation == 270)
+            {
+                transformGroup.Children.Add(new TranslateTransform(0, sourceWidth));
+            }
+
+            VideoImage.RenderTransform = transformGroup;
+
+            if (_currentVideoRotation == 90 || _currentVideoRotation == 270)
+            {
+                SetVideoContentSize(sourceHeight, sourceWidth);
+            }
+            else
+            {
+                SetVideoContentSize(sourceWidth, sourceHeight);
+            }
+
+            var rotatedCenter = RotateContentPointByAngle(
+                centerContentX,
+                centerContentY,
+                oldContentWidth,
+                oldContentHeight,
+                angle);
+
+            var offsetX = viewportCenterX - rotatedCenter.X * currentZoom;
+            var offsetY = viewportCenterY - rotatedCenter.Y * currentZoom;
+            var matrix = MatrixHelper.ScaleAndTranslate(currentZoom, currentZoom, offsetX, offsetY);
+            ZoomBorder.SetMatrix(matrix, true);
+        }
+
+        private static Point RotateContentPointByAngle(
+            double x,
+            double y,
+            double width,
+            double height,
+            double angle)
+        {
+            var normalizedAngle = ((int)Math.Round(angle) % 360 + 360) % 360;
+            return normalizedAngle switch
+            {
+                90 => new Point(height - y, x),
+                180 => new Point(width - x, height - y),
+                270 => new Point(y, width - x),
+                _ => new Point(x, y),
+            };
+        }
 
         private void PictureInPicture_Click(object? sender, RoutedEventArgs e)
         {
@@ -1593,6 +1830,13 @@ namespace ShowWrite
                 return;
             }
 
+            // PptXml模式
+            if (_whiteboardManager?.IsPptXmlMode == true)
+            {
+                _whiteboardManager.PrevPage_Click(sender, e);
+                return;
+            }
+
             // Aspose模式
             if (_whiteboardManager?.IsAsposePresentationOpen == true)
             {
@@ -1601,8 +1845,7 @@ namespace ShowWrite
                 if (slideBitmap is not null)
                 {
                     VideoImage.Source = slideBitmap;
-                    VideoImage.Width = slideBitmap.Size.Width;
-                    VideoImage.Height = slideBitmap.Size.Height;
+                    SetVideoContentSize(slideBitmap.Size.Width, slideBitmap.Size.Height);
                     InkCanvasOverlay.SetPhotoMode(slideBitmap.Size.Width, slideBitmap.Size.Height);
                     InkCanvasOverlay.ClearStrokes();
                     CenterVideo();
@@ -1623,6 +1866,13 @@ namespace ShowWrite
                 return;
             }
 
+            // PptXml模式
+            if (_whiteboardManager?.IsPptXmlMode == true)
+            {
+                _whiteboardManager.NextPage_Click(sender, e);
+                return;
+            }
+
             // Aspose模式
             if (_whiteboardManager?.IsAsposePresentationOpen == true)
             {
@@ -1631,8 +1881,7 @@ namespace ShowWrite
                 if (slideBitmap is not null)
                 {
                     VideoImage.Source = slideBitmap;
-                    VideoImage.Width = slideBitmap.Size.Width;
-                    VideoImage.Height = slideBitmap.Size.Height;
+                    SetVideoContentSize(slideBitmap.Size.Width, slideBitmap.Size.Height);
                     InkCanvasOverlay.SetPhotoMode(slideBitmap.Size.Width, slideBitmap.Size.Height);
                     InkCanvasOverlay.ClearStrokes();
                     CenterVideo();
@@ -1667,6 +1916,29 @@ namespace ShowWrite
         private async void OnImportPptRequested()
         {
             await OpenPptFilePicker();
+        }
+
+        private void OnPptSlideControlReady(PptSlideControl slideControl)
+        {
+            // 找到WhiteboardBackground
+            var whiteboardBackground = this.FindControl<Border>("WhiteboardBackground");
+            if (whiteboardBackground != null)
+            {
+                // 将背景设置为透明，确保不覆盖PPT背景
+                whiteboardBackground.Background = Avalonia.Media.Brushes.Transparent;
+                // 清空WhiteboardBackground的子元素
+                whiteboardBackground.Child = null;
+                // 将幻灯片控件添加到WhiteboardBackground
+                whiteboardBackground.Child = slideControl;
+                // 设置幻灯片控件的拉伸模式
+                slideControl.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+                slideControl.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+                slideControl.Stretch = Avalonia.Media.Stretch.Uniform;
+            }
+
+            // 确保VideoImage不可见
+            VideoImage.Source = null;
+            VideoAreaContainer.Children.Clear();
         }
 
         private async Task OpenPptFilePicker()
@@ -1720,6 +1992,13 @@ namespace ShowWrite
                         normalRightButtons!);
                 }
 
+                // 尝试使用PPT XML模式
+                if (filePath.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase))
+                {
+                    await LoadAndPlayPptXml(filePath);
+                    return;
+                }
+
                 // 打开PPT文件
                 if (_whiteboardManager.OpenPowerPointPresentation(filePath))
                 {
@@ -1761,6 +2040,59 @@ namespace ShowWrite
             {
                 StatusText.Inlines?.Clear();
                 StatusText.Inlines?.Add(new Run($"加载PPT失败: {ex.Message}"));
+                StatusText.IsVisible = true;
+            }
+        }
+
+        private async Task LoadAndPlayPptXml(string filePath)
+        {
+            if (_whiteboardManager == null) return;
+
+            try
+            {
+                // 打开PPT XML文件
+                _whiteboardManager.OpenPptXmlPresentation(filePath);
+
+                // 进入板中板模式
+                var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
+                var captureBtn = this.FindControl<Button>("CaptureBtn");
+                var scanBtn = this.FindControl<Button>("ScanBtn");
+                var connectDeviceBtn = this.FindControl<Button>("ConnectDeviceBtn");
+                var pipBtn = this.FindControl<Button>("PictureInPictureBtn");
+                var normalRightButtons = this.FindControl<StackPanel>("NormalRightButtons");
+
+                _whiteboardManager.EnterWhiteboardMode(
+                    normalBottomButtons,
+                    captureBtn,
+                    scanBtn,
+                    connectDeviceBtn,
+                    pipBtn,
+                    normalRightButtons);
+
+                // 渲染第一页
+                var slideControl = _whiteboardManager.RenderPptXmlCurrentSlide();
+                if (slideControl != null)
+                {
+                    // 设置幻灯片为白板背景
+                    _whiteboardManager.SetWhiteboardBackgroundFromPptControl(slideControl);
+
+                    // 更新状态栏显示
+                    int slideCount = _whiteboardManager.PptXmlSlideCount;
+                    StatusText.Inlines?.Clear();
+                    StatusText.Inlines?.Add(new Run($"已加载PPT (XML模式): {System.IO.Path.GetFileName(filePath)} - 共 {slideCount} 页"));
+                    StatusText.IsVisible = true;
+                }
+                else
+                {
+                    StatusText.Inlines?.Clear();
+                    StatusText.Inlines?.Add(new Run("无法渲染PPT内容"));
+                    StatusText.IsVisible = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText.Inlines?.Clear();
+                StatusText.Inlines?.Add(new Run($"加载PPT XML失败: {ex.Message}"));
                 StatusText.IsVisible = true;
             }
         }
@@ -2013,30 +2345,157 @@ namespace ShowWrite
             }
         }
 
+        public async void OpenFiles(List<string> filePaths)
+        {
+            if (filePaths == null || filePaths.Count == 0) return;
+
+            var imageFiles = new List<string>();
+            string? pptFile = null;
+
+            foreach (var path in filePaths)
+            {
+                var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+                if (ext == ".pptx" || ext == ".ppt")
+                {
+                    pptFile = path;
+                }
+                else
+                {
+                    imageFiles.Add(path);
+                }
+            }
+
+            if (pptFile != null)
+            {
+                await LoadAndPlayPowerPoint(pptFile);
+            }
+            else if (imageFiles.Count > 0)
+            {
+                await ImportFilesAsync(imageFiles);
+            }
+        }
+
+        private async Task ImportFilesAsync(List<string> filePaths)
+        {
+            ImportingOverlay.IsVisible = true;
+
+            try
+            {
+                await System.Threading.Tasks.Task.Run(async () =>
+                {
+                    foreach (var path in filePaths)
+                    {
+                        if (path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var imagePaths = PdfService.ConvertPdfToImages(path);
+
+                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                foreach (var imagePath in imagePaths)
+                                {
+                                    var thumbnail = CreateThumbnail(imagePath);
+
+                                    Photos.Add(new PhotoItem
+                                    {
+                                        Index = Photos.Count + 1,
+                                        FilePath = imagePath,
+                                        Timestamp = DateTime.Now,
+                                        Thumbnail = thumbnail
+                                    });
+                                }
+                            });
+                        }
+                        else
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                var thumbnail = CreateThumbnail(path);
+
+                                Photos.Add(new PhotoItem
+                                {
+                                    Index = Photos.Count + 1,
+                                    FilePath = path,
+                                    Timestamp = DateTime.Now,
+                                    Thumbnail = thumbnail
+                                });
+                            });
+                        }
+                    }
+                });
+
+                await OpenPhotoPanelAsync();
+            }
+            finally
+            {
+                ImportingOverlay.IsVisible = false;
+            }
+        }
+
+        private async Task OpenPhotoPanelAsync()
+        {
+            var photoPanel = this.FindControl<Border>("PhotoPanel");
+            if (photoPanel == null || _photoPanelOpen) return;
+
+            _photoPanelOpen = true;
+            await UIAnimations.SlideInFromRight(photoPanel, 280);
+        }
+
         private void PhotoItem_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (sender is Border border && border.Tag is PhotoItem photo)
             {
-                if (photo.IsSelected && _isPhotoAnnotationMode)
+                _isPhotoItemDragging = true;
+                _photoItemDragStartPoint = e.GetPosition(border);
+                _isPhotoItemDragInProgress = false;
+                e.Pointer.Capture(border);
+            }
+        }
+
+        private void PhotoItem_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (_isPhotoItemDragging && sender is Border border)
+            {
+                var currentPosition = e.GetPosition(border);
+                var delta = currentPosition - _photoItemDragStartPoint;
+                var distance = Math.Sqrt(delta.X * delta.X + delta.Y * delta.Y);
+
+                if (distance > PhotoItemDragThreshold)
                 {
-                    ExitPhotoAnnotationMode();
-                    return;
+                    _isPhotoItemDragInProgress = true;
+                }
+            }
+        }
+
+        private void PhotoItem_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (sender is Border border && border.Tag is PhotoItem photo)
+            {
+                if (!_isPhotoItemDragInProgress)
+                {
+                    if (photo.IsSelected && _isPhotoAnnotationMode)
+                    {
+                        ExitPhotoAnnotationMode();
+                        return;
+                    }
+
+                    if (_selectedPhoto != null && _isPhotoAnnotationMode)
+                    {
+                        _selectedPhoto.Strokes = InkCanvasOverlay.GetStrokes();
+                    }
+
+                    foreach (var p in Photos)
+                    {
+                        p.IsSelected = false;
+                    }
+
+                    photo.IsSelected = true;
+                    _selectedPhoto = photo;
+
+                    ShowPhotoForAnnotation(photo);
                 }
 
-                if (_selectedPhoto != null && _isPhotoAnnotationMode)
-                {
-                    _selectedPhoto.Strokes = InkCanvasOverlay.GetStrokes();
-                }
-
-                foreach (var p in Photos)
-                {
-                    p.IsSelected = false;
-                }
-
-                photo.IsSelected = true;
-                _selectedPhoto = photo;
-
-                ShowPhotoForAnnotation(photo);
+                _isPhotoItemDragging = false;
+                _isPhotoItemDragInProgress = false;
             }
         }
 
@@ -2057,8 +2516,8 @@ namespace ShowWrite
             if (bitmap != null)
             {
                 VideoImage.Source = bitmap;
-                VideoImage.Width = bitmap.Size.Width;
-                VideoImage.Height = bitmap.Size.Height;
+                SetVideoContentSize(bitmap.Size.Width, bitmap.Size.Height);
+                QueueFitPhotoToViewportHeight();
 
                 InkCanvasOverlay.SetPhotoMode(bitmap.Size.Width, bitmap.Size.Height);
                 InkCanvasOverlay.SetStrokes(photo.Strokes);
@@ -2371,7 +2830,7 @@ namespace ShowWrite
 
         private void ConfirmKeystone_Click(object? sender, RoutedEventArgs e)
         {
-            var destPoints = _cameraService.GetDefaultDestPoints(_videoWidth, _videoHeight);
+            var destPoints = CalculateAspectRatioDestPoints(_videoWidth, _videoHeight);
             _cameraService.SetPerspectiveTransform(_keystonePoints, destPoints);
 
             SaveKeystoneSettings();
@@ -2422,7 +2881,8 @@ namespace ShowWrite
                 BRX = _keystonePoints[2].X,
                 BRY = _keystonePoints[2].Y,
                 BLX = _keystonePoints[3].X,
-                BLY = _keystonePoints[3].Y
+                BLY = _keystonePoints[3].Y,
+                AspectRatio = _selectedAspectRatio
             };
 
             config.Save();
@@ -2443,7 +2903,21 @@ namespace ShowWrite
                     new OpenCvSharp.Point2f(points.BLX, points.BLY)
                 };
 
-                var destPoints = _cameraService.GetDefaultDestPoints(_videoWidth, _videoHeight);
+                _selectedAspectRatio = points.AspectRatio ?? "自由";
+                if (_aspectRatioDropDown != null)
+                {
+                    for (int i = 0; i < _aspectRatioDropDown.ItemCount; i++)
+                    {
+                        if (_aspectRatioDropDown.Items[i] is ComboBoxItem item && 
+                            item.Content?.ToString() == _selectedAspectRatio)
+                        {
+                            _aspectRatioDropDown.SelectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                var destPoints = CalculateAspectRatioDestPoints(_videoWidth, _videoHeight);
                 _cameraService.SetPerspectiveTransform(sourcePoints, destPoints);
             }
         }
@@ -2456,8 +2930,8 @@ namespace ShowWrite
                 _draggingKeystonePoint = border;
                 var position = e.GetPosition(_keystoneOverlayCanvas);
                 var pointIndex = Convert.ToInt32(border.Tag);
-                var pointX = _keystonePoints[pointIndex].X * _zoom + _panOffset.X;
-                var pointY = _keystonePoints[pointIndex].Y * _zoom + _panOffset.Y;
+                var pointX = _keystonePoints[pointIndex].X;
+                var pointY = _keystonePoints[pointIndex].Y;
                 _keystonePointOffset = new Point(position.X - pointX, position.Y - pointY);
                 e.Pointer.Capture(border);
                 e.Handled = true;
@@ -2472,8 +2946,8 @@ namespace ShowWrite
             var position = e.GetPosition(_keystoneOverlayCanvas);
             var pointIndex = Convert.ToInt32(_draggingKeystonePoint.Tag);
 
-            var videoX = (position.X - _keystonePointOffset.X - _panOffset.X) / _zoom;
-            var videoY = (position.Y - _keystonePointOffset.Y - _panOffset.Y) / _zoom;
+            var videoX = position.X - _keystonePointOffset.X;
+            var videoY = position.Y - _keystonePointOffset.Y;
 
             videoX = Math.Clamp(videoX, 0, _videoWidth);
             videoY = Math.Clamp(videoY, 0, _videoHeight);
@@ -2510,17 +2984,17 @@ namespace ShowWrite
             var offsetY = -12;
 
             // 使用完全限定名避免与 SkiaSharp.SKCanvas 冲突
-            Avalonia.Controls.Canvas.SetLeft(_keystonePointTL, _keystonePoints[0].X * _zoom + _panOffset.X + offsetX);
-            Avalonia.Controls.Canvas.SetTop(_keystonePointTL, _keystonePoints[0].Y * _zoom + _panOffset.Y + offsetY);
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointTL, _keystonePoints[0].X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointTL, _keystonePoints[0].Y + offsetY);
 
-            Avalonia.Controls.Canvas.SetLeft(_keystonePointTR, _keystonePoints[1].X * _zoom + _panOffset.X + offsetX);
-            Avalonia.Controls.Canvas.SetTop(_keystonePointTR, _keystonePoints[1].Y * _zoom + _panOffset.Y + offsetY);
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointTR, _keystonePoints[1].X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointTR, _keystonePoints[1].Y + offsetY);
 
-            Avalonia.Controls.Canvas.SetLeft(_keystonePointBR, _keystonePoints[2].X * _zoom + _panOffset.X + offsetX);
-            Avalonia.Controls.Canvas.SetTop(_keystonePointBR, _keystonePoints[2].Y * _zoom + _panOffset.Y + offsetY);
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointBR, _keystonePoints[2].X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointBR, _keystonePoints[2].Y + offsetY);
 
-            Avalonia.Controls.Canvas.SetLeft(_keystonePointBL, _keystonePoints[3].X * _zoom + _panOffset.X + offsetX);
-            Avalonia.Controls.Canvas.SetTop(_keystonePointBL, _keystonePoints[3].Y * _zoom + _panOffset.Y + offsetY);
+            Avalonia.Controls.Canvas.SetLeft(_keystonePointBL, _keystonePoints[3].X + offsetX);
+            Avalonia.Controls.Canvas.SetTop(_keystonePointBL, _keystonePoints[3].Y + offsetY);
         }
 
         private void UpdateKeystonePolygon()
@@ -2530,13 +3004,71 @@ namespace ShowWrite
 
             var points = new List<Point>
             {
-                new Point(_keystonePoints[0].X * _zoom + _panOffset.X, _keystonePoints[0].Y * _zoom + _panOffset.Y),
-                new Point(_keystonePoints[1].X * _zoom + _panOffset.X, _keystonePoints[1].Y * _zoom + _panOffset.Y),
-                new Point(_keystonePoints[2].X * _zoom + _panOffset.X, _keystonePoints[2].Y * _zoom + _panOffset.Y),
-                new Point(_keystonePoints[3].X * _zoom + _panOffset.X, _keystonePoints[3].Y * _zoom + _panOffset.Y)
+                new Point(_keystonePoints[0].X, _keystonePoints[0].Y),
+                new Point(_keystonePoints[1].X, _keystonePoints[1].Y),
+                new Point(_keystonePoints[2].X, _keystonePoints[2].Y),
+                new Point(_keystonePoints[3].X, _keystonePoints[3].Y)
             };
 
             _keystonePolygon.Points = new Points(points);
+        }
+
+        private void AspectRatioDropDown_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (_aspectRatioDropDown?.SelectedItem is ComboBoxItem item)
+            {
+                _selectedAspectRatio = item.Content?.ToString() ?? "自由";
+            }
+        }
+
+        private OpenCvSharp.Point2f[] CalculateAspectRatioDestPoints(int width, int height)
+        {
+            float targetRatio = 0f;
+            
+            switch (_selectedAspectRatio)
+            {
+                case "A4 (1:1.414)":
+                    targetRatio = 1.414f;
+                    break;
+                case "B4":
+                    targetRatio = 353f / 250f;
+                    break;
+                case "自由":
+                default:
+                    return new OpenCvSharp.Point2f[]
+                    {
+                        new OpenCvSharp.Point2f(0, 0),
+                        new OpenCvSharp.Point2f(width, 0),
+                        new OpenCvSharp.Point2f(width, height),
+                        new OpenCvSharp.Point2f(0, height)
+                    };
+            }
+
+            float currentRatio = (float)height / width;
+            float newWidth, newHeight, offsetX, offsetY;
+
+            if (currentRatio > targetRatio)
+            {
+                newHeight = height;
+                newWidth = height / targetRatio;
+                offsetX = (newWidth - width) / 2;
+                offsetY = 0;
+            }
+            else
+            {
+                newWidth = width;
+                newHeight = width * targetRatio;
+                offsetX = 0;
+                offsetY = (newHeight - height) / 2;
+            }
+
+            return new OpenCvSharp.Point2f[]
+            {
+                new OpenCvSharp.Point2f(-offsetX, -offsetY),
+                new OpenCvSharp.Point2f(width + offsetX, -offsetY),
+                new OpenCvSharp.Point2f(width + offsetX, height + offsetY),
+                new OpenCvSharp.Point2f(-offsetX, height + offsetY)
+            };
         }
 
         #endregion

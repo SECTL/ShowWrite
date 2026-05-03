@@ -9,7 +9,7 @@
 	<TrayIcon.Icons>
 		<TrayIcons>
 			<TrayIcon Icon="/icon-d1tools.com.ico"
-					  ToolTipText="随心记"
+					  ToolTipText="闪记"
 					  IsVisible="False">
 				<TrayIcon.Menu>
 					<NativeMenu>

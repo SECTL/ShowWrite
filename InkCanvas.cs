@@ -12,14 +12,8 @@ namespace ShowWrite
 {
     public class InkCanvas : Control, IDisposable
     {
-        private SKSurface? _wetInkSurface;
-        private SKCanvas? _wetInkCanvas;
-
         private int _videoWidth;
         private int _videoHeight;
-
-        private int _wetInkWidth;
-        private int _wetInkHeight;
 
         private bool _isPhotoMode;
         private double _photoWidth;
@@ -31,13 +25,15 @@ namespace ShowWrite
 
         private readonly List<InkStroke> _strokes = new();
         private List<SKPoint>? _currentVideoPoints;
+        private List<SKPoint>? _currentScreenPoints;
         private List<float>? _currentPointWidths;
+        private List<float>? _currentZoomFactors;
         private List<long>? _currentTimestamps;
         private bool _currentIsEraser;
         private float _currentSize;
         private SKColor _currentColor;
         private float _currentRatio = 0.5f;
-        private float _prevRatio = 0.5f;
+        private const float BasePenWidthScale = 0.8f;
 
         private List<InkStroke>? _tempStrokes;
         private SKPoint _lastEraserPoint;
@@ -57,6 +53,10 @@ namespace ShowWrite
         private double _palmEraserThreshold = 5000.0;
         private double _currentTouchArea = 0.0;
         private bool _enablePalmEraser = true;
+        private int _palmActivationHitCount = 0;
+        private int _palmReleaseHitCount = 0;
+        private DateTime _lastPalmHitTimeUtc = DateTime.MinValue;
+        private const int PalmReleaseDebounceMs = 90;
 
         // 橡皮光标事件
         public event Action<Point, float, bool>? EraserCursorUpdate;
@@ -108,8 +108,12 @@ namespace ShowWrite
 
         public void SetTransform(double zoom, Point pan)
         {
-            _currentZoom = zoom;
-            _currentPan = pan;
+            if (Math.Abs(_currentZoom - zoom) > 0.001 || _currentPan != pan)
+            {
+                _currentZoom = zoom;
+                _currentPan = pan;
+                InvalidateVisual();
+            }
         }
 
         private void SetVideoSize(int width, int height)
@@ -119,22 +123,6 @@ namespace ShowWrite
 
             _videoWidth = width;
             _videoHeight = height;
-        }
-
-        private void EnsureWetInkSurface(int width, int height)
-        {
-            if (width <= 0 || height <= 0) return;
-            if (_wetInkSurface != null && _wetInkWidth == width && _wetInkHeight == height) return;
-
-            _wetInkCanvas?.Dispose();
-            _wetInkSurface?.Dispose();
-
-            var info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-            _wetInkSurface = SKSurface.Create(info);
-            _wetInkCanvas = _wetInkSurface?.Canvas;
-            _wetInkCanvas?.Clear(SKColors.Transparent);
-            _wetInkWidth = width;
-            _wetInkHeight = height;
         }
 
         public void SetPenMode()
@@ -278,6 +266,16 @@ namespace ShowWrite
             return new SKPoint(screenX, screenY);
         }
 
+        private static SKPoint ToSkPoint(Point point)
+        {
+            return new SKPoint((float)point.X, (float)point.Y);
+        }
+
+        private float GetRenderScaling()
+        {
+            return Math.Max(1.0f, (float)(VisualRoot?.RenderScaling ?? 1.0));
+        }
+
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (!IsPenMode && !IsEraserMode) return;
@@ -285,22 +283,19 @@ namespace ShowWrite
             var point = e.GetPosition(this);
             var pointerPoint = e.GetCurrentPoint(this);
 
-            if (EnablePalmEraser && IsPenMode)
+            if (IsPenMode && pointerPoint.Properties.IsRightButtonPressed)
             {
-                var touchArea = CalculateTouchArea(e);
-                _currentTouchArea = touchArea;
-
-                if (touchArea > PalmEraserThreshold)
-                {
-                    ActivatePalmEraser(point);
-                    return;
-                }
+                return;
             }
+
+            if (TryHandlePalmEraser(e, point, isMoveEvent: false))
+                return;
 
             _isDrawing = true;
             e.Pointer.Capture(this);
 
             var videoPoint = ScreenToVideo(point);
+            var screenPoint = ToSkPoint(point);
             _currentVideoPoints = new List<SKPoint> { videoPoint };
             _currentIsEraser = IsEraserMode;
             _currentSize = IsEraserMode ? EraserSize : PenSize;
@@ -321,9 +316,10 @@ namespace ShowWrite
             else
             {
                 _currentRatio = 0.5f;
-                _prevRatio = 0.5f;
-                float baseWidthVideo = _currentSize / zoomFactor;
-                _currentPointWidths = new List<float> { baseWidthVideo * _currentRatio };
+                _currentScreenPoints = new List<SKPoint> { screenPoint };
+                float widthScale = BasePenWidthScale / GetRenderScaling();
+                _currentPointWidths = new List<float> { _currentSize * _currentRatio * widthScale };
+                _currentZoomFactors = new List<float> { zoomFactor };
                 _currentTimestamps = new List<long> { DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() };
             }
         }
@@ -340,30 +336,10 @@ namespace ShowWrite
                 EraserCursorUpdate?.Invoke(currentPoint, EraserSize, true);
             }
 
-            if (EnablePalmEraser && IsPenMode)
-            {
-                var touchArea = CalculateTouchArea(e);
-                _currentTouchArea = touchArea;
+            if (TryHandlePalmEraser(e, currentPoint, isMoveEvent: true))
+                return;
 
-                if (touchArea > PalmEraserThreshold)
-                {
-                    if (!_isPalmEraserActive)
-                    {
-                        ActivatePalmEraser(currentPoint);
-                    }
-                    float eraserSize = CalculatePalmEraserSize(touchArea);
-                    ApplyEraserAtPoint(videoPoint, eraserSize);
-                    InvalidateVisual();
-                    return;
-                }
-            }
-
-            if (_isPalmEraserActive)
-            {
-                DeactivatePalmEraser();
-            }
-
-            if (!_isDrawing || _currentVideoPoints == null || _wetInkCanvas == null) return;
+            if (!_isDrawing || _currentVideoPoints == null) return;
 
             var lastVideoPoint = _currentVideoPoints[^1];
             _currentVideoPoints.Add(videoPoint);
@@ -386,26 +362,17 @@ namespace ShowWrite
             {
                 var currentTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 _currentTimestamps!.Add(currentTime);
+                var currentScreenPoint = ToSkPoint(currentPoint);
+                var lastScreenPoint = _currentScreenPoints![^1];
+                _currentScreenPoints.Add(currentScreenPoint);
 
-                float videoDistance = CalculateDistance(lastVideoPoint, videoPoint);
-                float screenDistance = (_isWhiteboardMode) ? videoDistance : videoDistance * zoomFactor;
+                float screenDistance = CalculateDistance(lastScreenPoint, currentScreenPoint);
 
                 UpdateRatioBySpeed(screenDistance);
 
-                float baseWidthVideo = _currentSize / zoomFactor;
-                float widthVideo = baseWidthVideo * _currentRatio;
-                _currentPointWidths!.Add(widthVideo);
-
-                var screenFrom = VideoToScreen(lastVideoPoint);
-                var screenTo = VideoToScreen(videoPoint);
-
-                float screenFromWidth = baseWidthVideo * _prevRatio * zoomFactor;
-                float screenToWidth = widthVideo * zoomFactor;
-
-                DrawSmoothSegment(_wetInkCanvas, screenFrom, screenTo,
-                    screenFromWidth, screenToWidth, _currentColor);
-
-                _prevRatio = _currentRatio;
+                float widthScale = BasePenWidthScale / GetRenderScaling();
+                _currentPointWidths!.Add(_currentSize * _currentRatio * widthScale);
+                _currentZoomFactors!.Add(zoomFactor);
             }
 
             InvalidateVisual();
@@ -443,37 +410,6 @@ namespace ShowWrite
             _currentRatio = Math.Clamp(_currentRatio, settings.RatioMin, settings.RatioMax);
         }
 
-        private void DrawSmoothSegment(SKCanvas canvas, SKPoint from, SKPoint to,
-            float fromWidth, float toWidth, SKColor color)
-        {
-            float distance = CalculateDistance(from, to);
-
-            using var paint = new SKPaint
-            {
-                Style = SKPaintStyle.Fill,
-                IsAntialias = true,
-                Color = color
-            };
-
-            if (distance < 1f)
-            {
-                canvas.DrawCircle(from, fromWidth / 2, paint);
-                return;
-            }
-
-            int subdivisions = Math.Max(3, (int)(distance / (float)PenSettings.Denominator * 10));
-
-            for (int i = 0; i <= subdivisions; i++)
-            {
-                float t = i / (float)subdivisions;
-                float x = from.X + (to.X - from.X) * t;
-                float y = from.Y + (to.Y - from.Y) * t;
-                float w = fromWidth + (toWidth - fromWidth) * t;
-
-                canvas.DrawCircle(new SKPoint(x, y), w / 2, paint);
-            }
-        }
-
         private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             if (_isPalmEraserActive)
@@ -486,6 +422,8 @@ namespace ShowWrite
                 DeactivatePalmEraser();
             }
 
+            ResetPalmDetectionState();
+
             if (!_isDrawing) return;
 
             if (_currentVideoPoints != null && _currentVideoPoints.Count > 1)
@@ -495,31 +433,13 @@ namespace ShowWrite
                     _strokes.Clear();
                     _strokes.AddRange(_tempStrokes);
                 }
-                else if (_currentPointWidths != null)
+                else
                 {
-                    float zoomFactor = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
-                    ApplyInkStyle(_currentPointWidths, zoomFactor);
-
-                    var stroke = new InkStroke
-                    {
-                        VideoPoints = new List<SKPoint>(_currentVideoPoints),
-                        PointWidths = new List<float>(_currentPointWidths),
-                        IsEraser = false,
-                        Size = _currentSize / zoomFactor,
-                        Color = _currentColor
-                    };
-                    _strokes.Add(stroke);
+                    CommitCurrentStroke();
                 }
             }
 
-            _currentVideoPoints = null;
-            _currentPointWidths = null;
-            _currentTimestamps = null;
-            _tempStrokes = null;
-            _hasLastEraserPoint = false;
-            _isDrawing = false;
-
-            _wetInkCanvas?.Clear(SKColors.Transparent);
+            ResetCurrentInteraction();
             InvalidateVisual();
             e.Pointer.Capture(null);
 
@@ -530,12 +450,11 @@ namespace ShowWrite
             }
         }
 
-        private void ApplyInkStyle(List<float> widths, float zoomFactor)
+        private void ApplyInkStyle(List<float> widths, float baseWidth)
         {
             if (widths.Count < 2) return;
 
             int n = widths.Count - 1;
-            float baseWidthVideo = _currentSize / zoomFactor;
             float minPressure = 0.2f;
             int taperLength = Math.Min(widths.Count / 5, 12);
 
@@ -545,17 +464,17 @@ namespace ShowWrite
                 {
                     float factor = (float)i / taperLength;
                     float pressure = minPressure + (1.0f - minPressure) * factor;
-                    float targetWidthVideo = baseWidthVideo * pressure;
-                    widths[i] = widths[i] * factor + targetWidthVideo * (1 - factor);
+                    float targetWidth = baseWidth * pressure;
+                    widths[i] = widths[i] * factor + targetWidth * (1 - factor);
                 }
 
                 for (int i = 0; i < taperLength; i++)
                 {
                     float factor = (float)i / taperLength;
                     float pressure = minPressure + (1.0f - minPressure) * factor;
-                    float targetWidthVideo = baseWidthVideo * pressure;
+                    float targetWidth = baseWidth * pressure;
                     int idx = n - i;
-                    widths[idx] = widths[idx] * factor + targetWidthVideo * (1 - factor);
+                    widths[idx] = widths[idx] * factor + targetWidth * (1 - factor);
                 }
             }
             else
@@ -566,9 +485,9 @@ namespace ShowWrite
                     float endFactor = (float)(n - i) / n;
                     float positionFactor = Math.Min(startFactor, endFactor) * 2.0f;
                     float pressure = minPressure + (1.0f - minPressure) * Math.Min(positionFactor, 1.0f);
-                    float targetWidthVideo = baseWidthVideo * pressure;
+                    float targetWidth = baseWidth * pressure;
                     float blendFactor = 1.0f - Math.Min(positionFactor, 1.0f);
-                    widths[i] = widths[i] * (1 - blendFactor) + targetWidthVideo * blendFactor;
+                    widths[i] = widths[i] * (1 - blendFactor) + targetWidth * blendFactor;
                 }
             }
         }
@@ -582,30 +501,67 @@ namespace ShowWrite
                     _strokes.Clear();
                     _strokes.AddRange(_tempStrokes);
                 }
-                else if (_currentPointWidths != null)
+                else
                 {
-                    float zoomFactor = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
-                    ApplyInkStyle(_currentPointWidths, zoomFactor);
-
-                    var stroke = new InkStroke
-                    {
-                        VideoPoints = new List<SKPoint>(_currentVideoPoints),
-                        PointWidths = new List<float>(_currentPointWidths),
-                        IsEraser = false,
-                        Size = _currentSize / zoomFactor,
-                        Color = _currentColor
-                    };
-                    _strokes.Add(stroke);
+                    CommitCurrentStroke();
                 }
             }
 
+            ResetCurrentInteraction();
+            InvalidateVisual();
+        }
+
+        private void CommitCurrentStroke()
+        {
+            if (_currentVideoPoints == null ||
+                _currentPointWidths == null ||
+                _currentZoomFactors == null ||
+                _currentVideoPoints.Count <= 1 ||
+                _currentPointWidths.Count != _currentVideoPoints.Count)
+            {
+                return;
+            }
+
+            ApplyInkStyle(_currentPointWidths, _currentSize);
+            var videoWidths = ConvertScreenWidthsToVideo(_currentPointWidths, _currentZoomFactors);
+            float lastZoomFactor = _currentZoomFactors.Count > 0 ? _currentZoomFactors[^1] : 1.0f;
+            float widthScale = BasePenWidthScale / GetRenderScaling();
+
+            var stroke = new InkStroke
+            {
+                VideoPoints = new List<SKPoint>(_currentVideoPoints),
+                PointWidths = videoWidths,
+                IsEraser = false,
+                Size = (_currentSize * widthScale) / Math.Max(lastZoomFactor, 0.001f),
+                Color = _currentColor
+            };
+
+            _strokes.Add(stroke);
+        }
+
+        private List<float> ConvertScreenWidthsToVideo(List<float> screenWidths, List<float> zoomFactors)
+        {
+            var videoWidths = new List<float>(screenWidths.Count);
+
+            for (int i = 0; i < screenWidths.Count; i++)
+            {
+                float zoomFactor = i < zoomFactors.Count ? zoomFactors[i] : 1.0f;
+                videoWidths.Add(screenWidths[i] / Math.Max(zoomFactor, 0.001f));
+            }
+
+            return videoWidths;
+        }
+
+        private void ResetCurrentInteraction()
+        {
             _currentVideoPoints = null;
+            _currentScreenPoints = null;
             _currentPointWidths = null;
+            _currentZoomFactors = null;
             _currentTimestamps = null;
             _tempStrokes = null;
             _hasLastEraserPoint = false;
             _isDrawing = false;
-            _wetInkCanvas?.Clear(SKColors.Transparent);
         }
 
         private List<InkStroke> CloneStrokes(List<InkStroke> source)
@@ -690,13 +646,19 @@ namespace ShowWrite
         private List<InkStroke> EraseStrokeWithRectangle(InkStroke stroke, SKRect rectVideo)
         {
             var result = new List<InkStroke>();
+            if (stroke.VideoPoints == null)
+            {
+                return result;
+            }
+
+            var videoPoints = stroke.VideoPoints;
             var currentSegment = new List<SKPoint>();
             var currentWidths = new List<float>();
-            var hasWidths = stroke.PointWidths != null && stroke.PointWidths.Count == stroke.VideoPoints.Count;
+            var hasWidths = stroke.PointWidths != null && stroke.PointWidths.Count == videoPoints.Count;
 
-            for (int i = 0; i < stroke.VideoPoints.Count; i++)
+            for (int i = 0; i < videoPoints.Count; i++)
             {
-                var point = stroke.VideoPoints[i];
+                var point = videoPoints[i];
                 var width = hasWidths ? stroke.PointWidths![i] : stroke.Size;
                 float radius = width / 2;
 
@@ -782,26 +744,33 @@ namespace ShowWrite
 
             var displayWidth = (int)Bounds.Width;
             var displayHeight = (int)Bounds.Height;
+            var renderScaling = GetRenderScaling();
+            var pixelWidth = Math.Max(1, (int)Math.Ceiling(displayWidth * renderScaling));
+            var pixelHeight = Math.Max(1, (int)Math.Ceiling(displayHeight * renderScaling));
 
             if (displayWidth <= 0 || displayHeight <= 0) return;
 
-            EnsureWetInkSurface(displayWidth, displayHeight);
-
-            if (_displayBitmap == null || _displayBitmap.PixelSize.Width != displayWidth || _displayBitmap.PixelSize.Height != displayHeight)
+            if (_displayBitmap == null || _displayBitmap.PixelSize.Width != pixelWidth || _displayBitmap.PixelSize.Height != pixelHeight)
             {
                 _displayBitmap?.Dispose();
-                _displayBitmap = new WriteableBitmap(new PixelSize(displayWidth, displayHeight), new Vector(96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+                _displayBitmap = new WriteableBitmap(
+                    new PixelSize(pixelWidth, pixelHeight),
+                    new Vector(96 * renderScaling, 96 * renderScaling),
+                    PixelFormat.Bgra8888,
+                    AlphaFormat.Premul);
             }
 
             using (var fb = _displayBitmap.Lock())
             {
                 var info = new SKImageInfo(fb.Size.Width, fb.Size.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
                 using var surface = SKSurface.Create(info, fb.Address, fb.RowBytes);
-                surface.Canvas.Clear(SKColors.Transparent);
+                var canvas = surface.Canvas;
+                canvas.Clear(SKColors.Transparent);
+                canvas.Save();
+                canvas.Scale(renderScaling, renderScaling);
 
                 if (_isWhiteboardMode && _whiteboardBackgroundBitmap != null)
                 {
-                    var canvas = surface.Canvas;
                     var bounds = Bounds;
 
                     var imgWidth = _whiteboardBackgroundBitmap.Width;
@@ -822,21 +791,21 @@ namespace ShowWrite
 
                 if (_isDrawing && _currentIsEraser && _tempStrokes != null)
                 {
-                    RenderStrokes(surface.Canvas, _tempStrokes);
+                    RenderStrokes(canvas, _tempStrokes);
                 }
                 else
                 {
-                    RenderStrokes(surface.Canvas, _strokes);
+                    RenderStrokes(canvas, _strokes);
                 }
-
-                if (_wetInkSurface != null)
+                
+                if (_isDrawing && !_currentIsEraser)
                 {
-                    using var wetSnapshot = _wetInkSurface.Snapshot();
-                    surface.Canvas.DrawImage(wetSnapshot, 0, 0);
+                    RenderCurrentWetStroke(canvas);
                 }
+                canvas.Restore();
             }
 
-            context.DrawImage(_displayBitmap, new Rect(0, 0, displayWidth, displayHeight), Bounds);
+            context.DrawImage(_displayBitmap, new Rect(_displayBitmap.Size), Bounds);
         }
 
         private void RenderStrokes(SKCanvas canvas, List<InkStroke> strokes)
@@ -893,6 +862,35 @@ namespace ShowWrite
             }
         }
 
+        private void RenderCurrentWetStroke(SKCanvas canvas)
+        {
+            if (_currentScreenPoints == null ||
+                _currentPointWidths == null ||
+                _currentScreenPoints.Count < 2 ||
+                _currentPointWidths.Count != _currentScreenPoints.Count)
+            {
+                return;
+            }
+
+            using var paint = new SKPaint
+            {
+                Style = SKPaintStyle.Fill,
+                IsAntialias = true,
+                Color = _currentColor
+            };
+
+            for (int i = 0; i < _currentScreenPoints.Count - 1; i++)
+            {
+                RenderSmoothSegment(
+                    canvas,
+                    _currentScreenPoints[i],
+                    _currentScreenPoints[i + 1],
+                    _currentPointWidths[i],
+                    _currentPointWidths[i + 1],
+                    paint);
+            }
+        }
+
         private void RenderSmoothSegment(SKCanvas canvas, SKPoint p1, SKPoint p2, float w1, float w2, SKPaint paint)
         {
             float dx = p2.X - p1.X;
@@ -926,12 +924,7 @@ namespace ShowWrite
         public void ClearAll()
         {
             _strokes.Clear();
-            _currentVideoPoints = null;
-            _currentPointWidths = null;
-            _currentTimestamps = null;
-            _tempStrokes = null;
-            _hasLastEraserPoint = false;
-            _wetInkCanvas?.Clear(SKColors.Transparent);
+            ResetCurrentInteraction();
             InvalidateVisual();
         }
 
@@ -951,12 +944,91 @@ namespace ShowWrite
             {
                 var pointerPoint = e.GetCurrentPoint(this);
                 var bounds = pointerPoint.Properties.ContactRect;
-                return bounds.Width * bounds.Height;
+                var width = Math.Abs(bounds.Width);
+                var height = Math.Abs(bounds.Height);
+                if (width <= 0 || height <= 0)
+                {
+                    return 0;
+                }
+
+                // 电容屏用面积，红外屏更适合用等效边长（sqrt(area)）避免误放大
+                double metric = PenSettings.IsInfraredScreen
+                    ? Math.Sqrt(width * height)
+                    : width * height;
+
+                var multiplier = PenSettings.PalmTouchMultiplier;
+                if (multiplier > 0)
+                {
+                    metric *= multiplier;
+                }
+
+                return metric;
             }
             catch
             {
                 return 0;
             }
+        }
+
+        private bool TryHandlePalmEraser(PointerEventArgs e, Point screenPoint, bool isMoveEvent)
+        {
+            if (!EnablePalmEraser || !IsPenMode)
+                return false;
+
+            // 状态锁：激活后允许短时抖动，防止在手掌擦和书写之间来回抖动。
+            var touchMetric = CalculateTouchArea(e);
+            _currentTouchArea = touchMetric;
+            var nowUtc = DateTime.UtcNow;
+            var isPalmCandidate = touchMetric > PalmEraserThreshold;
+
+            if (isPalmCandidate)
+            {
+                _palmActivationHitCount++;
+                _palmReleaseHitCount = 0;
+                _lastPalmHitTimeUtc = nowUtc;
+            }
+            else
+            {
+                _palmActivationHitCount = 0;
+                _palmReleaseHitCount++;
+            }
+
+            int activationSamples = Math.Max(1, PenSettings.PalmActivationSamples);
+            int releaseSamples = Math.Max(1, PenSettings.PalmReleaseSamples);
+
+            if (!_isPalmEraserActive)
+            {
+                if (_palmActivationHitCount >= activationSamples)
+                {
+                    ActivatePalmEraser(screenPoint);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            var elapsedSinceLastPalmHit = (nowUtc - _lastPalmHitTimeUtc).TotalMilliseconds;
+            if (!isPalmCandidate && _palmReleaseHitCount >= releaseSamples && elapsedSinceLastPalmHit > PalmReleaseDebounceMs)
+            {
+                DeactivatePalmEraser();
+                return false;
+            }
+
+            if (_isPalmEraserActive)
+            {
+                var videoPoint = ScreenToVideo(screenPoint);
+                float eraserSize = CalculatePalmEraserSize(touchMetric);
+                ApplyEraserAtPoint(videoPoint, eraserSize);
+                EraserCursorUpdate?.Invoke(screenPoint, eraserSize, true);
+                if (isMoveEvent)
+                {
+                    InvalidateVisual();
+                }
+                return true;
+            }
+
+            return false;
         }
 
         private void ActivatePalmEraser(Point screenPoint)
@@ -966,11 +1038,12 @@ namespace ShowWrite
             _lastModeBeforePalmEraser = IsPenMode;
             _isPalmEraserActive = true;
             _isDrawing = false;
-
-            if (_wetInkCanvas != null)
-            {
-                _wetInkCanvas.Clear(SKColors.Transparent);
-            }
+            _currentVideoPoints = null;
+            _currentScreenPoints = null;
+            _currentPointWidths = null;
+            _currentZoomFactors = null;
+            _currentTimestamps = null;
+            _palmReleaseHitCount = 0;
         }
 
         private void DeactivatePalmEraser()
@@ -978,7 +1051,15 @@ namespace ShowWrite
             if (!_isPalmEraserActive) return;
 
             _isPalmEraserActive = false;
+            EraserCursorUpdate?.Invoke(default, 0, false);
             InvalidateVisual();
+        }
+
+        private void ResetPalmDetectionState()
+        {
+            _palmActivationHitCount = 0;
+            _palmReleaseHitCount = 0;
+            _lastPalmHitTimeUtc = DateTime.MinValue;
         }
 
         private float CalculatePalmEraserSize(double touchArea)
@@ -1018,8 +1099,6 @@ namespace ShowWrite
 
         public void Dispose()
         {
-            _wetInkCanvas?.Dispose();
-            _wetInkSurface?.Dispose();
             _displayBitmap?.Dispose();
         }
     }

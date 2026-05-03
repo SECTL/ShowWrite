@@ -198,7 +198,7 @@ namespace ShowWrite
             catch (Exception ex)
             {
                 Debug.WriteLine($"麦克风测试失败: {ex.Message}");
-                ShowNotification("随心记", "无法启动麦克风测试");
+                ShowNotification("闪记", "无法启动麦克风测试");
             }
         }
 
@@ -293,23 +293,29 @@ namespace ShowWrite
             cameraService ??= Application.Current?.Resources["CameraService"] as CameraService;
             if (cameraService == null)
             {
-                showNotification?.Invoke("摄像头服务不可用");
-                ShowNotification("随心记", "摄像头服务不可用");
+                if (showNotification != null)
+                    showNotification("摄像头服务不可用");
+                else
+                    ShowNotification("闪记", "摄像头服务不可用");
                 return;
             }
 
             var cameraNames = cameraService.GetAvailableCameraNames();
             if (cameraNames.Count == 0)
             {
-                showNotification?.Invoke("未检测到可用摄像头");
-                ShowNotification("随心记", "未检测到可用摄像头");
+                if (showNotification != null)
+                    showNotification("未检测到可用摄像头");
+                else
+                    ShowNotification("闪记", "未检测到可用摄像头");
                 return;
             }
 
             if (settings.DefaultCameraIndex < 0 || settings.DefaultCameraIndex >= cameraNames.Count)
             {
-                showNotification?.Invoke("默认摄像头配置无效，请在设置中重新选择");
-                ShowNotification("随心记", "默认摄像头配置无效，请在设置中重新选择");
+                if (showNotification != null)
+                    showNotification("默认摄像头配置无效，请在设置中重新选择");
+                else
+                    ShowNotification("闪记", "默认摄像头配置无效，请在设置中重新选择");
                 return;
             }
 
@@ -317,8 +323,10 @@ namespace ShowWrite
             var cameraIndex = cameraService.GetCameraIndexByName(cameraName);
             if (cameraIndex < 0)
             {
-                showNotification?.Invoke($"无法找到摄像头 \"{cameraName}\"");
-                ShowNotification("随心记", $"无法找到摄像头 \"{cameraName}\"");
+                if (showNotification != null)
+                    showNotification($"无法找到摄像头 \"{cameraName}\"");
+                else
+                    ShowNotification("闪记", $"无法找到摄像头 \"{cameraName}\"");
                 return;
             }
 
@@ -332,8 +340,10 @@ namespace ShowWrite
                 recorder.StartRecording(cameraIndex, duration, _currentRecordingCts.Token);
             });
 
-            showNotification?.Invoke($"开始录制，时长 {settings.RecordingDurationMinutes} 分钟");
-            ShowNotification("随心记", $"开始录制，时长 {settings.RecordingDurationMinutes} 分钟");
+            if (showNotification != null)
+                showNotification($"开始录制，时长 {settings.RecordingDurationMinutes} 分钟");
+            else
+                ShowNotification("闪记", $"开始录制，时长 {settings.RecordingDurationMinutes} 分钟");
             UpdateTrayMenuState();
         }
 
@@ -350,7 +360,7 @@ namespace ShowWrite
                 _currentRecordingCts.Dispose();
                 _currentRecordingCts = null;
                 _currentRecordingTask = null;
-                ShowNotification("随心记", "录制已停止");
+                ShowNotification("闪记", "录制已停止");
                 UpdateTrayMenuState();
             }
         }
@@ -542,7 +552,7 @@ namespace ShowWrite
 
                 string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "ShowWrite", "RandomNote");
                 Directory.CreateDirectory(dir);
-                string fileName = $"随心记_{DateTime.Now:yyyyMMdd_HHmmss}.mp4";
+                string fileName = $"闪记_{DateTime.Now:yyyyMMdd_HHmmss}.mp4";
                 string filePath = Path.Combine(dir, fileName);
 
                 using var writer = new VideoWriter(filePath, FourCC.MP4V, fps, new OpenCvSharp.Size(width, height));
@@ -550,6 +560,7 @@ namespace ShowWrite
 
                 var frame = new Mat();
                 DateTime start = DateTime.Now;
+                int frameIntervalMs = (int)(1000.0 / fps);
                 while ((DateTime.Now - start) < duration)
                 {
                     if (cancellationToken.IsCancellationRequested)
@@ -558,6 +569,7 @@ namespace ShowWrite
                     if (!capture.Read(frame) || frame.Empty())
                         break;
                     writer.Write(frame);
+                    Thread.Sleep(frameIntervalMs);
                 }
             }
             catch (Exception ex)

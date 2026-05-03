@@ -32,3 +32,9 @@ C:\Users\vum\Desktop\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\Test
 C:\Users\vum\Desktop\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\refint\TestPlugin.dll
 C:\Users\vum\Desktop\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\TestPlugin.pdb
 C:\Users\vum\Desktop\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\ref\TestPlugin.dll
+D:\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\TestPlugin.csproj.AssemblyReference.cache
+D:\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\Avalonia\Resources.Inputs.cache
+D:\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\TestPlugin.GeneratedMSBuildEditorConfig.editorconfig
+D:\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\TestPlugin.AssemblyInfoInputs.cache
+D:\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\TestPlugin.AssemblyInfo.cs
+D:\ShowWrite-Avalonia\Plugins\TestPlugin\obj\Debug\net8.0\TestPlugin.csproj.CoreCompileInputs.cache

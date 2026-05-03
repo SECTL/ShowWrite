@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Management;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -57,6 +58,24 @@ namespace ShowWrite
                 {
                     return _capture != null && !_cancelled;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 获取处理后的帧（应用了透视变换）
+        /// </summary>
+        public Mat? GetProcessedFrame()
+        {
+            lock (_lock)
+            {
+                if (_latestFrame == null || _latestFrame.Empty())
+                    return null;
+
+                if (_hasPerspectiveTransform && _perspectiveMatrix != null)
+                {
+                    return ApplyPerspectiveTransform(_latestFrame);
+                }
+                return _latestFrame;
             }
         }
 
@@ -148,17 +167,57 @@ namespace ShowWrite
         public List<string> GetAvailableCameraNames()
         {
             var names = new List<string>();
+            var deviceNames = GetCameraDeviceNames();
+
             for (int i = 0; i < _availableCameraIndices.Count; i++)
             {
-                names.Add($"摄像头 {_availableCameraIndices[i]}");
+                int idx = _availableCameraIndices[i];
+                if (deviceNames.TryGetValue(idx, out string? deviceName))
+                {
+                    names.Add(deviceName);
+                }
+                else
+                {
+                    names.Add($"摄像头 {idx}");
+                }
             }
             return names;
         }
+
+        private Dictionary<int, string> GetCameraDeviceNames()
+        {
+            var result = new Dictionary<int, string>();
+            try
+            {
+                using var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_PnPEntity WHERE PNPClass='Camera' OR PNPClass='Image'");
+                int index = 0;
+                foreach (ManagementObject obj in searcher.Get())
+                {
+                    string? name = obj["Name"]?.ToString();
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        result[index] = name;
+                        index++;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            return result;
+        }
+
         public int GetCameraIndexByName(string name)
         {
-            var parts = name.Split(' ');
-            if (parts.Length > 1 && int.TryParse(parts[1], out int idx))
-                return idx;
+            var deviceNames = GetCameraDeviceNames();
+            for (int i = 0; i < _availableCameraIndices.Count; i++)
+            {
+                int idx = _availableCameraIndices[i];
+                if (deviceNames.TryGetValue(idx, out string? deviceName) && deviceName == name)
+                    return idx;
+                if ($"摄像头 {idx}" == name)
+                    return idx;
+            }
             return -1;
         }
 
