@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+        x:Class="ShowWrite.PluginResultWindow"
+        Title="扫描结果"
+        Width="450"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Background="#2D2D2D"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+    <Border CornerRadius="12" Padding="24">
+        <StackPanel Spacing="16">
+            <TextBlock x:Name="TitleText"
+                       Text="扫描结果"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"/>
+
+            <TextBlock x:Name="ResultText"
+                       Text=""
+                       FontSize="16"
+                       Foreground="White"
+                       TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       MaxWidth="380"/>
+
+            <TextBlock x:Name="TypeText"
+                       Text=""
+                       FontSize="12"
+                       Foreground="#B4B4B4"
+                       HorizontalAlignment="Center"/>
+
+            <StackPanel x:Name="ButtonPanel"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="12">
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>
