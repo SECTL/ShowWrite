@@ -47,6 +47,7 @@ namespace ShowWrite
 
         private double _currentZoom = 1.0;
         private Point _currentPan = new Point(0, 0);
+        private Point _zoomBorderOffset = new Point(0, 0);
 
         private bool _isPalmEraserActive = false;
         private bool _lastModeBeforePalmEraser = false;
@@ -106,12 +107,13 @@ namespace ShowWrite
             }
         }
 
-        public void SetTransform(double zoom, Point pan)
+        public void SetTransform(double zoom, Point pan, Point zoomBorderOffset)
         {
-            if (Math.Abs(_currentZoom - zoom) > 0.001 || _currentPan != pan)
+            if (Math.Abs(_currentZoom - zoom) > 0.001 || _currentPan != pan || _zoomBorderOffset != zoomBorderOffset)
             {
                 _currentZoom = zoom;
                 _currentPan = pan;
+                _zoomBorderOffset = zoomBorderOffset;
                 InvalidateVisual();
             }
         }
@@ -249,8 +251,11 @@ namespace ShowWrite
                 return new SKPoint((float)screenPoint.X, (float)screenPoint.Y);
             }
 
-            var videoX = (float)((screenPoint.X - _currentPan.X) / _currentZoom);
-            var videoY = (float)((screenPoint.Y - _currentPan.Y) / _currentZoom);
+            // screenPoint 是相对于 InkCanvasOverlay 的坐标
+            // 需要先减去 ZoomBorder 相对于 InkCanvasOverlay 的位置偏移，
+            // 再减去 PAZ 的 Pan 偏移，最后除以 Zoom
+            var videoX = (float)((screenPoint.X - _zoomBorderOffset.X - _currentPan.X) / _currentZoom);
+            var videoY = (float)((screenPoint.Y - _zoomBorderOffset.Y - _currentPan.Y) / _currentZoom);
             return new SKPoint(videoX, videoY);
         }
 
@@ -261,8 +266,8 @@ namespace ShowWrite
                 return videoPoint;
             }
 
-            var screenX = videoPoint.X * (float)_currentZoom + (float)_currentPan.X;
-            var screenY = videoPoint.Y * (float)_currentZoom + (float)_currentPan.Y;
+            var screenX = videoPoint.X * (float)_currentZoom + (float)(_currentPan.X + _zoomBorderOffset.X);
+            var screenY = videoPoint.Y * (float)_currentZoom + (float)(_currentPan.Y + _zoomBorderOffset.Y);
             return new SKPoint(screenX, screenY);
         }
 
@@ -273,7 +278,7 @@ namespace ShowWrite
 
         private float GetRenderScaling()
         {
-            return Math.Max(1.0f, (float)(VisualRoot?.RenderScaling ?? 1.0));
+            return Math.Max(1.0f, (float)(TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0));
         }
 
         private void OnPointerPressed(object? sender, PointerPressedEventArgs e)

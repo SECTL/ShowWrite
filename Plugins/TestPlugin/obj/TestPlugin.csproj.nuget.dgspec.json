@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\ShowWrite-Avalonia\\Plugins\\TestPlugin\\TestPlugin.csproj": {}
+    "D:\\ShowWrite\\Plugins\\TestPlugin\\TestPlugin.csproj": {}
   },
   "projects": {
-    "D:\\ShowWrite-Avalonia\\Plugins\\TestPlugin\\TestPlugin.csproj": {
+    "D:\\ShowWrite\\Plugins\\TestPlugin\\TestPlugin.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\ShowWrite-Avalonia\\Plugins\\TestPlugin\\TestPlugin.csproj",
+        "projectUniqueName": "D:\\ShowWrite\\Plugins\\TestPlugin\\TestPlugin.csproj",
         "projectName": "TestPlugin",
-        "projectPath": "D:\\ShowWrite-Avalonia\\Plugins\\TestPlugin\\TestPlugin.csproj",
+        "projectPath": "D:\\ShowWrite\\Plugins\\TestPlugin\\TestPlugin.csproj",
         "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
-        "outputPath": "D:\\ShowWrite-Avalonia\\Plugins\\TestPlugin\\obj\\",
+        "outputPath": "D:\\ShowWrite\\Plugins\\TestPlugin\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Administrator\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -26,6 +26,7 @@
         },
         "frameworks": {
           "net8.0": {
+            "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {}
           }
@@ -44,6 +45,7 @@
       },
       "frameworks": {
         "net8.0": {
+          "framework": "net8.0",
           "targetAlias": "net8.0",
           "dependencies": {
             "Avalonia": {
@@ -70,12 +72,26 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Ref",
+              "version": "[8.0.26, 8.0.26]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Ref",
+              "version": "[8.0.26, 8.0.26]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Ref",
+              "version": "[8.0.26, 8.0.26]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.201/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

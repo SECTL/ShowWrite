@@ -306,7 +306,11 @@ namespace ShowWrite
 
         private void OnZoomChanged(object? sender, ZoomChangedEventArgs e)
         {
-            InkCanvasOverlay.SetTransform(e.ZoomX, new Point(e.OffsetX, e.OffsetY));
+            // 计算 ZoomBorder 相对于 InkCanvasOverlay 的位置偏移
+            var zoomBorderPos = ZoomBorder.TranslatePoint(new Point(0, 0), InkCanvasOverlay);
+            var zoomBorderOffset = zoomBorderPos ?? new Point(0, 0);
+
+            InkCanvasOverlay.SetTransform(e.ZoomX, new Point(e.OffsetX, e.OffsetY), zoomBorderOffset);
             InkCanvasOverlay.InvalidateVisual();
 
             if (_isKeystoneCorrectionMode)
@@ -575,6 +579,11 @@ namespace ShowWrite
         {
             base.OnSizeChanged(e);
             UpdateCursorCanvasLayout();
+
+            // 窗口大小变化时更新 InkCanvas 的坐标偏移
+            var zoomBorderPos = ZoomBorder.TranslatePoint(new Point(0, 0), InkCanvasOverlay);
+            var zoomBorderOffset = zoomBorderPos ?? new Point(0, 0);
+            InkCanvasOverlay.SetTransform(ZoomBorder.ZoomX, new Point(ZoomBorder.OffsetX, ZoomBorder.OffsetY), zoomBorderOffset);
 
             if (_isPhotoAnnotationMode)
             {
