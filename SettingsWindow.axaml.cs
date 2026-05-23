@@ -23,6 +23,7 @@ namespace ShowWrite
         private TextBlock? _motherboardSerialText;
         private TextBlock? _uuidText;
         private ComboBox? _themeComboBox;
+        private SplitView? _settingsSplitView;
 
         public SettingsWindow()
         {
@@ -44,10 +45,19 @@ namespace ShowWrite
             _motherboardSerialText = this.FindControl<TextBlock>("MotherboardSerialText");
             _uuidText = this.FindControl<TextBlock>("UuidText");
             _themeComboBox = this.FindControl<ComboBox>("ThemeComboBox");
+            _settingsSplitView = this.FindControl<SplitView>("SettingsSplitView");
 
             LoadPenSettings();
             LoadThemeSettings();
             LoadSystemInfo();
+        }
+
+        private void TogglePane_Click(object? sender, RoutedEventArgs e)
+        {
+            if (_settingsSplitView != null)
+            {
+                _settingsSplitView.IsPaneOpen = !_settingsSplitView.IsPaneOpen;
+            }
         }
 
         private void NavListBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)

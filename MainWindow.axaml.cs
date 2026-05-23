@@ -1385,6 +1385,9 @@ namespace ShowWrite
 
             CloseLoadingWindow();
 
+            // 确保视频画面可见
+            VideoImage.IsVisible = true;
+
             PresentCameraFrame(centerOnSizeChange: true);
             LoadKeystoneSettings();
 
@@ -2120,16 +2123,35 @@ namespace ShowWrite
             var photoPanel = this.FindControl<Border>("PhotoPanel");
             if (photoPanel == null) return;
 
+            var toggleBtn = this.FindControl<Button>("TogglePhotoBtn");
+            var icon = toggleBtn?.FindControl<PathShape>("TogglePhotoIcon");
+            var label = toggleBtn?.FindControl<TextBlock>("TogglePhotoLabel");
+
             if (!_photoPanelOpen)
             {
                 _photoPanelOpen = true;
                 await UIAnimations.SlideInFromRight(photoPanel, 280);
+                // Change to collapse state
+                if (label != null) label.Text = "收回";
+                if (icon != null)
+                {
+                    // Simple collapse/close icon (X)
+                    var data = "M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256L73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z";
+                    icon.Data = Geometry.Parse(data);
+                }
             }
             else
             {
                 _photoPanelOpen = false;
                 await UIAnimations.SlideOutToRight(photoPanel, 280);
                 photoPanel.IsVisible = false;
+                // Revert to original photo state
+                if (label != null) label.Text = "照片";
+                if (icon != null)
+                {
+                    var originalData = "M19 4H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3M5 18a1 1 0 0 1-1-1v-2.42l3.3-3.29a1 1 0 0 1 1.4 0L15.41 18Zm15-1a1 1 0 0 1-1 1h-.77l-3.81-3.83l.88-.88a1 1 0 0 1 1.4 0l3.3 3.29Zm0-3.24l-1.88-1.87a3.06 3.06 0 0 0-4.24 0l-.88.88l-2.88-2.88a3.06 3.06 0 0 0-4.24 0L4 11.76V7a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1Z";
+                    icon.Data = Geometry.Parse(originalData);
+                }
             }
         }
 
@@ -2508,7 +2530,7 @@ namespace ShowWrite
             }
         }
 
-        private void ShowPhotoForAnnotation(PhotoItem photo)
+        private async void ShowPhotoForAnnotation(PhotoItem photo)
         {
             if (string.IsNullOrEmpty(photo.FilePath) || !File.Exists(photo.FilePath))
                 return;
@@ -2519,9 +2541,7 @@ namespace ShowWrite
             _cameraService?.StopCapture();
             CloseLoadingWindow();
 
-            using var stream = File.OpenRead(photo.FilePath);
-            var bitmap = new Bitmap(stream);
-
+            var bitmap = await LoadBitmapAsync(photo.FilePath);
             if (bitmap != null)
             {
                 VideoImage.Source = bitmap;
@@ -2538,6 +2558,23 @@ namespace ShowWrite
             UpdateCursorCanvasLayout();
         }
 
+        private async Task<Bitmap?> LoadBitmapAsync(string path)
+        {
+            return await Task.Run(() =>
+            {
+                if (!File.Exists(path)) return null;
+                try
+                {
+                    using var stream = File.OpenRead(path);
+                    return new Bitmap(stream);
+                }
+                catch
+                {
+                    return null;
+                }
+            });
+        }
+
         public void ExitPhotoAnnotationMode()
         {
             if (!_isPhotoAnnotationMode) return;
@@ -2550,6 +2587,10 @@ namespace ShowWrite
                 _selectedPhoto.IsSelected = false;
                 _selectedPhoto = null;
             }
+
+            // 隐藏当前显示的照片
+            VideoImage.Source = null;
+            VideoImage.IsVisible = false;
 
             InkCanvasOverlay.ExitPhotoMode();
             InkCanvasOverlay.ClearStrokes();
@@ -2568,6 +2609,7 @@ namespace ShowWrite
                 }
                 StartLoadingAnimation();
             }
+            // 重新检测并连接摄像头，连接成功后会在 PresentCameraFrame 中重新显示画面
             _cameraService?.DetectAndConnectCamera();
 
             // 更新光标覆盖层布局

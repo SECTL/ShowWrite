@@ -1,7 +1,7 @@
 {
-  "version": 3,
+  "version": 4,
   "targets": {
-    "net8.0-windows10.0.17763": {
+    "net8.0-windows10.0.17763.0": {
       "Aspose.Slides.NET/26.2.0": {
         "type": "package",
         "dependencies": {
@@ -1156,7 +1156,7 @@
         }
       }
     },
-    "net8.0-windows10.0.17763/win-x64": {
+    "net8.0-windows10.0.17763.0/win-x64": {
       "Aspose.Slides.NET/26.2.0": {
         "type": "package",
         "dependencies": {
@@ -3812,7 +3812,7 @@
     }
   },
   "projectFileDependencyGroups": {
-    "net8.0-windows10.0.17763": [
+    "net8.0-windows10.0.17763.0": [
       "Aspose.Slides.NET >= 26.2.0",
       "Avalonia >= 11.3.14",
       "Avalonia.Controls.PanAndZoom >= 11.3.0",
@@ -3858,7 +3858,7 @@
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
-        "net8.0-windows10.0.17763": {
+        "net8.0-windows10.0.17763.0": {
           "framework": "net8.0-windows10.0.17763",
           "targetAlias": "net8.0-windows10.0.17763.0",
           "projectReferences": {}
@@ -3874,10 +3874,10 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "10.0.200"
+      "SdkAnalysisLevel": "10.0.300"
     },
     "frameworks": {
-      "net8.0-windows10.0.17763": {
+      "net8.0-windows10.0.17763.0": {
         "framework": "net8.0-windows10.0.17763",
         "targetAlias": "net8.0-windows10.0.17763.0",
         "dependencies": {
@@ -3972,15 +3972,15 @@
         "downloadDependencies": [
           {
             "name": "Microsoft.AspNetCore.App.Ref",
-            "version": "[8.0.26, 8.0.26]"
+            "version": "[8.0.27, 8.0.27]"
           },
           {
             "name": "Microsoft.NETCore.App.Host.win-x64",
-            "version": "[8.0.26, 8.0.26]"
+            "version": "[8.0.27, 8.0.27]"
           },
           {
             "name": "Microsoft.NETCore.App.Ref",
-            "version": "[8.0.26, 8.0.26]"
+            "version": "[8.0.27, 8.0.27]"
           },
           {
             "name": "Microsoft.Windows.SDK.NET.Ref",
@@ -3988,7 +3988,7 @@
           },
           {
             "name": "Microsoft.WindowsDesktop.App.Ref",
-            "version": "[8.0.26, 8.0.26]"
+            "version": "[8.0.27, 8.0.27]"
           }
         ],
         "frameworkReferences": {
@@ -3999,7 +3999,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.203/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json"
       }
     },
     "runtimes": {

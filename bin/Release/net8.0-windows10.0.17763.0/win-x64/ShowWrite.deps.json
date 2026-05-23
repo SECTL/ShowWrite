@@ -1,0 +1,801 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0/win-x64",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {},
+    ".NETCoreApp,Version=v8.0/win-x64": {
+      "ShowWrite/1.0.0": {
+        "dependencies": {
+          "Aspose.Slides.NET": "26.2.0",
+          "Avalonia": "11.3.14",
+          "Avalonia.Controls.PanAndZoom": "11.3.0",
+          "Avalonia.Desktop": "11.3.14",
+          "Avalonia.Fonts.Inter": "11.3.14",
+          "Avalonia.Themes.Fluent": "11.3.14",
+          "DocumentFormat.OpenXml": "3.0.2",
+          "Microsoft.Toolkit.Uwp.Notifications": "7.1.3",
+          "NAudio": "2.2.1",
+          "OpenCvSharp4": "4.13.0.20260222",
+          "OpenCvSharp4.runtime.win": "4.13.0.20260222",
+          "PdfiumViewer": "2.13.0",
+          "SkiaSharp": "3.119.2",
+          "Spire.PDF": "12.2.6",
+          "Spire.Presentation": "11.2.1",
+          "System.Drawing.Common": "10.0.3",
+          "System.Management": "10.0.3",
+          "runtimepack.Microsoft.Windows.SDK.NET.Ref": "10.0.17763.57"
+        },
+        "runtime": {
+          "ShowWrite.dll": {}
+        }
+      },
+      "runtimepack.Microsoft.Windows.SDK.NET.Ref/10.0.17763.57": {
+        "runtime": {
+          "Microsoft.Windows.SDK.NET.dll": {
+            "assemblyVersion": "10.0.17763.38",
+            "fileVersion": "10.0.17763.55"
+          },
+          "WinRT.Runtime.dll": {
+            "assemblyVersion": "2.2.0.0",
+            "fileVersion": "2.2.0.48161"
+          }
+        }
+      },
+      "Aspose.Slides.NET/26.2.0": {
+        "dependencies": {
+          "System.Drawing.Common": "10.0.3"
+        },
+        "runtime": {
+          "lib/net6.0/Aspose.Slides.dll": {
+            "assemblyVersion": "26.2.0.0",
+            "fileVersion": "26.2.0.0"
+          }
+        }
+      },
+      "Avalonia/11.3.14": {
+        "dependencies": {
+          "Avalonia.Remote.Protocol": "11.3.14",
+          "MicroCom.Runtime": "0.11.0"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Base.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.Controls.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.DesignerSupport.dll": {
+            "assemblyVersion": "0.7.0.0",
+            "fileVersion": "0.7.0.0"
+          },
+          "lib/net8.0/Avalonia.Dialogs.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.Markup.Xaml.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.Markup.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.Metal.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.MicroCom.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.OpenGL.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.Vulkan.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.Angle.Windows.Natives/2.1.25547.20250602": {
+        "native": {
+          "runtimes/win-x64/native/av_libglesv2.dll": {
+            "fileVersion": "2.1.25606.0"
+          }
+        }
+      },
+      "Avalonia.Controls.PanAndZoom/11.3.0": {
+        "dependencies": {
+          "Avalonia": "11.3.14"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Controls.PanAndZoom.dll": {
+            "assemblyVersion": "11.3.0.0",
+            "fileVersion": "11.3.0.0"
+          }
+        }
+      },
+      "Avalonia.Desktop/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14",
+          "Avalonia.Native": "11.3.14",
+          "Avalonia.Skia": "11.3.14",
+          "Avalonia.Win32": "11.3.14",
+          "Avalonia.X11": "11.3.14"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Desktop.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.Fonts.Inter/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Fonts.Inter.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.FreeDesktop/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14",
+          "Tmds.DBus.Protocol": "0.21.3"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.FreeDesktop.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.Native/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Native.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.Remote.Protocol/11.3.14": {
+        "runtime": {
+          "lib/net8.0/Avalonia.Remote.Protocol.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.Skia/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14",
+          "HarfBuzzSharp": "8.3.1.1",
+          "SkiaSharp": "3.119.2"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Skia.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.Themes.Fluent/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Themes.Fluent.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.Win32/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14",
+          "Avalonia.Angle.Windows.Natives": "2.1.25547.20250602"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.Win32.Automation.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          },
+          "lib/net8.0/Avalonia.Win32.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "Avalonia.X11/11.3.14": {
+        "dependencies": {
+          "Avalonia": "11.3.14",
+          "Avalonia.FreeDesktop": "11.3.14",
+          "Avalonia.Skia": "11.3.14"
+        },
+        "runtime": {
+          "lib/net8.0/Avalonia.X11.dll": {
+            "assemblyVersion": "11.3.14.0",
+            "fileVersion": "11.3.14.0"
+          }
+        }
+      },
+      "DocumentFormat.OpenXml/3.0.2": {
+        "dependencies": {
+          "DocumentFormat.OpenXml.Framework": "3.0.2"
+        },
+        "runtime": {
+          "lib/net8.0/DocumentFormat.OpenXml.dll": {
+            "assemblyVersion": "3.0.2.0",
+            "fileVersion": "3.0.2.0"
+          }
+        }
+      },
+      "DocumentFormat.OpenXml.Framework/3.0.2": {
+        "runtime": {
+          "lib/net8.0/DocumentFormat.OpenXml.Framework.dll": {
+            "assemblyVersion": "3.0.2.0",
+            "fileVersion": "3.0.2.0"
+          }
+        }
+      },
+      "HarfBuzzSharp/8.3.1.1": {
+        "dependencies": {
+          "HarfBuzzSharp.NativeAssets.Win32": "8.3.1.1"
+        },
+        "runtime": {
+          "lib/net8.0/HarfBuzzSharp.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "8.3.1.1"
+          }
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.Win32/8.3.1.1": {
+        "native": {
+          "runtimes/win-x64/native/libHarfBuzzSharp.dll": {
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "MicroCom.Runtime/0.11.0": {
+        "runtime": {
+          "lib/net5.0/MicroCom.Runtime.dll": {
+            "assemblyVersion": "0.11.0.0",
+            "fileVersion": "0.11.0.0"
+          }
+        }
+      },
+      "Microsoft.Toolkit.Uwp.Notifications/7.1.3": {
+        "dependencies": {
+          "System.Drawing.Common": "10.0.3"
+        },
+        "runtime": {
+          "lib/net5.0-windows10.0.17763/Microsoft.Toolkit.Uwp.Notifications.dll": {
+            "assemblyVersion": "7.1.0.0",
+            "fileVersion": "7.1.3.1"
+          }
+        }
+      },
+      "Microsoft.Win32.SystemEvents/10.0.3": {
+        "runtime": {
+          "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          }
+        }
+      },
+      "NAudio/2.2.1": {
+        "dependencies": {
+          "NAudio.Asio": "2.2.1",
+          "NAudio.Core": "2.2.1",
+          "NAudio.Midi": "2.2.1",
+          "NAudio.Wasapi": "2.2.1",
+          "NAudio.WinForms": "2.2.1",
+          "NAudio.WinMM": "2.2.1"
+        },
+        "runtime": {
+          "lib/net6.0-windows7.0/NAudio.dll": {
+            "assemblyVersion": "2.2.1.0",
+            "fileVersion": "2.2.1.0"
+          }
+        }
+      },
+      "NAudio.Asio/2.2.1": {
+        "dependencies": {
+          "NAudio.Core": "2.2.1"
+        },
+        "runtime": {
+          "lib/netstandard2.0/NAudio.Asio.dll": {
+            "assemblyVersion": "2.2.1.0",
+            "fileVersion": "2.2.1.0"
+          }
+        }
+      },
+      "NAudio.Core/2.2.1": {
+        "runtime": {
+          "lib/netstandard2.0/NAudio.Core.dll": {
+            "assemblyVersion": "2.2.1.0",
+            "fileVersion": "2.2.1.0"
+          }
+        }
+      },
+      "NAudio.Midi/2.2.1": {
+        "dependencies": {
+          "NAudio.Core": "2.2.1"
+        },
+        "runtime": {
+          "lib/netstandard2.0/NAudio.Midi.dll": {
+            "assemblyVersion": "2.2.1.0",
+            "fileVersion": "2.2.1.0"
+          }
+        }
+      },
+      "NAudio.Wasapi/2.2.1": {
+        "dependencies": {
+          "NAudio.Core": "2.2.1"
+        },
+        "runtime": {
+          "lib/netstandard2.0/NAudio.Wasapi.dll": {
+            "assemblyVersion": "2.2.1.0",
+            "fileVersion": "2.2.1.0"
+          }
+        }
+      },
+      "NAudio.WinForms/2.2.1": {
+        "dependencies": {
+          "NAudio.WinMM": "2.2.1"
+        },
+        "runtime": {
+          "lib/netcoreapp3.1/NAudio.WinForms.dll": {
+            "assemblyVersion": "2.2.1.0",
+            "fileVersion": "2.2.1.0"
+          }
+        }
+      },
+      "NAudio.WinMM/2.2.1": {
+        "dependencies": {
+          "NAudio.Core": "2.2.1"
+        },
+        "runtime": {
+          "lib/netstandard2.0/NAudio.WinMM.dll": {
+            "assemblyVersion": "2.2.1.0",
+            "fileVersion": "2.2.1.0"
+          }
+        }
+      },
+      "OpenCvSharp4/4.13.0.20260222": {
+        "runtime": {
+          "lib/net8.0/OpenCvSharp.dll": {
+            "assemblyVersion": "4.13.0.0",
+            "fileVersion": "4.13.0.0"
+          }
+        }
+      },
+      "OpenCvSharp4.runtime.win/4.13.0.20260222": {
+        "native": {
+          "runtimes/win-x64/native/OpenCvSharpExtern.dll": {
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/opencv_videoio_ffmpeg4130_64.dll": {
+            "fileVersion": "2025.12.0.0"
+          }
+        }
+      },
+      "PdfiumViewer/2.13.0": {
+        "runtime": {
+          "lib/net20/PdfiumViewer.dll": {
+            "assemblyVersion": "2.13.0.0",
+            "fileVersion": "2.13.0.0"
+          }
+        },
+        "resources": {
+          "lib/net20/nl/PdfiumViewer.resources.dll": {
+            "locale": "nl"
+          }
+        }
+      },
+      "SkiaSharp/3.119.2": {
+        "dependencies": {
+          "SkiaSharp.NativeAssets.Win32": "3.119.2"
+        },
+        "runtime": {
+          "lib/net8.0/SkiaSharp.dll": {
+            "assemblyVersion": "3.119.0.0",
+            "fileVersion": "3.119.2.0"
+          }
+        }
+      },
+      "SkiaSharp.NativeAssets.Win32/3.119.2": {
+        "native": {
+          "runtimes/win-x64/native/libSkiaSharp.dll": {
+            "fileVersion": "0.0.0.0"
+          },
+          "runtimes/win-x64/native/libSkiaSharp.pdb": {
+            "fileVersion": "0.0.0.0"
+          }
+        }
+      },
+      "Spire.PDF/12.2.6": {
+        "dependencies": {
+          "HarfBuzzSharp": "8.3.1.1",
+          "System.Drawing.Common": "10.0.3"
+        },
+        "runtime": {
+          "lib/net6.0/Spire.Pdf.dll": {
+            "assemblyVersion": "12.2.6.0",
+            "fileVersion": "12.2.6.1360"
+          }
+        }
+      },
+      "Spire.Presentation/11.2.1": {
+        "dependencies": {
+          "HarfBuzzSharp": "8.3.1.1",
+          "System.Drawing.Common": "10.0.3"
+        },
+        "runtime": {
+          "lib/net6.0/Spire.Presentation.dll": {
+            "assemblyVersion": "11.2.1.0",
+            "fileVersion": "11.2.1.6360"
+          }
+        }
+      },
+      "System.CodeDom/10.0.3": {
+        "runtime": {
+          "lib/net8.0/System.CodeDom.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          }
+        }
+      },
+      "System.Drawing.Common/10.0.3": {
+        "dependencies": {
+          "Microsoft.Win32.SystemEvents": "10.0.3"
+        },
+        "runtime": {
+          "lib/net8.0/System.Drawing.Common.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          },
+          "lib/net8.0/System.Private.Windows.Core.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          },
+          "lib/net8.0/System.Private.Windows.GdiPlus.dll": {
+            "assemblyVersion": "10.0.0.0",
+            "fileVersion": "10.0.326.7603"
+          }
+        }
+      },
+      "System.IO.Pipelines/8.0.0": {
+        "runtime": {
+          "lib/net8.0/System.IO.Pipelines.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        }
+      },
+      "System.Management/10.0.3": {
+        "dependencies": {
+          "System.CodeDom": "10.0.3"
+        },
+        "runtime": {
+          "runtimes/win/lib/net8.0/System.Management.dll": {
+            "assemblyVersion": "10.0.0.3",
+            "fileVersion": "10.0.326.7603"
+          }
+        }
+      },
+      "Tmds.DBus.Protocol/0.21.3": {
+        "dependencies": {
+          "System.IO.Pipelines": "8.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/Tmds.DBus.Protocol.dll": {
+            "assemblyVersion": "0.21.3.0",
+            "fileVersion": "0.21.3.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "ShowWrite/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "runtimepack.Microsoft.Windows.SDK.NET.Ref/10.0.17763.57": {
+      "type": "runtimepack",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Aspose.Slides.NET/26.2.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-+JrvmVa+zXrMpqA5ZNjPmFTd426JdKuMkS5JHQ+jJbpGb+orEMTq3erl1IYv3YkHvcbowAnGeL7CsofnFPXHqw==",
+      "path": "aspose.slides.net/26.2.0",
+      "hashPath": "aspose.slides.net.26.2.0.nupkg.sha512"
+    },
+    "Avalonia/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-RcGp0iXRBqMrDRXOTUOn9OaUTx8NlukTdhuBmY9w5JmVreDtZRRErKwwiHPw+YjkbTHvhfFFNsu3Hhd+oJGIZQ==",
+      "path": "avalonia/11.3.14",
+      "hashPath": "avalonia.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.Angle.Windows.Natives/2.1.25547.20250602": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ZL0VLc4s9rvNNFt19Pxm5UNAkmKNylugAwJPX9ulXZ6JWs/l6XZihPWWTyezaoNOVyEPU8YbURtW7XMAtqXH5A==",
+      "path": "avalonia.angle.windows.natives/2.1.25547.20250602",
+      "hashPath": "avalonia.angle.windows.natives.2.1.25547.20250602.nupkg.sha512"
+    },
+    "Avalonia.Controls.PanAndZoom/11.3.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-KzsqpfvK7HLBRNHKeqOx/MoY3lD+pPki6edXSepCwpeydHwpRVFig8LlH9NT50adKBWyrIkVeSQCn+88wamZGA==",
+      "path": "avalonia.controls.panandzoom/11.3.0",
+      "hashPath": "avalonia.controls.panandzoom.11.3.0.nupkg.sha512"
+    },
+    "Avalonia.Desktop/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-7IiTMWsFib1foIEagcaTtsjWa6VA/iAbNjHpM4aSF8sfwPPj1HRj7qEySrINqlJDK2WYVM/IL5S8bHWs+KKX1Q==",
+      "path": "avalonia.desktop/11.3.14",
+      "hashPath": "avalonia.desktop.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.Fonts.Inter/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-cKF53h6FPqbdMFOqaqNnEsUVWVsEQbjohcEmmzaGmfT/Pr4O3Xm2eStqzzQmB4X3UesW4jIgIMBwf/Yoox8arg==",
+      "path": "avalonia.fonts.inter/11.3.14",
+      "hashPath": "avalonia.fonts.inter.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.FreeDesktop/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-qp1UH0A8/C0Dwka6575PkTuJro9BtjEmgvfr70UEkv3e6S0FYotz4BPPgWLeM/svltrEdft2VO1FjSA4q3nFPA==",
+      "path": "avalonia.freedesktop/11.3.14",
+      "hashPath": "avalonia.freedesktop.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.Native/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-9ocWL83dAtB8W5dWXl6PIpf303Ri1o1JIDRo5Q9ZewIS/caKL2cgElrTSArc+4UrElCMluGbKHQC5P+YlF2fnQ==",
+      "path": "avalonia.native/11.3.14",
+      "hashPath": "avalonia.native.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.Remote.Protocol/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-P4QPwf9VQt4CjntmfGo8uL+S1RaVbTlcFgECSFIWN3AWc/IbKs76tbZ6ibpdFg1C+IKubBPQ+hUeUq7MrBIWDA==",
+      "path": "avalonia.remote.protocol/11.3.14",
+      "hashPath": "avalonia.remote.protocol.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.Skia/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ksUk0PRTSjzYajk3aFpGvg+LotLe/pZj1K7B0b8As2ssDxFXFDPUnRvRZmw7f6jBBcfsYI6/LlFJZ93T8YAI2w==",
+      "path": "avalonia.skia/11.3.14",
+      "hashPath": "avalonia.skia.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.Themes.Fluent/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-meVY25MJjBkAmZd4GJGOrpiqSgbEyTeFXjR9SF8aaZsq9BXDaiZz61+Ivvu7bEta12hmnx8AaVnOSdKo/qkT9g==",
+      "path": "avalonia.themes.fluent/11.3.14",
+      "hashPath": "avalonia.themes.fluent.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.Win32/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-jmJkqMfPKSvftkvc0m1YvbbBG42aKq4gPYpHZvpfVHrQ4m/Ln5sF67hUzhbK6qJ2E9Yr2ZJtuvCaTH/EHRW36g==",
+      "path": "avalonia.win32/11.3.14",
+      "hashPath": "avalonia.win32.11.3.14.nupkg.sha512"
+    },
+    "Avalonia.X11/11.3.14": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-QFyiQof5vCHo+KY3y+NsmUhM/dsvUVaipDW3zwF6sK7zpdefy/OZQxtuEVjjWyyVuEmua0gyXEaVWbOUu0AgsA==",
+      "path": "avalonia.x11/11.3.14",
+      "hashPath": "avalonia.x11.11.3.14.nupkg.sha512"
+    },
+    "DocumentFormat.OpenXml/3.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-gqjP/BxKWgwAWwPAN+RpKaMOiidPM07F+mAxiiW184/MnkHnkk12Qo7cRB0wuq4kOZUrUzQ9EUO966hUy/wKBw==",
+      "path": "documentformat.openxml/3.0.2",
+      "hashPath": "documentformat.openxml.3.0.2.nupkg.sha512"
+    },
+    "DocumentFormat.OpenXml.Framework/3.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ILRCJu2dUJDv27ZCQDftD7AZSuBgKg+ZSUF9dg2dk8qcIED7oM42y/cvZIm0mev80nj2QMzpxthX87+AebzHug==",
+      "path": "documentformat.openxml.framework/3.0.2",
+      "hashPath": "documentformat.openxml.framework.3.0.2.nupkg.sha512"
+    },
+    "HarfBuzzSharp/8.3.1.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-tLZN66oe/uiRPTZfrCU4i8ScVGwqHNh5MHrXj0yVf4l7Mz0FhTGnQ71RGySROTmdognAs0JtluHkL41pIabWuQ==",
+      "path": "harfbuzzsharp/8.3.1.1",
+      "hashPath": "harfbuzzsharp.8.3.1.1.nupkg.sha512"
+    },
+    "HarfBuzzSharp.NativeAssets.Win32/8.3.1.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-UsJtQsfAJoFDZrXc4hCUfRPMqccfKZ0iumJ/upcUjz/cmsTgVFGNEL5yaJWmkqsuFYdMWbj/En5/kS4PFl9hBA==",
+      "path": "harfbuzzsharp.nativeassets.win32/8.3.1.1",
+      "hashPath": "harfbuzzsharp.nativeassets.win32.8.3.1.1.nupkg.sha512"
+    },
+    "MicroCom.Runtime/0.11.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-MEnrZ3UIiH40hjzMDsxrTyi8dtqB5ziv3iBeeU4bXsL/7NLSal9F1lZKpK+tfBRnUoDSdtcW3KufE4yhATOMCA==",
+      "path": "microcom.runtime/0.11.0",
+      "hashPath": "microcom.runtime.0.11.0.nupkg.sha512"
+    },
+    "Microsoft.Toolkit.Uwp.Notifications/7.1.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-A1dglAzb24gjehmb7DwGd07mfyZ1gacAK7ObE0KwDlRc3mayH2QW7cSOy3TkkyELjLg19OQBuhPOj4SpXET9lg==",
+      "path": "microsoft.toolkit.uwp.notifications/7.1.3",
+      "hashPath": "microsoft.toolkit.uwp.notifications.7.1.3.nupkg.sha512"
+    },
+    "Microsoft.Win32.SystemEvents/10.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-gYpwz5Gl0rs9pEFHBKctLbSi7SUGR4L1uRjXkU488nizWd2hvo2JP2+ATUsv0th7v6LDiXfdlUsnTbvC2MauFA==",
+      "path": "microsoft.win32.systemevents/10.0.3",
+      "hashPath": "microsoft.win32.systemevents.10.0.3.nupkg.sha512"
+    },
+    "NAudio/2.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-c0DzwiyyklM0TP39Y7RObwO3QkWecgM6H60ikiEnsV/aEAJPbj5MFCLaD8BSfKuZe0HGuh9GRGWWlJmSxDc9MA==",
+      "path": "naudio/2.2.1",
+      "hashPath": "naudio.2.2.1.nupkg.sha512"
+    },
+    "NAudio.Asio/2.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hQglyOT5iT3XuGpBP8ZG0+aoqwRfidHjTNehpoWwX0g6KJEgtH2VaqM2nuJ2mheKZa/IBqB4YQTZVvrIapzfOA==",
+      "path": "naudio.asio/2.2.1",
+      "hashPath": "naudio.asio.2.2.1.nupkg.sha512"
+    },
+    "NAudio.Core/2.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-GgkdP6K/7FqXFo7uHvoqGZTJvW4z8g2IffhOO4JHaLzKCdDOUEzVKtveoZkCuUX8eV2HAINqi7VFqlFndrnz/g==",
+      "path": "naudio.core/2.2.1",
+      "hashPath": "naudio.core.2.2.1.nupkg.sha512"
+    },
+    "NAudio.Midi/2.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-6r23ylGo5aeP02WFXsPquz0T0hFJWyh+7t++tz19tc3Kr38NHm+Z9j+FiAv+xkH8tZqXJqus9Q8p6u7bidIgbw==",
+      "path": "naudio.midi/2.2.1",
+      "hashPath": "naudio.midi.2.2.1.nupkg.sha512"
+    },
+    "NAudio.Wasapi/2.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-lFfXoqacZZe0WqNChJgGYI+XV/n/61LzPHT3C1CJp4khoxeo2sziyX5wzNYWeCMNbsWxFvT3b3iXeY1UYjBhZw==",
+      "path": "naudio.wasapi/2.2.1",
+      "hashPath": "naudio.wasapi.2.2.1.nupkg.sha512"
+    },
+    "NAudio.WinForms/2.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-DlDkewY1myY0A+3NrYRJD+MZhZV0yy1mNF6dckB27IQ9XCs/My5Ip8BZcoSHOsaPSe2GAjvoaDnk6N9w8xTv7w==",
+      "path": "naudio.winforms/2.2.1",
+      "hashPath": "naudio.winforms.2.2.1.nupkg.sha512"
+    },
+    "NAudio.WinMM/2.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-xFHRFwH4x6aq3IxRbewvO33ugJRvZFEOfO62i7uQJRUNW2cnu6BeBTHUS0JD5KBucZbHZaYqxQG8dwZ47ezQuQ==",
+      "path": "naudio.winmm/2.2.1",
+      "hashPath": "naudio.winmm.2.2.1.nupkg.sha512"
+    },
+    "OpenCvSharp4/4.13.0.20260222": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-mf5PaHlhU/SnO5kWy7QqJnto4EEBVN0g7vQDMeCs4mkparaMUZKYSsnx22s7yLRsif0f7eYYVnViUqUDLA8Ymw==",
+      "path": "opencvsharp4/4.13.0.20260222",
+      "hashPath": "opencvsharp4.4.13.0.20260222.nupkg.sha512"
+    },
+    "OpenCvSharp4.runtime.win/4.13.0.20260222": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-vaLtBrNb5Xnz7LlPuf8JP1Pj8n+xDoVnkcsApaqmcVz/ncuLQksLorqHRxwtlhrvRWQ7Edq8XPkx1IMWMLcFIA==",
+      "path": "opencvsharp4.runtime.win/4.13.0.20260222",
+      "hashPath": "opencvsharp4.runtime.win.4.13.0.20260222.nupkg.sha512"
+    },
+    "PdfiumViewer/2.13.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Nw4owBmJzDVXoMRjCnqPbET07CPOawwhcNjt+PyRaSxONN9bsFF+cm9kcMsDLEAEaxsiDJo5jls8bCQjvjidkA==",
+      "path": "pdfiumviewer/2.13.0",
+      "hashPath": "pdfiumviewer.2.13.0.nupkg.sha512"
+    },
+    "SkiaSharp/3.119.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-nmy2dOFWPvQKMglfpjz8+/xQQcSrL9jzul3cUyzCJVSwrmSAw+6B1sEgU7jt6NZBptwGq2k/V0kjyu2GizMFtg==",
+      "path": "skiasharp/3.119.2",
+      "hashPath": "skiasharp.3.119.2.nupkg.sha512"
+    },
+    "SkiaSharp.NativeAssets.Win32/3.119.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-uYe+da6+GXVgPKkCopzvIZ83DmC8SXXKeUAPrNcztJNsg0SjPQAxfKMOPZqmVjbzznrq/QUIjLUlJSZV/e0IPA==",
+      "path": "skiasharp.nativeassets.win32/3.119.2",
+      "hashPath": "skiasharp.nativeassets.win32.3.119.2.nupkg.sha512"
+    },
+    "Spire.PDF/12.2.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3JJ7dvdNaICaPp2hMIT8z+UkHJmcJ7+vyMNv/8W3Bte2xfLYKs92vevXi0nZ+YrnvS6TMSuCqBR7+bC+XnDvHA==",
+      "path": "spire.pdf/12.2.6",
+      "hashPath": "spire.pdf.12.2.6.nupkg.sha512"
+    },
+    "Spire.Presentation/11.2.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-sAkg9DatPJXIwksFqZqCwWTngL1J9lotMu98x0IQB+4zKCItu0Pa2KSsAOeGy90aHKQ31cjvTwFe36d4s7eAwQ==",
+      "path": "spire.presentation/11.2.1",
+      "hashPath": "spire.presentation.11.2.1.nupkg.sha512"
+    },
+    "System.CodeDom/10.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-+G1mBhHJp8taiDcHK1gmckOZ884n9JeIrS1dzFYZhSa8oTiIF+EagIyAyCOQzdBbbES7eb9AkjGBlUZqqoCaeg==",
+      "path": "system.codedom/10.0.3",
+      "hashPath": "system.codedom.10.0.3.nupkg.sha512"
+    },
+    "System.Drawing.Common/10.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-bJlT89G7EqMpiLCvIPmb7BHpcSxjVeFsahRyQk3/mrUt5YgHKiFcEv88db97gKcpRn5opxfBwI0ohUmJlxuGJg==",
+      "path": "system.drawing.common/10.0.3",
+      "hashPath": "system.drawing.common.10.0.3.nupkg.sha512"
+    },
+    "System.IO.Pipelines/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-FHNOatmUq0sqJOkTx+UF/9YK1f180cnW5FVqnQMvYUN0elp6wFzbtPSiqbo1/ru8ICp43JM1i7kKkk6GsNGHlA==",
+      "path": "system.io.pipelines/8.0.0",
+      "hashPath": "system.io.pipelines.8.0.0.nupkg.sha512"
+    },
+    "System.Management/10.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-VyK/nnG1ZgwP/wY8HGrNrdha7kenyI+bkfE0miywiRaWVwqtenuYshA6pmP6Xm7lPsTE2ZRZ+BkzmUVg/VZtTg==",
+      "path": "system.management/10.0.3",
+      "hashPath": "system.management.10.0.3.nupkg.sha512"
+    },
+    "Tmds.DBus.Protocol/0.21.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hDwB8WsQoyALQKqIbwzS68UKdlnafDm4T/DkO/JrA/YIneP/rKv96SxYPVXeh3FP4i/SXfShrYftKLtciJAIlw==",
+      "path": "tmds.dbus.protocol/0.21.3",
+      "hashPath": "tmds.dbus.protocol.0.21.3.nupkg.sha512"
+    }
+  }
+}

@@ -1,9 +1,10 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -42,6 +43,7 @@ namespace ShowWrite
         private WriteableBitmap? _displayBitmap;
 
         private bool _isDrawing;
+        private bool _invalidateScheduled = false;
 
         private Image? _videoImage;
 
@@ -87,6 +89,10 @@ namespace ShowWrite
         public InkCanvas()
         {
             ClipToBounds = false;
+            // 高 DPI 适配与更平滑的绘制
+            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
+            UseLayoutRounding = false;
+            SnapsToDevicePixels = true;
 
             PointerPressed += OnPointerPressed;
             PointerMoved += OnPointerMoved;
@@ -114,7 +120,7 @@ namespace ShowWrite
                 _currentZoom = zoom;
                 _currentPan = pan;
                 _zoomBorderOffset = zoomBorderOffset;
-                InvalidateVisual();
+                ScheduleInvalidate();
             }
         }
 
@@ -816,20 +822,21 @@ namespace ShowWrite
         private void RenderStrokes(SKCanvas canvas, List<InkStroke> strokes)
         {
             float zoom = (_isWhiteboardMode) ? 1.0f : (float)_currentZoom;
+            float renderScaling = GetRenderScaling();
 
             foreach (var stroke in strokes)
             {
-                RenderStroke(canvas, stroke, zoom);
+                RenderStroke(canvas, stroke, zoom, renderScaling);
             }
         }
 
-        private void RenderStroke(SKCanvas canvas, InkStroke stroke, float zoom)
+        private void RenderStroke(SKCanvas canvas, InkStroke stroke, float zoom, float renderScaling)
         {
             if (stroke.VideoPoints == null || stroke.VideoPoints.Count < 2) return;
 
             if (stroke.PointWidths != null && stroke.PointWidths.Count == stroke.VideoPoints.Count)
             {
-                RenderVariableWidthStroke(canvas, stroke, zoom);
+                RenderVariableWidthStroke(canvas, stroke, zoom, renderScaling);
             }
             else
             {
@@ -840,12 +847,15 @@ namespace ShowWrite
                 {
                     var screenFrom = VideoToScreen(stroke.VideoPoints[i - 1]);
                     var screenTo = VideoToScreen(stroke.VideoPoints[i]);
-                    canvas.DrawLine(screenFrom, screenTo, paint);
+                    canvas.DrawLine(
+                        new SKPoint(screenFrom.X / renderScaling, screenFrom.Y / renderScaling),
+                        new SKPoint(screenTo.X / renderScaling, screenTo.Y / renderScaling),
+                        paint);
                 }
             }
         }
 
-        private void RenderVariableWidthStroke(SKCanvas canvas, InkStroke stroke, float zoom)
+        private void RenderVariableWidthStroke(SKCanvas canvas, InkStroke stroke, float zoom, float renderScaling)
         {
             if (stroke.VideoPoints == null || stroke.PointWidths == null) return;
 
@@ -863,7 +873,10 @@ namespace ShowWrite
                 var w1 = stroke.PointWidths[i] * zoom;
                 var w2 = stroke.PointWidths[i + 1] * zoom;
 
-                RenderSmoothSegment(canvas, p1, p2, w1, w2, paint);
+                RenderSmoothSegment(canvas,
+                    new SKPoint(p1.X / renderScaling, p1.Y / renderScaling),
+                    new SKPoint(p2.X / renderScaling, p2.Y / renderScaling),
+                    w1, w2, paint);
             }
         }
 
@@ -877,6 +890,8 @@ namespace ShowWrite
                 return;
             }
 
+            float renderScaling = GetRenderScaling();
+
             using var paint = new SKPaint
             {
                 Style = SKPaintStyle.Fill,
@@ -886,10 +901,12 @@ namespace ShowWrite
 
             for (int i = 0; i < _currentScreenPoints.Count - 1; i++)
             {
+                var p1 = _currentScreenPoints[i];
+                var p2 = _currentScreenPoints[i + 1];
                 RenderSmoothSegment(
                     canvas,
-                    _currentScreenPoints[i],
-                    _currentScreenPoints[i + 1],
+                    new SKPoint(p1.X / renderScaling, p1.Y / renderScaling),
+                    new SKPoint(p2.X / renderScaling, p2.Y / renderScaling),
                     _currentPointWidths[i],
                     _currentPointWidths[i + 1],
                     paint);
@@ -908,7 +925,7 @@ namespace ShowWrite
                 return;
             }
 
-            int subdivisions = Math.Max(2, (int)(length / 2f));
+            int subdivisions = Math.Max(2, (int)(length / 1f));
 
             for (int i = 0; i <= subdivisions; i++)
             {
@@ -1065,6 +1082,17 @@ namespace ShowWrite
             _palmActivationHitCount = 0;
             _palmReleaseHitCount = 0;
             _lastPalmHitTimeUtc = DateTime.MinValue;
+        }
+
+        private void ScheduleInvalidate()
+        {
+            if (_invalidateScheduled) return;
+            _invalidateScheduled = true;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _invalidateScheduled = false;
+                InvalidateVisual();
+            });
         }
 
         private float CalculatePalmEraserSize(double touchArea)
