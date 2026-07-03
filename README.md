@@ -13,7 +13,11 @@
 
 # ShowWrite视频展台 2.1
 ## 下载
-[Github Releases](https://github.com/wwcrdrvf6u/ShowWrite/releases/)
+Github Releases（2.3.2.1） [Github Releases](https://github.com/wwcrdrvf6u/ShowWrite/releases/)
+
+多多软件站（2.3.2.1）<a href="http://www.ddooo.com" target="_blank"><font color="#FF0000">多多软件站</font></a>
+
+MicrosoftStore（2.2.6.0）[MicrosoftStore](https://apps.microsoft.com/detail/9pbzxjc82p00))
 # 关于Show Write
 ## 我们的设计理念
 **用户能改的，我们绝对不改**（指 让用户自己改源码）
