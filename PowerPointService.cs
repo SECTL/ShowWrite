@@ -55,7 +55,7 @@ public class PowerPointService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"打开PPT失败: {ex.Message}");
+
             return false;
         }
     }
@@ -80,7 +80,7 @@ public class PowerPointService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"预渲染幻灯片失败: {ex.Message}");
+            
         }
     }
 
@@ -133,7 +133,7 @@ public class PowerPointService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"渲染幻灯片失败: {ex.Message}");
+            
             // 如果渲染失败,创建一个空白位图
             using (var canvas = new SKCanvas(bitmap))
             {
@@ -196,7 +196,7 @@ public class PowerPointService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"开始放映失败: {ex.Message}");
+            
             return false;
         }
     }
@@ -304,7 +304,7 @@ public class PowerPointService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"关闭PPT失败: {ex.Message}");
+            
         }
     }
 
@@ -335,7 +335,7 @@ public class PowerPointService : IDisposable
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"释放资源失败: {ex.Message}");
+            
         }
 
         _isDisposed = true;

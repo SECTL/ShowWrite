@@ -44,6 +44,24 @@ namespace ShowWrite
         private List<InkStroke> _videoStrokesBackup = new();
         private bool _hasWhiteboardData = false;
 
+        // 图片图层相关字段
+        private Canvas? _imageOverlayCanvas;
+        private Image? _draggingImage;
+        private Point _dragStartPoint;
+        private TranslateTransform _dragStartTransform = new();
+        private Image? _selectedImage;
+        private Border? _selectionBorder;
+        // 每页的图片列表（与白板页面对应）
+        private List<List<Image>> _pageImageOverlays = new();
+        // 缩放手柄
+        private List<Border> _scaleHandles = new();
+        private Border? _activeHandle;
+        private Point _handleStartPoint;
+        private double _initialWidth;
+        private double _initialHeight;
+        private double _initialX;
+        private double _initialY;
+
         // PptService fields
         private PptService? _pptService;
         private bool _isPowerPointMode = false;
@@ -83,6 +101,7 @@ namespace ShowWrite
         public event Action<PptSlideControl>? PptSlideControlReady;
         private PptSlideControl? _pendingPptSlideControl;
         public PptSlideControl? PendingPptSlideControl => _pendingPptSlideControl;
+        public PptService.PptSlide? CurrentPptSlide => _pptService?.GetCurrentPptSlide();
 
         public WhiteboardManager(
             InkCanvas inkCanvas,
@@ -102,7 +121,8 @@ namespace ShowWrite
             TextBlock pageInfoText,
             Avalonia.Controls.Shapes.Path nextPagePath,
             TextBlock nextPageText,
-            Border importingOverlay)
+            Border importingOverlay,
+            Canvas imageOverlayCanvas)
         {
             _whiteboardBackground = whiteboardBackground;
             _whiteboardModeButtons = whiteboardModeButtons;
@@ -112,6 +132,7 @@ namespace ShowWrite
             _nextPagePath = nextPagePath;
             _nextPageText = nextPageText;
             _importingOverlay = importingOverlay;
+            _imageOverlayCanvas = imageOverlayCanvas;
         }
 
         public void EnterWhiteboardMode(
@@ -133,6 +154,11 @@ namespace ShowWrite
             if (_whiteboardBackground != null)
             {
                 _whiteboardBackground.IsVisible = true;
+            }
+
+            if (_imageOverlayCanvas != null)
+            {
+                _imageOverlayCanvas.IsVisible = true;
             }
 
             if (normalBottomButtons != null)
@@ -180,6 +206,7 @@ namespace ShowWrite
             }
 
             UpdatePageInfo();
+            RefreshImageOverlays();
 
             Grid.SetRowSpan(_inkCanvas, 2);
             _inkCanvas.SetWhiteboardMode();
@@ -218,6 +245,11 @@ namespace ShowWrite
             if (_whiteboardBackground != null)
             {
                 _whiteboardBackground.IsVisible = false;
+            }
+
+            if (_imageOverlayCanvas != null)
+            {
+                _imageOverlayCanvas.IsVisible = false;
             }
 
             if (normalBottomButtons != null)
@@ -312,6 +344,7 @@ namespace ShowWrite
                     _inkCanvas.SetWhiteboardBackground(_pageBackgrounds[_whiteboardCurrentPage - 1]);
                 }
                 UpdatePageInfo();
+                RefreshImageOverlays();
             }
         }
 
@@ -340,6 +373,8 @@ namespace ShowWrite
                 _inkCanvas.SetStrokes(new List<InkStroke>());
                 _inkCanvas.SetWhiteboardBackground(null);
                 UpdatePageInfo();
+                UpdatePageThumbnails();
+                RefreshImageOverlays();
             }
             else
             {
@@ -352,6 +387,7 @@ namespace ShowWrite
                     _inkCanvas.SetWhiteboardBackground(_pageBackgrounds[_whiteboardCurrentPage - 1]);
                 }
                 UpdatePageInfo();
+                RefreshImageOverlays();
             }
         }
 
@@ -512,6 +548,7 @@ namespace ShowWrite
             _inkCanvas.SetWhiteboardBackground(null);
             UpdatePageInfo();
             UpdatePageThumbnails();
+            RefreshImageOverlays();
         }
 
         public void ImportPptBtn_Click(object? sender, RoutedEventArgs e)
@@ -608,7 +645,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"PPT 转换错误: {ex.Message}");
+
             }
 
             return imagePaths;
@@ -630,6 +667,165 @@ namespace ShowWrite
             catch
             {
                 return 0;
+            }
+        }
+
+        private void ImageOverlay_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (_draggingImage != null)
+            {
+                e.Pointer.Capture(null);
+                _draggingImage = null;
+            }
+        }
+
+        // ---------- 缩放手柄相关 ----------
+        private void ClearScaleHandles()
+        {
+            foreach (var h in _scaleHandles)
+            {
+                if (_imageOverlayCanvas != null)
+                    _imageOverlayCanvas.Children.Remove(h);
+            }
+            _scaleHandles.Clear();
+        }
+
+        private void AddScaleHandle(string corner)
+        {
+            var handle = new Border
+            {
+                Width = 10,
+                Height = 10,
+                Background = Brushes.White,
+                BorderBrush = Brushes.Black,
+                BorderThickness = new Thickness(1),
+                Tag = corner,
+                IsHitTestVisible = true,
+                Cursor = corner switch
+                {
+                    "TopLeft" => Cursor.Default,
+                    "BottomRight" => Cursor.Default,
+                    "TopRight" => Cursor.Default,
+                    "BottomLeft" => Cursor.Default,
+                    _ => Cursor.Default
+                }
+            };
+            handle.PointerPressed += ImageOverlay_CornerPressed;
+            handle.PointerMoved += ImageOverlay_CornerMoved;
+            handle.PointerReleased += ImageOverlay_CornerReleased;
+            _scaleHandles.Add(handle);
+            _imageOverlayCanvas?.Children.Add(handle);
+        }
+
+        private void UpdateScaleHandles()
+        {
+            if (_selectedImage == null || _imageOverlayCanvas == null) return;
+            var tt = _selectedImage.RenderTransform as TranslateTransform;
+            double x = tt?.X ?? 0;
+            double y = tt?.Y ?? 0;
+            double w = _selectedImage.Width;
+            double h = _selectedImage.Height;
+
+            foreach (var handle in _scaleHandles)
+            {
+                switch (handle.Tag as string)
+                {
+                    case "TopLeft":
+                        Canvas.SetLeft(handle, x - handle.Width / 2);
+                        Canvas.SetTop(handle, y - handle.Height / 2);
+                        break;
+                    case "TopRight":
+                        Canvas.SetLeft(handle, x + w - handle.Width / 2);
+                        Canvas.SetTop(handle, y - handle.Height / 2);
+                        break;
+                    case "BottomLeft":
+                        Canvas.SetLeft(handle, x - handle.Width / 2);
+                        Canvas.SetTop(handle, y + h - handle.Height / 2);
+                        break;
+                    case "BottomRight":
+                        Canvas.SetLeft(handle, x + w - handle.Width / 2);
+                        Canvas.SetTop(handle, y + h - handle.Height / 2);
+                        break;
+                }
+            }
+        }
+
+        private void ImageOverlay_CornerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is not Border handle) return;
+            _activeHandle = handle;
+            _handleStartPoint = e.GetPosition(_imageOverlayCanvas);
+            if (_selectedImage?.RenderTransform is TranslateTransform tt)
+            {
+                _initialX = tt.X;
+                _initialY = tt.Y;
+            }
+            _initialWidth = _selectedImage?.Width ?? 0;
+            _initialHeight = _selectedImage?.Height ?? 0;
+            e.Pointer.Capture(handle);
+        }
+
+        private void ImageOverlay_CornerMoved(object? sender, PointerEventArgs e)
+        {
+            if (_activeHandle == null || _selectedImage == null) return;
+            var cur = e.GetPosition(_imageOverlayCanvas);
+            var dx = cur.X - _handleStartPoint.X;
+            var dy = cur.Y - _handleStartPoint.Y;
+
+            double newWidth = _initialWidth;
+            double newHeight = _initialHeight;
+            double newX = _initialX;
+            double newY = _initialY;
+
+            switch (_activeHandle.Tag as string)
+            {
+                case "BottomRight":
+                    newWidth = Math.Max(30, _initialWidth + dx);
+                    newHeight = Math.Max(30, _initialHeight + dy);
+                    break;
+                case "TopLeft":
+                    newWidth = Math.Max(30, _initialWidth - dx);
+                    newHeight = Math.Max(30, _initialHeight - dy);
+                    newX = _initialX + dx;
+                    newY = _initialY + dy;
+                    break;
+                case "TopRight":
+                    newWidth = Math.Max(30, _initialWidth + dx);
+                    newHeight = Math.Max(30, _initialHeight - dy);
+                    newY = _initialY + dy;
+                    break;
+                case "BottomLeft":
+                    newWidth = Math.Max(30, _initialWidth - dx);
+                    newHeight = Math.Max(30, _initialHeight + dy);
+                    newX = _initialX + dx;
+                    break;
+            }
+
+            _selectedImage.Width = newWidth;
+            _selectedImage.Height = newHeight;
+            if (_selectedImage.RenderTransform is TranslateTransform tt2)
+            {
+                tt2.X = newX;
+                tt2.Y = newY;
+            }
+
+            // 更新选中边框尺寸
+            if (_selectionBorder != null)
+            {
+                _selectionBorder.Width = newWidth + 4;
+                _selectionBorder.Height = newHeight + 4;
+                _selectionBorder.RenderTransform = _selectedImage.RenderTransform;
+            }
+
+            UpdateScaleHandles();
+        }
+
+        private void ImageOverlay_CornerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (_activeHandle != null)
+            {
+                e.Pointer.Capture(null);
+                _activeHandle = null;
             }
         }
 
@@ -733,7 +929,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"打开PowerPoint失败: {ex.Message}");
+
                 return false;
             }
         }
@@ -752,7 +948,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"开始放映失败: {ex.Message}");
+
                 _isPowerPointMode = false;
                 return false;
             }
@@ -862,6 +1058,7 @@ namespace ShowWrite
             // 设置幻灯片控件的拉伸模式
             slideControl.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
             slideControl.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+            slideControl.Stretch = Avalonia.Media.Stretch.Uniform;
             
             // 将幻灯片控件添加到VideoAreaContainer
             // 这需要在主窗口中执行，暂时设置一个标记
@@ -874,7 +1071,183 @@ namespace ShowWrite
             UpdatePageInfo();
         }
 
+        // 设置 PPT 背景图片（如果 PPT 定义了背景图）
+        public void SetWhiteboardBackgroundFromPptImage(string imagePath)
+        {
+            if (string.IsNullOrEmpty(imagePath)) return;
+            // 使用 InkCanvas 已有的背景加载方式
+            _inkCanvas.SetWhiteboardBackground(imagePath);
+        }
+
         #endregion
+
+        #region 图片图层方法
+
+        public void AddImageOverlay(string imagePath)
+        {
+            if (_imageOverlayCanvas == null || !File.Exists(imagePath)) return;
+
+            var bitmap = new Bitmap(imagePath);
+
+            // 限制图片最大尺寸，避免超出屏幕
+            double maxWidth = 800;
+            double maxHeight = 600;
+            double scale = 1.0;
+            if (bitmap.PixelSize.Width > maxWidth || bitmap.PixelSize.Height > maxHeight)
+            {
+                scale = Math.Min(maxWidth / bitmap.PixelSize.Width, maxHeight / bitmap.PixelSize.Height);
+            }
+
+            var img = new Image
+            {
+                Source = bitmap,
+                Width = bitmap.PixelSize.Width * scale,
+                Height = bitmap.PixelSize.Height * scale,
+                RenderTransform = new TranslateTransform(0, 0),
+                Tag = imagePath,
+                IsHitTestVisible = true
+            };
+
+            img.PointerPressed += ImageOverlay_PointerPressed;
+            img.PointerMoved += ImageOverlay_PointerMoved;
+            img.PointerReleased += ImageOverlay_PointerReleased;
+
+            // 保存到当前页面的图片列表
+            int pageIdx = _whiteboardCurrentPage - 1;
+            while (_pageImageOverlays.Count <= pageIdx)
+                _pageImageOverlays.Add(new List<Image>());
+            _pageImageOverlays[pageIdx].Add(img);
+
+            _imageOverlayCanvas.Children.Add(img);
+        }
+
+        public void ClearImageOverlays()
+        {
+            if (_imageOverlayCanvas == null) return;
+            foreach (var child in _imageOverlayCanvas.Children.ToList())
+            {
+                if (child is Image img)
+                {
+                    img.PointerPressed -= ImageOverlay_PointerPressed;
+                    img.PointerMoved -= ImageOverlay_PointerMoved;
+                    img.PointerReleased -= ImageOverlay_PointerReleased;
+                }
+            }
+            _imageOverlayCanvas.Children.Clear();
+            _selectedImage = null;
+            _selectionBorder = null;
+        }
+
+        public void SetImageOverlayHitTest(bool hitTestVisible)
+        {
+            if (_imageOverlayCanvas == null) return;
+            _imageOverlayCanvas.IsHitTestVisible = hitTestVisible;
+        }
+
+        private void SelectImage(Image img)
+        {
+            // 取消之前的选中并清除手柄
+            DeselectImage();
+            ClearScaleHandles();
+
+            _selectedImage = img;
+
+            // 添加选中边框
+            _selectionBorder = new Border
+            {
+                BorderBrush = Brushes.DodgerBlue,
+                BorderThickness = new Thickness(2),
+                Width = img.Width + 4,
+                Height = img.Height + 4,
+                RenderTransform = img.RenderTransform,
+                IsHitTestVisible = false
+            };
+
+            if (_imageOverlayCanvas != null)
+            {
+                _imageOverlayCanvas.Children.Add(_selectionBorder);
+            }
+
+            // 添加四个缩放手柄
+            AddScaleHandle("TopLeft");
+            AddScaleHandle("TopRight");
+            AddScaleHandle("BottomLeft");
+            AddScaleHandle("BottomRight");
+            UpdateScaleHandles();
+        }
+
+        private void DeselectImage()
+        {
+            if (_selectionBorder != null && _imageOverlayCanvas != null)
+            {
+                _imageOverlayCanvas.Children.Remove(_selectionBorder);
+            }
+            _selectionBorder = null;
+            _selectedImage = null;
+            ClearScaleHandles();
+        }
+
+        private void ImageOverlay_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is not Image img) return;
+
+            // 选中该图片
+            SelectImage(img);
+
+            _draggingImage = img;
+            _dragStartPoint = e.GetPosition(_imageOverlayCanvas);
+
+            if (img.RenderTransform is TranslateTransform tt)
+            {
+                _dragStartTransform = new TranslateTransform(tt.X, tt.Y);
+            }
+            else
+            {
+                img.RenderTransform = new TranslateTransform(0, 0);
+                _dragStartTransform = new TranslateTransform(0, 0);
+            }
+
+            e.Pointer.Capture(img);
+            e.Handled = true;
+        }
+
+        private void ImageOverlay_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (_draggingImage == null || _imageOverlayCanvas == null) return;
+
+            var cur = e.GetPosition(_imageOverlayCanvas);
+            var dx = cur.X - _dragStartPoint.X;
+            var dy = cur.Y - _dragStartPoint.Y;
+
+            if (_draggingImage.RenderTransform is TranslateTransform tt)
+            {
+                tt.X = _dragStartTransform.X + dx;
+                tt.Y = _dragStartTransform.Y + dy;
+
+                // 同步选中边框位置
+                if (_selectionBorder?.RenderTransform is TranslateTransform st)
+                {
+                    st.X = tt.X;
+                    st.Y = tt.Y;
+                }
+            }
+        }
+
+
+        private void RefreshImageOverlays()
+        {
+            if (_imageOverlayCanvas == null) return;
+            _imageOverlayCanvas.Children.Clear();
+            int pageIdx = _whiteboardCurrentPage - 1;
+            if (pageIdx >= 0 && pageIdx < _pageImageOverlays.Count)
+            {
+                foreach (var img in _pageImageOverlays[pageIdx])
+                {
+                    _imageOverlayCanvas.Children.Add(img);
+                }
+            }
+            DeselectImage();
+        }
 
         public void Dispose()
         {
@@ -885,3 +1258,4 @@ namespace ShowWrite
         }
     }
 }
+    #endregion

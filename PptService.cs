@@ -63,6 +63,11 @@ namespace ShowWrite
             public string BorderColor { get; set; }
             public double BorderWidth { get; set; }
             public string ImagePath { get; set; }
+            // 新增字体属性
+            public string FontFamily { get; set; }
+            public double FontSize { get; set; }
+            public bool Bold { get; set; }
+            public bool Italic { get; set; }
         }
 
         // PptXmlService fields
@@ -123,7 +128,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"打开PPT失败: {ex.Message}");
+
                 return false;
             }
         }
@@ -148,7 +153,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"预渲染幻灯片失败: {ex.Message}");
+
             }
         }
 
@@ -201,7 +206,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"渲染幻灯片失败: {ex.Message}");
+
                 // 如果渲染失败,创建一个空白位图
                 using (var canvas = new SKCanvas(bitmap))
                 {
@@ -264,7 +269,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"开始放映失败: {ex.Message}");
+
                 return false;
             }
         }
@@ -372,7 +377,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"关闭PPT失败: {ex.Message}");
+
             }
         }
 
@@ -395,6 +400,14 @@ namespace ShowWrite
         #endregion
 
         #region PptXmlService Methods
+        // 获取当前 PPT XML 幻灯片（用于读取背景信息等）
+        public PptSlide? GetCurrentPptSlide()
+        {
+            if (_pptXmlSlides == null) return null;
+            if (_pptXmlCurrentIndex < 0 || _pptXmlCurrentIndex >= _pptXmlSlides.Count) return null;
+            return _pptXmlSlides[_pptXmlCurrentIndex];
+        }
+
         public List<PptSlide> ReadPptSlides(string filePath)
         {
             var slides = new List<PptSlide>();
@@ -435,7 +448,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"解析PPT文件失败: {ex.Message}");
+
             }
 
             return slides;
@@ -443,138 +456,154 @@ namespace ShowWrite
 
         private void ParseSlideShapes(SlidePart slidePart, PptSlide slide)
         {
-            if (slidePart.Slide != null)
+            if (slidePart.Slide == null) return;
+            var slideElement = slidePart.Slide;
+
+            // ---------- 背景 ----------
+            var background = slideElement.CommonSlideData?.Background?.BackgroundProperties;
+            if (background != null)
             {
-                var slideElement = slidePart.Slide;
-                
-                // 解析背景
-                if (slideElement.CommonSlideData.Background != null)
+                // 颜色填充
+                var solidFill = background.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.SolidFill>().FirstOrDefault();
+                if (solidFill != null)
                 {
-                    var background = slideElement.CommonSlideData.Background;
-                    if (background.BackgroundProperties != null)
+                    var rgb = solidFill.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.RgbColorModelHex>().FirstOrDefault();
+                    if (rgb?.Val != null)
+                        slide.BackgroundColor = "#" + rgb.Val.Value;
+                }
+                // 背景图片（BlipFill）
+                var blipFill = background.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.BlipFill>().FirstOrDefault();
+                if (blipFill != null)
+                {
+                    var embed = blipFill.Blip?.Embed?.Value;
+                    if (!string.IsNullOrEmpty(embed))
                     {
-                        // 解析背景颜色
-                        var solidFill = background.BackgroundProperties.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.SolidFill>().FirstOrDefault();
-                        if (solidFill != null)
+                        var imgPart = (ImagePart)slidePart.GetPartById(embed);
+                        var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"ppt_bg_{Guid.NewGuid()}.png");
+                        using (var stream = imgPart.GetStream())
+                        using (var file = System.IO.File.OpenWrite(tempPath))
                         {
-                            var rgbColorModelHex = solidFill.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.RgbColorModelHex>().FirstOrDefault();
-                            if (rgbColorModelHex != null && rgbColorModelHex.Val != null)
-                            {
-                                var rgbColor = rgbColorModelHex.Val.Value;
-                                slide.BackgroundColor = "#" + rgbColor;
-                                Console.WriteLine($"Slide {slide.Index} background color: {slide.BackgroundColor}");
-                            }
+                            stream.CopyTo(file);
+                        }
+                        slide.BackgroundImage = tempPath;
+                    }
+                }
+            }
+
+            var spTree = slideElement.CommonSlideData?.ShapeTree;
+            if (spTree == null) return;
+
+            // 读取所有 Shape、GroupShape、GraphicFrame 等（这里仅处理 Shape）
+            var shapeElements = spTree.ChildElements.OfType<DocumentFormat.OpenXml.Presentation.Shape>();
+            foreach (var shape in shapeElements)
+            {
+                var pptShape = new PptShape();
+                // ID
+                pptShape.Id = shape.NonVisualShapeProperties?.NonVisualDrawingProperties?.Id.ToString();
+
+                // ---------- 位置与尺寸 ----------
+                // 首先尝试 ShapeProperties.Transform2D
+                var transform = shape.ShapeProperties?.Transform2D;
+                if (transform != null && transform.Offset != null && transform.Extents != null)
+                {
+                    SetTransform(transform, pptShape);
+                }
+                else
+                {
+                    // 某些 shape 可能在 GroupShape 中，需要递归获取（简化：尝试获取其父 GroupShape's Transform)
+                    var group = shape.Parent?.Parent as DocumentFormat.OpenXml.Presentation.GroupShape;
+                    if (group?.GroupShapeProperties?.TransformGroup != null)
+                    {
+                        var tg = group.GroupShapeProperties.TransformGroup;
+                        if (tg?.Offset != null && tg?.Extents != null)
+                        {
+                            SetTransform(tg, pptShape);
                         }
                     }
                 }
-                
-                var spTree = slideElement.CommonSlideData.ShapeTree;
-                
-                if (spTree != null)
+
+                // ---------- 填充颜色 ----------
+                var fill = shape.ShapeProperties?.ChildElements
+                    .OfType<DocumentFormat.OpenXml.Drawing.SolidFill>().FirstOrDefault();
+                if (fill != null)
                 {
-                    var shapes = spTree.ChildElements.OfType<DocumentFormat.OpenXml.Presentation.Shape>();
-                    foreach (var shape in shapes)
-                    {
-                        var pptShape = new PptShape();
-                        
-                        // 解析形状ID
-                        if (shape.NonVisualShapeProperties != null && shape.NonVisualShapeProperties.NonVisualDrawingProperties != null)
-                        {
-                            pptShape.Id = shape.NonVisualShapeProperties.NonVisualDrawingProperties.Id.ToString();
-                        }
-                        
-                        // 解析形状类型
-                        if (shape.ShapeProperties != null)
-                        {
-                            // 解析位置和大小
-                            if (shape.ShapeProperties.Transform2D != null)
-                            {
-                                var transform = shape.ShapeProperties.Transform2D;
-                                if (transform.Offset != null && transform.Extents != null)
-                                {
-                                    // PPT使用EMU单位，1EMU = 1/914400英寸，1英寸=96像素
-                                    double emuToPixel = 96.0 / 914400.0;
-                                    
-                                    // 添加调试信息
-                                    Console.WriteLine($"Transform Offset: X={transform.Offset.X}, Y={transform.Offset.Y}");
-                                    Console.WriteLine($"Transform Extents: Cx={transform.Extents.Cx}, Cy={transform.Extents.Cy}");
-                                    
-                                    // 计算像素值
-                                    double x = transform.Offset.X * emuToPixel;
-                                    double y = transform.Offset.Y * emuToPixel;
-                                    double width = transform.Extents.Cx * emuToPixel;
-                                    double height = transform.Extents.Cy * emuToPixel;
-                                    
-                                    Console.WriteLine($"Calculated: X={x}, Y={y}, Width={width}, Height={height}");
-                                    
-                                    // 设置形状属性
-                                    pptShape.X = x;
-                                    pptShape.Y = y;
-                                    pptShape.Width = width;
-                                    pptShape.Height = height;
-                                }
-                                else
-                                {
-                                    Console.WriteLine("Transform Offset or Extents is null");
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("Transform2D is null");
-                            }
-                            
-                            // 解析填充颜色
-                            var solidFill = shape.ShapeProperties.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.SolidFill>().FirstOrDefault();
-                            if (solidFill != null)
-                            {
-                                var rgbColorModelHex = solidFill.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.RgbColorModelHex>().FirstOrDefault();
-                                if (rgbColorModelHex != null && rgbColorModelHex.Val != null)
-                                {
-                                    var rgbColor = rgbColorModelHex.Val.Value;
-                                    pptShape.FillColor = "#" + rgbColor;
-                                }
-                                else
-                                {
-                                    Console.WriteLine("RGB Color Model or Val is null");
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("SolidFill is null");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine("ShapeProperties is null");
-                        }
-                        
-                        // 解析文本
-                        if (shape.TextBody != null)
-                        {
-                            var text = new System.Text.StringBuilder();
-                            var paragraphs = shape.TextBody.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.Paragraph>();
-                            
-                            foreach (var paragraph in paragraphs)
-                            {
-                                var runs = paragraph.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.Run>();
-                                foreach (var run in runs)
-                                {
-                                    if (run.Text != null && !string.IsNullOrEmpty(run.Text.Text))
-                                    {
-                                        text.Append(run.Text.Text);
-                                    }
-                                }
-                                text.AppendLine();
-                            }
-                            
-                            pptShape.Text = text.ToString().Trim();
-                        }
-                        
-                        // 添加调试信息
-                        Console.WriteLine($"解析到形状: ID={pptShape.Id}, Text='{pptShape.Text}', X={pptShape.X}, Y={pptShape.Y}, Width={pptShape.Width}, Height={pptShape.Height}, FillColor={pptShape.FillColor}");
-                        slide.Shapes.Add(pptShape);
-                    }
+                    var rgb = fill.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.RgbColorModelHex>().FirstOrDefault();
+                    if (rgb?.Val != null) pptShape.FillColor = "#" + rgb.Val.Value;
                 }
+                else
+                {
+                    // 可能是 GradientFill / PatternFill 等，这里仅记录为 null
+                    pptShape.FillColor = null;
+                }
+
+                // ---------- 文本与字体 ----------
+                if (shape.TextBody != null)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    foreach (var para in shape.TextBody.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.Paragraph>())
+                    {
+                        foreach (var run in para.ChildElements.OfType<DocumentFormat.OpenXml.Drawing.Run>())
+                        {
+                            // 文本内容
+                            if (run.Text?.Text != null)
+                                sb.Append(run.Text.Text);
+
+                            // 字体信息（可能在 RunProperties）
+                            var rp = run.RunProperties;
+                            if (rp != null)
+                            {
+                                // 字体名称
+                                var latinFont = rp.GetFirstChild<DocumentFormat.OpenXml.Drawing.LatinFont>();
+                                var latin = latinFont?.Typeface;
+                                if (!string.IsNullOrEmpty(latin)) pptShape.FontFamily = latin;
+                                // 大小（单位为 1/100 磅）
+                                if (rp.FontSize != null)
+                                {
+                                    // FontSize 为 Int32Value，直接取 Value
+                                    var size = rp.FontSize.Value;
+                                    pptShape.FontSize = size / 100.0;
+                                }
+                                // 粗体 / 斜体（BooleanValue）
+                                if (rp.Bold != null && rp.Bold.HasValue)
+                                    pptShape.Bold = rp.Bold.Value;
+                                if (rp.Italic != null && rp.Italic.HasValue)
+                                    pptShape.Italic = rp.Italic.Value;
+                            }
+                        }
+                        sb.AppendLine();
+                    }
+                    pptShape.Text = sb.ToString().Trim();
+                }
+
+                // ---------- 调试日志 ----------
+
+                slide.Shapes.Add(pptShape);
+            }
+        }
+
+        // Helper：将 Transform2D 转为像素坐标
+        private void SetTransform(DocumentFormat.OpenXml.Drawing.Transform2D transform, PptShape target)
+        {
+            const double emuToPixel = 96.0 / 914400.0;
+            if (transform.Offset != null && transform.Extents != null)
+            {
+                target.X = transform.Offset.X * emuToPixel;
+                target.Y = transform.Offset.Y * emuToPixel;
+                target.Width = transform.Extents.Cx * emuToPixel;
+                target.Height = transform.Extents.Cy * emuToPixel;
+            }
+        }
+
+        // Helper：将 TransformGroup 转为像素坐标（用于 GroupShape）
+        private void SetTransform(DocumentFormat.OpenXml.Drawing.TransformGroup transform, PptShape target)
+        {
+            const double emuToPixel = 96.0 / 914400.0;
+            if (transform.Offset != null && transform.Extents != null)
+            {
+                target.X = transform.Offset.X * emuToPixel;
+                target.Y = transform.Offset.Y * emuToPixel;
+                target.Width = transform.Extents.Cx * emuToPixel;
+                target.Height = transform.Extents.Cy * emuToPixel;
             }
         }
 
@@ -878,7 +907,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"释放资源失败: {ex.Message}");
+
             }
 
             _isDisposed = true;

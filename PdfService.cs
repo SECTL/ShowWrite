@@ -69,7 +69,7 @@ public static class PdfService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"PDF 转换错误: {ex.Message}");
+
         }
 
         return imagePaths;

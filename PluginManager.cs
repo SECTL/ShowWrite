@@ -88,14 +88,14 @@ namespace ShowWrite
 
             var dllFiles = Directory.GetFiles(_pluginsPath, "*.dll", SearchOption.AllDirectories);
 
-            Console.WriteLine($"扫描插件路径: {_pluginsPath}");
-            Console.WriteLine($"找到 {dllFiles.Length} 个 DLL 文件");
+
+
 
             foreach (var dllFile in dllFiles)
             {
                 try
                 {
-                    Console.WriteLine($"正在加载插件文件: {Path.GetFileName(dllFile)}");
+
 
                     var pluginContext = new PluginLoadContext(dllFile);
                     var assembly = pluginContext.LoadFromAssemblyPath(dllFile);
@@ -104,7 +104,7 @@ namespace ShowWrite
                         .Where(t => typeof(IPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
                         .ToList();
 
-                    Console.WriteLine($"  找到 {pluginTypes.Count} 个插件类型");
+
 
                     foreach (var pluginType in pluginTypes)
                     {
@@ -115,12 +115,12 @@ namespace ShowWrite
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"创建插件实例失败: {ex.Message}");
-                            Console.WriteLine($"  堆栈跟踪: {ex.StackTrace}");
+
+                            
                             if (ex.InnerException != null)
                             {
-                                Console.WriteLine($"  内部异常: {ex.InnerException.Message}");
-                                Console.WriteLine($"  内部异常堆栈: {ex.InnerException.StackTrace}");
+
+                                
                             }
                             continue;
                         }
@@ -130,7 +130,7 @@ namespace ShowWrite
                         var pluginName = pluginInstance.Name;
                         var isEnabled = enabledPlugins.Contains(pluginName);
 
-                        Console.WriteLine($"  插件名称: {pluginName}, 已启用: {isEnabled}");
+
 
                         var pluginInfo = new PluginInfo
                         {
@@ -151,17 +151,17 @@ namespace ShowWrite
                                 pluginInstance.Initialize();
                                 pluginInstance.OnLoad();
                                 pluginInfo.IsLoaded = true;
-                                Console.WriteLine($"  插件 {pluginName} 加载成功");
+    
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"插件 {pluginName} 加载失败: {ex.Message}");
-                                Console.WriteLine($"  堆栈跟踪: {ex.StackTrace}");
+    
+  
                             }
                         }
                         else
                         {
-                            Console.WriteLine($"  插件 {pluginName} 未启用，正在自动启用...");
+    
 
                             try
                             {
@@ -173,12 +173,12 @@ namespace ShowWrite
                                 enabledPlugins.Add(pluginName);
                                 config.Save();
 
-                                Console.WriteLine($"  插件 {pluginName} 已自动启用并加载成功");
+                                
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"插件 {pluginName} 自动启用失败: {ex.Message}");
-                                Console.WriteLine($"  堆栈跟踪: {ex.StackTrace}");
+                                
+                                
                             }
                         }
 
@@ -187,8 +187,8 @@ namespace ShowWrite
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"加载插件文件 {dllFile} 失败: {ex.Message}");
-                    Console.WriteLine($"  堆栈跟踪: {ex.StackTrace}");
+
+                    
                 }
             }
         }
@@ -214,7 +214,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"启用插件 {pluginName} 失败: {ex.Message}");
+
             }
         }
 
@@ -235,7 +235,7 @@ namespace ShowWrite
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"禁用插件 {pluginName} 失败: {ex.Message}");
+
             }
         }
 
@@ -276,7 +276,7 @@ namespace ShowWrite
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"重新加载插件 {pluginName} 失败: {ex.Message}");
+
                 }
             }
         }
@@ -301,7 +301,7 @@ namespace ShowWrite
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"获取插件 {plugin.Name} 的工具栏按钮失败: {ex.Message}");
+
                     }
                 }
             }
@@ -321,7 +321,7 @@ namespace ShowWrite
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"刷新插件 {plugin.Name} 的工具栏按钮失败: {ex.Message}");
+
                     }
                 }
             }

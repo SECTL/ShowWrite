@@ -40,11 +40,22 @@ namespace ShowWrite
                 }
             }
 
-            if (!RandomNoteMode)
+            // 控制台输出默认已关闭，仅在需要调试时通过参数启用
+        bool showConsole = false;
+        foreach (var arg in args)
+        {
+            if (arg.Equals("--debug", StringComparison.OrdinalIgnoreCase) ||
+                arg.Equals("-d", StringComparison.OrdinalIgnoreCase))
             {
-                AllocConsole();
-                Console.Title = "ShowWrite - 控制台输出";
+                showConsole = true;
+                break;
             }
+        }
+        if (showConsole)
+        {
+            AllocConsole();
+            Console.Title = "ShowWrite - 控制台输出";
+        }
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }

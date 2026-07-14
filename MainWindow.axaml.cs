@@ -197,7 +197,8 @@ namespace ShowWrite
                 pageInfoText,
                 nextPagePath,
                 nextPageText,
-                pageImportingOverlay);
+                pageImportingOverlay,
+                ImageOverlayCanvas);
             _whiteboardManager.ImportPptRequested += OnImportPptRequested;
             _whiteboardManager.PptSlideControlReady += OnPptSlideControlReady;
 
@@ -749,11 +750,11 @@ namespace ShowWrite
             var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
             if (normalBottomButtons == null)
             {
-                Console.WriteLine("错误: 找不到 NormalBottomButtons 控件");
+
                 return;
             }
 
-            Console.WriteLine($"NormalBottomButtons 当前子元素数量: {normalBottomButtons.Children.Count}");
+            
 
             var pluginOverlay = this.FindControl<Border>("PluginOverlay");
 
@@ -767,7 +768,7 @@ namespace ShowWrite
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"设置插件 {plugin.Name} 的刷新回调失败: {ex.Message}");
+
                     }
                 }
 
@@ -790,19 +791,19 @@ namespace ShowWrite
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"设置插件 {plugin.Name} 的窗口回调失败: {ex.Message}");
+
                     }
                 }
             }
 
             var pluginButtons = PluginManager.Instance.GetBottomToolbarButtons();
-            Console.WriteLine($"获取到 {pluginButtons.Count} 个插件按钮");
+
 
             foreach (var pluginButton in pluginButtons)
             {
                 try
                 {
-                    Console.WriteLine($"正在创建插件按钮: {pluginButton.Label}");
+
 
                     var button = new Button
                     {
@@ -853,16 +854,16 @@ namespace ShowWrite
                     }
 
                     normalBottomButtons.Children.Add(button);
-                    Console.WriteLine($"成功添加按钮: {pluginButton.Label}");
+
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"创建插件按钮失败: {ex.Message}");
-                    Console.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+                    
+                    
                 }
             }
 
-            Console.WriteLine($"NormalBottomButtons 最终子元素数量: {normalBottomButtons.Children.Count}");
+
         }
 
         public void SetToolbarVisibility(bool visible)
@@ -920,11 +921,11 @@ namespace ShowWrite
             var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
             if (normalBottomButtons == null)
             {
-                Console.WriteLine("错误: 找不到 NormalBottomButtons 控件");
+
                 return;
             }
 
-            Console.WriteLine("正在刷新插件按钮...");
+
 
             var existingPluginButtons = normalBottomButtons.Children
                 .OfType<Button>()
@@ -937,13 +938,13 @@ namespace ShowWrite
             }
 
             var pluginButtons = PluginManager.Instance.GetBottomToolbarButtons();
-            Console.WriteLine($"获取到 {pluginButtons.Count} 个插件按钮");
+
 
             foreach (var pluginButton in pluginButtons)
             {
                 try
                 {
-                    Console.WriteLine($"正在创建插件按钮: {pluginButton.Label}");
+
 
                     var button = new Button
                     {
@@ -994,16 +995,16 @@ namespace ShowWrite
                     }
 
                     normalBottomButtons.Children.Add(button);
-                    Console.WriteLine($"成功添加按钮: {pluginButton.Label}");
+
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"创建插件按钮失败: {ex.Message}");
-                    Console.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+                    
+                    
                 }
             }
 
-            Console.WriteLine($"NormalBottomButtons 最终子元素数量: {normalBottomButtons.Children.Count}");
+
         }
 
         private void InitializeLoadingElements()
@@ -1374,7 +1375,7 @@ namespace ShowWrite
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"插件处理摄像头帧失败: {ex.Message}");
+
                 }
             }
         }
@@ -1400,7 +1401,7 @@ namespace ShowWrite
             var frameBitmap = _cameraService.FrameBitmap;
             if (frameBitmap == null)
             {
-                Console.WriteLine("[MainWindow] FrameBitmap is null!");
+
                 return;
             }
 
@@ -1573,6 +1574,7 @@ namespace ShowWrite
                     PenBtn.IsChecked = false;
                     EraserBtn.IsChecked = false;
                     InkCanvasOverlay.SetMoveMode();
+                    _whiteboardManager?.SetImageOverlayHitTest(true);
                     VideoAreaContainer.Cursor = Cursor.Default;
                     ZoomBorder.PanButton = ButtonName.Left;
                     if (_toolSliderBackground != null)
@@ -1583,6 +1585,7 @@ namespace ShowWrite
                     MoveBtn.IsChecked = false;
                     EraserBtn.IsChecked = false;
                     InkCanvasOverlay.SetPenMode();
+                    _whiteboardManager?.SetImageOverlayHitTest(false);
                     ZoomBorder.PanButton = ButtonName.Right;
                     if (_toolSliderBackground != null)
                         await UIAnimations.SlideToolBackground(_toolSliderBackground, ThemeManager.CurrentColors.SliderIndicatorSize);
@@ -1592,6 +1595,7 @@ namespace ShowWrite
                     MoveBtn.IsChecked = false;
                     PenBtn.IsChecked = false;
                     InkCanvasOverlay.SetEraserMode();
+                    _whiteboardManager?.SetImageOverlayHitTest(false);
                     ZoomBorder.PanButton = ButtonName.Right;
                     if (_toolSliderBackground != null)
                         await UIAnimations.SlideToolBackground(_toolSliderBackground, ThemeManager.CurrentColors.SliderIndicatorSize * 2);
@@ -1922,12 +1926,12 @@ namespace ShowWrite
 
         private async void ImportPptBtn_Click(object? sender, RoutedEventArgs e)
         {
-            await OpenPptFilePicker();
+            await OpenFilePickerAsync();
         }
 
         private async void OnImportPptRequested()
         {
-            await OpenPptFilePicker();
+            await OpenFilePickerAsync();
         }
 
         private void OnPptSlideControlReady(PptSlideControl slideControl)
@@ -1953,29 +1957,67 @@ namespace ShowWrite
             VideoAreaContainer.Children.Clear();
         }
 
-        private async Task OpenPptFilePicker()
+        private async Task OpenFilePickerAsync()
         {
             var storageProvider = StorageProvider;
             if (storageProvider == null) return;
 
             var files = await storageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
             {
-                Title = "选择PPT文件",
-                AllowMultiple = false,
+                Title = "选择文件",
+                AllowMultiple = true,
                 FileTypeFilter = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("PowerPoint文件")
-                    {
-                        Patterns = new[] { "*.pptx", "*.ppt" },
-                        MimeTypes = new[] { "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation" }
-                    }
+                    new Avalonia.Platform.Storage.FilePickerFileType("所有文件") { Patterns = new[] { "*.*" } }
                 }
             });
 
             if (files.Count > 0)
             {
-                var filePath = files[0].Path.LocalPath;
-                await LoadAndPlayPowerPoint(filePath);
+                var filePaths = files.Select(f => f.Path.LocalPath).ToList();
+                // 区分 PPT 与普通图片/文件
+                var pptFiles = filePaths.Where(p => p.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".ppt", StringComparison.OrdinalIgnoreCase)).ToList();
+                var otherFiles = filePaths.Except(pptFiles).ToList();
+
+                // 处理 PPT 文件（使用 PPT XML 渲染）
+                foreach (var ppt in pptFiles)
+                {
+                    // 直接打开 PPT 并渲染为元素
+                    if (_whiteboardManager != null)
+                    {
+                        // 如果尚未进入板中板模式，先进入
+                        if (!_whiteboardManager.IsWhiteboardMode)
+                        {
+                            // 进入白板模式（调用已有的 EnterWhiteboardMode）
+                            var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
+                            var captureBtn = this.FindControl<Button>("CaptureBtn");
+                            var scanBtn = this.FindControl<Button>("ScanBtn");
+                            var connectDeviceBtn = this.FindControl<Button>("ConnectDeviceBtn");
+                            var pipBtn = this.FindControl<Button>("PipBtn");
+                            var normalRightButtons = this.FindControl<StackPanel>("NormalRightButtons");
+                            _whiteboardManager.EnterWhiteboardMode(normalBottomButtons!, captureBtn!, scanBtn!, connectDeviceBtn!, pipBtn!, normalRightButtons!);
+                        }
+                        // 打开 PPT XML
+                        _whiteboardManager.OpenPptXmlPresentation(ppt);
+                        var slideControl = _whiteboardManager.RenderPptXmlCurrentSlide();
+                        if (slideControl != null)
+                        {
+                            // 若当前 PPT 幻灯片定义了背景图片，先设置为白板背景
+                            var currentSlide = _whiteboardManager.CurrentPptSlide;
+                            if (currentSlide?.BackgroundImage != null)
+                            {
+                                _whiteboardManager.SetWhiteboardBackgroundFromPptImage(currentSlide.BackgroundImage);
+                            }
+                            _whiteboardManager.SetWhiteboardBackgroundFromPptControl(slideControl);
+                        }
+                    }
+                }
+
+                // 处理其他文件（图片、PDF 等）
+                if (otherFiles.Count > 0)
+                {
+                    await ImportFilesAsync(otherFiles);
+                }
             }
         }
 
@@ -2424,15 +2466,23 @@ namespace ShowWrite
                             {
                                 foreach (var imagePath in imagePaths)
                                 {
-                                    var thumbnail = CreateThumbnail(imagePath);
-
-                                    Photos.Add(new PhotoItem
+                                    // 白板模式下，PDF图片作为图层导入
+                                    if (_whiteboardManager?.IsWhiteboardMode == true)
                                     {
-                                        Index = Photos.Count + 1,
-                                        FilePath = imagePath,
-                                        Timestamp = DateTime.Now,
-                                        Thumbnail = thumbnail
-                                    });
+                                        _whiteboardManager.AddImageOverlay(imagePath);
+                                    }
+                                    else
+                                    {
+                                        var thumbnail = CreateThumbnail(imagePath);
+
+                                        Photos.Add(new PhotoItem
+                                        {
+                                            Index = Photos.Count + 1,
+                                            FilePath = imagePath,
+                                            Timestamp = DateTime.Now,
+                                            Thumbnail = thumbnail
+                                        });
+                                    }
                                 }
                             });
                         }
@@ -2440,21 +2490,33 @@ namespace ShowWrite
                         {
                             await Dispatcher.UIThread.InvokeAsync(() =>
                             {
-                                var thumbnail = CreateThumbnail(path);
-
-                                Photos.Add(new PhotoItem
+                                // 白板模式下，图片作为图层导入
+                                if (_whiteboardManager?.IsWhiteboardMode == true)
                                 {
-                                    Index = Photos.Count + 1,
-                                    FilePath = path,
-                                    Timestamp = DateTime.Now,
-                                    Thumbnail = thumbnail
-                                });
+                                    _whiteboardManager.AddImageOverlay(path);
+                                }
+                                else
+                                {
+                                    var thumbnail = CreateThumbnail(path);
+
+                                    Photos.Add(new PhotoItem
+                                    {
+                                        Index = Photos.Count + 1,
+                                        FilePath = path,
+                                        Timestamp = DateTime.Now,
+                                        Thumbnail = thumbnail
+                                    });
+                                }
                             });
                         }
                     }
                 });
 
-                await OpenPhotoPanelAsync();
+                // 白板模式下不打开相册面板
+                if (_whiteboardManager?.IsWhiteboardMode != true)
+                {
+                    await OpenPhotoPanelAsync();
+                }
             }
             finally
             {

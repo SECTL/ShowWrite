@@ -89,10 +89,8 @@ namespace ShowWrite
         public InkCanvas()
         {
             ClipToBounds = false;
-            // 高 DPI 适配与更平滑的绘制
-            RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
-            UseLayoutRounding = false;
-            SnapsToDevicePixels = true;
+            // 高 DPI 适配（已使用布局取整）
+            UseLayoutRounding = true;
 
             PointerPressed += OnPointerPressed;
             PointerMoved += OnPointerMoved;
