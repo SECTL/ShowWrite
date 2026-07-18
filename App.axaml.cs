@@ -91,7 +91,7 @@ namespace ShowWrite
 
         public RandomNoteModeWindow()
         {
-            SystemDecorations = SystemDecorations.None;
+            WindowDecorations = WindowDecorations.None;
             WindowState = WindowState.Minimized;
             ShowInTaskbar = false;
             Width = 0;

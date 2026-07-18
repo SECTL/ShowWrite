@@ -10,11 +10,11 @@
         CanResize="False"
         Background="Transparent"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
+
         ExtendClientAreaTitleBarHeightHint="-1"
         ShowInTaskbar="False"
         IsHitTestVisible="False"
-        SystemDecorations="None"
+        WindowDecorations="None"
         Topmost="True">
 
     <Border CornerRadius="12" Padding="16,12" Background="#2D2D2D" BorderBrush="#3D3D3D" BorderThickness="1">

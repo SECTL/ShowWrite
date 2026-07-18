@@ -11,7 +11,7 @@
         CanResize="False"
         Background="#2D2D2D"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
+
         ExtendClientAreaTitleBarHeightHint="-1">
 
     <Border CornerRadius="12" Padding="24">

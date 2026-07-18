@@ -6,9 +6,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="C:/Users/Administrator/source/repos/SWmsix/SWmsix.wapproj" Type="c7167f0d-bc9f-4e6e-afe1-012c56b48db5" Id="efd7bc40-39a0-4ad4-8709-3fb988dcf0a8">
-    <Deploy />
-  </Project>
-  <Project Path="Plugins/TestPlugin/TestPlugin.csproj" Id="8751a8d9-ab4d-4dce-b6c6-2faff8c63fc0" />
   <Project Path="ShowWrite.csproj" />
 </Solution>

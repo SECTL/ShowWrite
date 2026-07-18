@@ -37,20 +37,21 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Avalonia" Version="11.3.14" />
-		<PackageReference Include="Avalonia.Desktop" Version="11.3.14" />
-		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.14" />
-		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.14" />
-		<PackageReference Include="Avalonia.Diagnostics" Version="11.3.14">
+		<PackageReference Include="Avalonia" Version="12.1.0" />
+		<PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.0" />
+		<PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3">
 			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
 			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
 		</PackageReference>
+		<PackageReference Include="PanAndZoom" Version="12.0.0.1" />
 
 		<PackageReference Include="PdfiumViewer" Version="2.13.0" />
 		<PackageReference Include="OpenCvSharp4" Version="4.13.0.20260222" />
 		<PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260222" />
 		<PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
-		<PackageReference Include="SkiaSharp" Version="3.119.2" />
+		<PackageReference Include="SkiaSharp" Version="3.119.4" />
 		<PackageReference Include="Spire.PDF" Version="12.2.6" />
 		<PackageReference Include="Spire.Presentation" Version="11.2.1" />
 		<PackageReference Include="System.Drawing.Common" Version="10.0.3" />
@@ -59,7 +60,6 @@
 		<PackageReference Include="Aspose.Slides.NET" Version="26.2.0" />
 		<PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
-		<PackageReference Include="Avalonia.Controls.PanAndZoom" Version="11.3.0" />
 		
 	</ItemGroup>
 </Project>

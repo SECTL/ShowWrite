@@ -10,9 +10,9 @@
         Title="ShowWrite"
         WindowState="FullScreen"
         Background="{DynamicResource ThemeBackground}"
-        SystemDecorations="None"
+        WindowDecorations="None"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
+
         ExtendClientAreaTitleBarHeightHint="-1"
         CanResize="False"
         Opened="Window_Opened"
@@ -538,7 +538,7 @@
         </Border>
 
         <Popup x:Name="MoreMenuPopup"
-               PlacementMode="Top"
+               Placement="Top"
                IsLightDismissEnabled="True"
                IsOpen="False">
             <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="4" BorderBrush="{DynamicResource ThemeSurfaceVariant}" BorderThickness="1">
@@ -689,7 +689,7 @@
         </Button>
 
         <Popup x:Name="PenSettingsPopup"
-               PlacementMode="Top"
+               Placement="Top"
                PlacementTarget="{Binding #PenBtn}"
                IsLightDismissEnabled="True"
                IsOpen="False">
@@ -724,7 +724,7 @@
         </Popup>
 
         <Popup x:Name="ClearSlidePopup"
-               PlacementMode="Top"
+               Placement="Top"
                PlacementTarget="{Binding #EraserBtn}"
                IsLightDismissEnabled="True"
                IsOpen="False">
@@ -761,7 +761,7 @@
         </Popup>
 
         <Popup x:Name="VideoAdjustPopup"
-               PlacementMode="Top"
+               Placement="Top"
                PlacementTarget="{Binding #VideoAdjustBtn}"
                IsLightDismissEnabled="True"
                IsOpen="False">
