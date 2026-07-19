@@ -52,7 +52,7 @@
 		<PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260222" />
 		<PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
 		<PackageReference Include="SkiaSharp" Version="3.119.4" />
-		<PackageReference Include="Spire.PDF" Version="12.2.6" />
+
 		<PackageReference Include="Spire.Presentation" Version="11.2.1" />
 		<PackageReference Include="System.Drawing.Common" Version="10.0.3" />
 		<PackageReference Include="System.Management" Version="10.0.3" />
