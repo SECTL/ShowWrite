@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using OpenCvSharp;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Management;
@@ -28,17 +29,18 @@ namespace ShowWrite
         private volatile int _captureGeneration = 0;
 
         private WriteableBitmap? _frameBitmap;
-        // 单 Mat：capture.Read 与 UI 拷贝都在 UI 线程的 DispatcherTimer 中完成（同线程不重入），
-        // 无需双缓冲。OpenCV 非线程安全——之前后台线程 capture.Read 与 UI 线程 DataPointer 访问
-        // 跨线程并发，OpenCV 全局状态冲突导致 native 堆损坏 → AccessViolation。
-        private Mat? _latestFrame;
-        private Mat? _processedFrame;
+
+        // 采集线程独占 OpenCV 对象；帧通过双缓冲发布：
+        // 采集线程只写“未发布”的缓冲，UI 线程在 _lock 内从“已发布”的缓冲拷贝，
+        // 不存在跨线程同时读写同一 Mat（这正是之前 native 堆损坏的根因）。
+        private Thread? _captureThread;
+        private Mat? _bgraFront;            // 已发布给 UI 的最新帧（_lock 保护，BGRA）
+        private int _uiPostPending;         // 1 = 已有待执行的 UI 呈现任务
 
         private int _frameWidth;
         private int _frameHeight;
-        private int _frameStride;
 
-        private DispatcherTimer? _uiTimer;
+        private readonly object _perspectiveLock = new();
 
         private int _currentCameraIndex = 0;
         private List<int> _availableCameraIndices = new();
@@ -51,7 +53,6 @@ namespace ShowWrite
 
         // 公共属性
         public WriteableBitmap? FrameBitmap => _frameBitmap;
-        public Mat? LatestFrame => _latestFrame;
         public int CameraCount => _availableCameraIndices.Count;
         public int CurrentCameraIndex => _currentCameraIndex;
         public bool HasPerspectiveTransform => _hasPerspectiveTransform;
@@ -67,57 +68,38 @@ namespace ShowWrite
         }
 
         /// <summary>
-        /// 获取处理后的帧（应用了透视变换）。返回独立 Mat 副本，调用方自行 Dispose；
-        /// CaptureLoop 在 finally dispose _latestFrame 时不会影响已返回的副本，避免 AccessViolation。
+        /// 获取当前显示帧的独立副本（BGRA，已应用透视变换）。调用方用完必须 Dispose。
         /// </summary>
         public Mat? GetProcessedFrame()
         {
             lock (_lock)
             {
-                if (_latestFrame == null || _latestFrame.Empty())
+                if (_bgraFront == null || _bgraFront.Empty())
                     return null;
 
-                if (_hasPerspectiveTransform && _perspectiveMatrix != null)
-                {
-                    return ApplyPerspectiveTransform(_latestFrame);
-                }
-                // 无透视变换：必须 clone 返回，否则调用方持有的就是 _latestFrame 本身，
-                // CaptureLoop finally dispose 它时调用方仍在用 → AccessViolation。
-                return _latestFrame.Clone();
+                // 已发布缓冲不会被采集线程写入（采集线程只写另一块），锁内 Clone 安全。
+                return _bgraFront.Clone();
             }
         }
 
         /// <summary>
-        /// 获取当前显示帧的稳定副本（持锁内 clone）。供 UI 线程异步使用（如 PresentCameraFrame→InkCanvas），
-        /// 调用方用完自行 Dispose；CaptureLoop dispose 原始 _latestFrame 不影响本副本。
+        /// 获取当前显示帧的稳定副本（持锁内 clone）。调用方用完自行 Dispose。
         /// </summary>
         public Mat? GetLatestFrameCopy()
         {
-            lock (_lock)
-            {
-                if (_latestFrame == null || _latestFrame.Empty())
-                    return null;
-                return _latestFrame.Clone();
-            }
+            return GetProcessedFrame();
         }
 
         /// <summary>
-        /// 持锁读取当前显示帧的尺寸（不 Clone Mat）。供高频 UI 调用（如 60fps PresentCameraFrame）使用：
-        /// 读尺寸只需访问 Mat 元数据，不需要 Clone 整帧像素（Clone 2.7MB/帧 × 60fps = 162MB/秒 分配压力，
-        /// 会压垮 OpenCV 内存池导致 "Failed to allocate N bytes"）。
+        /// 只读取当前帧尺寸（不访问 Mat 像素）。供高频 UI 调用使用。
         /// </summary>
         public bool TryGetLatestFrameSize(out int width, out int height)
         {
             lock (_lock)
             {
-                if (_latestFrame == null || _latestFrame.Empty())
-                {
-                    width = 0; height = 0;
-                    return false;
-                }
-                width = _latestFrame.Width;
-                height = _latestFrame.Height;
-                return true;
+                width = _frameWidth;
+                height = _frameHeight;
+                return width > 0 && height > 0;
             }
         }
 
@@ -355,13 +337,9 @@ namespace ShowWrite
                             }
 
                             _capture = capture;
-                            // 单 Mat：capture.Read 在 UI 线程的 DispatcherTimer 中调用，无需双缓冲
-                            _latestFrame?.Dispose();
-                            _latestFrame = mat;
 
                             _frameWidth = width;
                             _frameHeight = height;
-                            _frameStride = width * 3;
 
                             // 仅在尺寸变化或首次创建时重建位图，并释放旧位图。
                             // 旧实现每次 StartCapture 都新建 WriteableBitmap 且不 Dispose，
@@ -380,9 +358,8 @@ namespace ShowWrite
                                     AlphaFormat.Premul);
                             }
 
-                            // 不再启动后台 CaptureLoop：capture.Read 在 UI 线程 DispatcherTimer 中调用，
-                            // 所有 OpenCV 调用单线程完成，消除跨线程 OpenCV 全局状态冲突。
-                            StartUiTimer();
+                            // 启动独立采集线程：Read/转码/透视全部在该线程完成，UI 只做整块拷贝。
+                            StartCaptureThread(capture!, mat!, generation);
 
                             CameraStarted?.Invoke();
                         }
@@ -403,106 +380,137 @@ namespace ShowWrite
         }
 
         /// <summary>
-        /// 启动 UI 定时器。30fps（33ms）：capture.Read 在 Tick 中同步调用（OpenCV 非线程安全，
-        /// 必须在 UI 线程），33ms 间隔给 Read + 像素拷贝留时间，避免连帧压垮。
+        /// 启动独立采集线程。OpenCV 对象（VideoCapture/Mat）只在该线程内使用，
+        /// 满足“OpenCV 单线程调用”的约束；UI 线程不直接操作采集 Mat。
         /// </summary>
-        private void StartUiTimer()
+        private void StartCaptureThread(VideoCapture capture, Mat frame, int generation)
         {
-            _uiTimer = new DispatcherTimer
+            var thread = new Thread(() => CaptureLoop(capture, frame, generation))
             {
-                Interval = TimeSpan.FromMilliseconds(33)
+                IsBackground = true,
+                Name = "ShowWrite.CameraCapture",
+                Priority = ThreadPriority.AboveNormal
             };
 
-            _uiTimer.Tick += (_, _) => UpdateFrame();
-            _uiTimer.Start();
+            _captureThread = thread;
+            thread.Start();
         }
 
         /// <summary>
-        /// 更新 UI 帧：单线程架构——capture.Read + 透视变换 + 像素拷贝都在 UI 线程完成。
-        /// OpenCV 非线程安全，所有 OpenCV 调用必须在同一线程，否则全局状态冲突 → native 堆损坏。
+        /// 采集线程主循环：独占 VideoCapture/Mat，按摄像头节奏持续 Read。
+        /// 每帧完成后用双缓冲直接覆盖旧帧，不做排队，因此延迟固定在一帧左右，
+        /// 不会像“UI 定时器逐帧读取”那样因消费慢于生产而不断积压。
         /// </summary>
-        private unsafe void UpdateFrame()
+        private void CaptureLoop(VideoCapture capture, Mat frame, int generation)
         {
+            var bgraA = new Mat(frame.Height, frame.Width, MatType.CV_8UC4);
+            var bgraB = new Mat(frame.Height, frame.Width, MatType.CV_8UC4);
+            var writeMat = bgraA;
+            var warped = new Mat();
+
+            try
+            {
+                while (_captureGeneration == generation && !_cancelled)
+                {
+                    if (!capture.Read(frame) || frame.Empty())
+                    {
+                        Thread.Sleep(1);
+                        continue;
+                    }
+
+                    // 透视 + BGR→BGRA 都在采集线程完成，UI 线程不再碰 OpenCV。
+                    lock (_perspectiveLock)
+                    {
+                        Mat source = frame;
+                        if (_hasPerspectiveTransform && _perspectiveMatrix != null)
+                        {
+                            Cv2.WarpPerspective(frame, warped, _perspectiveMatrix, frame.Size());
+                            source = warped;
+                        }
+                        Cv2.CvtColor(source, writeMat, ColorConversionCodes.BGR2BGRA);
+                    }
+
+                    // 发布：把刚写好的缓冲换成“已发布”，另一块作为下一次写入目标。
+                    lock (_lock)
+                    {
+                        var previous = _bgraFront;
+                        _bgraFront = writeMat;
+                        writeMat = previous ?? (ReferenceEquals(writeMat, bgraA) ? bgraB : bgraA);
+                        _frameWidth = frame.Width;
+                        _frameHeight = frame.Height;
+                    }
+
+                    SignalUi(generation);
+                }
+            }
+            catch
+            {
+                // 设备断开/退出时 Read 可能抛异常，统一由 finally 清理
+            }
+            finally
+            {
+                lock (_lock)
+                {
+                    if (ReferenceEquals(_capture, capture)) _capture = null;
+                    _bgraFront = null;
+                }
+
+                try { capture.Release(); capture.Dispose(); } catch { }
+
+                bgraA.Dispose();
+                bgraB.Dispose();
+                warped.Dispose();
+                frame.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// 通知 UI 呈现最新帧。用 Interlocked 合并请求：UI 忙时最多只有一个待处理任务，
+        /// 不会像每帧 Post 那样堆积，也不会长时间不刷新。
+        /// </summary>
+        private void SignalUi(int generation)
+        {
+            if (Interlocked.Exchange(ref _uiPostPending, 1) != 0)
+                return;
+
+            Dispatcher.UIThread.Post(() => PresentLatestFrame(generation), DispatcherPriority.Background);
+        }
+
+        /// <summary>
+        /// UI 线程：把最新 BGRA 帧整块拷贝进 WriteableBitmap 并触发 FrameReady。
+        /// 只做 memcpy（约 1ms/720p），不再做阻塞式 Read 和逐像素转换。
+        /// </summary>
+        private unsafe void PresentLatestFrame(int generation)
+        {
+            Interlocked.Exchange(ref _uiPostPending, 0);
+            if (_captureGeneration != generation || _cancelled)
+                return;
+
             lock (_lock)
             {
-                if (_frameBitmap == null || _latestFrame == null || _cancelled || _capture == null)
+                if (_frameBitmap == null || _bgraFront == null || _bgraFront.Empty()
+                    || _frameWidth <= 0 || _frameHeight <= 0)
                     return;
-
-                // capture.Read 在 UI 线程调用：与下面的 DataPointer 访问同线程，无跨线程冲突
-                try
-                {
-                    _capture.Read(_latestFrame);
-                }
-                catch
-                {
-                    // 摄像头读取异常：不抛，等下次 Tick 重试
-                    return;
-                }
-
-                if (_latestFrame.Empty())
-                    return;
-
-                Mat frameToDisplay = _latestFrame;
-                bool shouldDispose = false;
-
-                // 应用透视变换（如果需要）
-                if (_hasPerspectiveTransform && _perspectiveMatrix != null)
-                {
-                    frameToDisplay = ApplyPerspectiveTransform(_latestFrame);
-                    shouldDispose = true;
-                }
 
                 using var locked = _frameBitmap.Lock();
-
-                // 源 Mat 为 Bgr24（3 字节/像素），目标位图为 Bgra8888（4 字节/像素）。
-                // 逐像素 BGR -> BGRA(A=255)，避免 Avalonia 在 Lock 释放时为非原生支持格式
-                // 分配临时转码缓冲（原实现每帧约 3.69MB 分配/释放并占用额外 staging 内存）。
-                byte* src = (byte*)frameToDisplay.DataPointer;
+                byte* src = (byte*)_bgraFront.DataPointer;
                 byte* dst = (byte*)locked.Address;
-                int srcStride = _frameStride;       // width * 3（源 Bgr24 步长）
-                int dstStride = locked.RowBytes;     // 通常 width * 4，可能对齐填充
+                int srcStride = (int)_bgraFront.Step();
+                int dstStride = locked.RowBytes;
+                int rowBytes = _frameWidth * 4;
 
                 for (int y = 0; y < _frameHeight; y++)
                 {
-                    byte* s = src + y * srcStride;
-                    byte* d = dst + y * dstStride;
-                    for (int x = 0; x < _frameWidth; x++)
-                    {
-                        d[0] = s[0]; // B
-                        d[1] = s[1]; // G
-                        d[2] = s[2]; // R
-                        d[3] = 255;  // A 完全不透明（预乘 alpha 下等价）
-                        s += 3;
-                        d += 4;
-                    }
-                }
-
-                if (shouldDispose)
-                {
-                    frameToDisplay.Dispose();
+                    Buffer.MemoryCopy(src + y * srcStride, dst + y * dstStride, dstStride, rowBytes);
                 }
             }
 
-            // 在锁外触发事件，避免长时间持有锁阻塞捕获线程
+            // 锁外触发事件：插件回调等耗时不影响采集线程发布下一帧
             FrameReady?.Invoke();
         }
 
         /// <summary>
-        /// 应用透视变换
-        /// </summary>
-        private Mat ApplyPerspectiveTransform(Mat input)
-        {
-            if (!_hasPerspectiveTransform || _perspectiveMatrix == null)
-                return input;
-
-            var output = new Mat();
-            Cv2.WarpPerspective(input, output, _perspectiveMatrix, input.Size());
-            return output;
-        }
-
-        /// <summary>
-        /// 停止捕获。本方法由 UI 线程调用；不在本方法持锁，避免与 CaptureLoop.finally 持锁
-        /// 释放资源时形成死锁（task.Wait 等 CaptureLoop 退出，CaptureLoop 退出时持锁 dispose）。
+        /// 停止捕获。本方法由 UI 线程调用；等待采集线程退出后再清理引用。
         /// </summary>
         public void StopCapture()
         {
@@ -519,34 +527,28 @@ namespace ShowWrite
         }
 
         /// <summary>
-        /// 停止捕获。单线程架构下无后台任务：停 DispatcherTimer 后所有 OpenCV 调用停止，
-        /// 即可持锁释放 _capture/_latestFrame（与 UpdateFrame 持锁互斥，无并发访问）。
+        /// 停止捕获。采集线程可能正阻塞在 capture.Read，最多等待 2 秒；
+        /// 超时也不强杀线程（避免在 Read 中途释放原生资源），由线程自身 finally 清理。
         /// </summary>
         private void StopCaptureInternal()
         {
             _cancelled = true;
-            // 递增代次：使任何在途 Task.Run 的 generation 检查失效，
-            // 旧 Task.Run 会在循环检查和 UI Post 中检测到代次不匹配而自行释放资源退出。
+            // 递增代次：在途 Task.Run 与旧采集线程都会据此退出
             _captureGeneration++;
 
-            // 先停 DispatcherTimer：UpdateFrame 不再调用 capture.Read/DataPointer，
-            // 之后持锁释放 _capture/_latestFrame 才安全（不会与 UpdateFrame 并发）。
-            _uiTimer?.Stop();
-            _uiTimer = null;
+            var thread = _captureThread;
+            _captureThread = null;
+            if (thread != null && thread.IsAlive && thread != Thread.CurrentThread)
+            {
+                thread.Join(2000);
+            }
 
             lock (_lock)
             {
-                var capture = _capture;
-                var display = _latestFrame;
                 _capture = null;
-                _latestFrame = null;
-                try
-                {
-                    capture?.Release();
-                    capture?.Dispose();
-                    display?.Dispose();
-                }
-                catch { }
+                _bgraFront = null;
+                _frameWidth = 0;
+                _frameHeight = 0;
             }
         }
 
@@ -587,7 +589,7 @@ namespace ShowWrite
         // ---------- 透视变换相关 ----------
         public void SetPerspectiveTransform(Point2f[] sourcePoints, Point2f[] destPoints)
         {
-            lock (_lock)
+            lock (_perspectiveLock)
             {
                 _sourcePoints = sourcePoints;
                 _destinationPoints = destPoints;
@@ -610,7 +612,7 @@ namespace ShowWrite
 
         public void ResetPerspectiveTransform()
         {
-            lock (_lock)
+            lock (_perspectiveLock)
             {
                 _perspectiveMatrix?.Dispose();
                 _perspectiveMatrix = null;
@@ -653,7 +655,6 @@ namespace ShowWrite
         {
             StopCapture();
             _frameBitmap?.Dispose();
-            _processedFrame?.Dispose();
             _perspectiveMatrix?.Dispose();
         }
     }

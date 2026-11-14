@@ -1,6 +1,9 @@
+using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Styling;
 using System;
 using System.Threading.Tasks;
 
@@ -17,7 +20,12 @@ namespace ShowWrite
             var transform = new TranslateTransform { X = width };
             panel.RenderTransform = transform;
 
-            await AnimateTransform(transform, width, 0, TimeSpan.FromMilliseconds(250), new CubicEaseOut());
+            // 先完成布局，确保面板以屏幕外的初始位置参与首帧渲染，
+            // 避免首次展开时动画在布局完成前就结束（高分屏下尤为明显）
+            panel.UpdateLayout();
+
+            await AnimateTranslateX(panel, transform, width, 0, TimeSpan.FromMilliseconds(250), new CubicEaseOut());
+            transform.X = 0;
         }
 
         public static async Task SlideOutToRight(Border panel, double width)
@@ -31,7 +39,8 @@ namespace ShowWrite
                 panel.RenderTransform = transform;
             }
 
-            await AnimateTransform(transform, 0, width, TimeSpan.FromMilliseconds(250), new CubicEaseIn());
+            await AnimateTranslateX(panel, transform, transform.X, width, TimeSpan.FromMilliseconds(250), new CubicEaseIn());
+            transform.X = width;
         }
 
         public static async Task SlideToolBackground(Border slider, double targetX)
@@ -45,36 +54,41 @@ namespace ShowWrite
                 slider.RenderTransform = transform;
             }
 
-            await AnimateTransform(transform, transform.X, targetX, TimeSpan.FromMilliseconds(200), new CubicEaseOut());
+            await AnimateTranslateX(slider, transform, transform.X, targetX, TimeSpan.FromMilliseconds(200), new CubicEaseOut());
         }
 
-        private static Task AnimateTransform(TranslateTransform transform, double from, double to, TimeSpan duration, Easing easing)
+        /// <summary>
+        /// 使用 Avalonia 动画时钟对平移变换做插值。
+        /// 不要用 Dispatcher 循环逐帧收值：Render 优先级的连续投递会饿死 Layout 优先级，
+        /// 导致首次显示的面板在动画结束后才完成布局渲染，动画看起来“不显示”。
+        /// </summary>
+        private static async Task AnimateTranslateX(Visual target, TranslateTransform transform, double from, double to, TimeSpan duration, Easing easing)
         {
-            var tcs = new TaskCompletionSource<bool>();
+            // 动画目标必须是 Visual：TransformAnimator 会把目标强转为 Visual，
+            // 再从 RenderTransform 中找到对应类型的变换对象来插值，直接传 Transform 会抛 InvalidCastException。
+            transform.X = from;
 
-            var startTime = DateTime.Now;
-            var durationMs = duration.TotalMilliseconds;
-
-            void Tick()
+            var animation = new Animation
             {
-                var elapsed = (DateTime.Now - startTime).TotalMilliseconds;
-                var progress = Math.Min(elapsed / durationMs, 1.0);
-                var easedProgress = easing.Ease(progress);
-
-                transform.X = from + (to - from) * easedProgress;
-
-                if (progress >= 1.0)
+                Duration = duration,
+                Easing = easing,
+                FillMode = FillMode.Forward,
+                Children =
                 {
-                    tcs.SetResult(true);
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0d),
+                        Setters = { new Setter(TranslateTransform.XProperty, from) }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1d),
+                        Setters = { new Setter(TranslateTransform.XProperty, to) }
+                    }
                 }
-                else
-                {
-                    Avalonia.Threading.Dispatcher.UIThread.Post(Tick, Avalonia.Threading.DispatcherPriority.Render);
-                }
-            }
+            };
 
-            Avalonia.Threading.Dispatcher.UIThread.Post(Tick, Avalonia.Threading.DispatcherPriority.Render);
-            return tcs.Task;
+            await animation.RunAsync(target);
         }
     }
 }

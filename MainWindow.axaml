@@ -209,6 +209,7 @@
                         EnablePan="True"
                         EnableZoom="True"
                         EnableGestureZoom="False"
+                        EnableGestureRotation="False"
                         EnableGestureTranslation="True"
                         EnableAnimations="False"
                         ClipToBounds="True"
