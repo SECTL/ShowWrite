@@ -10,6 +10,13 @@
 		<GenerateDocumentationFile>False</GenerateDocumentationFile>
 		<SelfContained>false</SelfContained>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<!-- 仅保留英文附属资源，避免生成 nl 等语言子目录 -->
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+		<!-- Release 不生成调试符号，显著减小输出体积 -->
+		<DebugType>none</DebugType>
+		<DebugSymbols>false</DebugSymbols>
 	</PropertyGroup>
 	<PropertyGroup Label="Avalonia">
 		<AvaloniaXamlIlDebuggerLaunch>False</AvaloniaXamlIlDebuggerLaunch>
@@ -60,14 +67,23 @@
 		<PackageReference Include="PdfiumViewer.Native.x86_64.v8-xfa" Version="2018.4.8.256" />
 		<PackageReference Include="SkiaSharp" Version="4.148.0" />
 
-		<PackageReference Include="Spire.Presentation" Version="11.2.1" />
 		<PackageReference Include="System.Drawing.Common" Version="10.0.3" />
 		<PackageReference Include="System.Management" Version="10.0.3" />
-		<PackageReference Include="DocumentFormat.OpenXml" Version="3.0.2" />
-		<PackageReference Include="Aspose.Slides.NET" Version="26.2.0" />
 		<PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
 		<PackageReference Include="NAudio" Version="2.2.1" />
 		<PackageReference Include="RapidOcrNet" Version="4.0.2" />
 
 	</ItemGroup>
+
+	<!-- 构建后清理随 NuGet 复制的原生 PDB（SkiaSharp/HarfBuzz 约 107MB）
+	     Release：删除全部 PDB；Debug：只删除原生库 PDB，保留 ShowWrite.pdb 便于调试 -->
+	<Target Name="TrimPdbFiles" AfterTargets="Build">
+		<ItemGroup Condition="'$(Configuration)' == 'Release'">
+			<_PdbToDelete Include="$(OutDir)**\*.pdb" />
+		</ItemGroup>
+		<ItemGroup Condition="'$(Configuration)' != 'Release'">
+			<_PdbToDelete Include="$(OutDir)lib*.pdb" />
+		</ItemGroup>
+		<Delete Files="@(_PdbToDelete)" />
+	</Target>
 </Project>

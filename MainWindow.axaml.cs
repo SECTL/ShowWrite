@@ -96,7 +96,7 @@ namespace ShowWrite
         // 拖拽导入支持的可识别扩展名
         private static readonly string[] SupportedDragDropExtensions =
         {
-            ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".pdf", ".ppt", ".pptx"
+            ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".pdf"
         };
 
         // 延迟隐藏拖拽遮罩的计时器，避免子控件间移动时闪烁
@@ -245,8 +245,6 @@ namespace ShowWrite
                 nextPageText,
                 pageImportingOverlay,
                 ImageOverlayCanvas);
-            _whiteboardManager.ImportPptRequested += OnImportPptRequested;
-            _whiteboardManager.PptSlideControlReady += OnPptSlideControlReady;
 
             var moreButton = this.FindControl<Button>("MoreButton");
             if (moreButton != null && MoreMenuPopup != null)
@@ -331,26 +329,10 @@ namespace ShowWrite
             PluginDebugger.PrintPluginStatus();
             InitializePluginButtons();
 
-            // 监听窗口大小变化
-            this.SizeChanged += MainWindow_SizeChanged;
-
             // 创建橡皮光标覆盖层
             CreateEraserCursorOverlay();
             // 订阅橡皮光标事件
             InkCanvasOverlay.EraserCursorUpdate += UpdateEraserCursor;
-        }
-
-        private void MainWindow_SizeChanged(object? sender, SizeChangedEventArgs e)
-        {
-            // 当窗口大小变化时，确保PPT控件能正确缩放
-            if (_whiteboardManager?.IsPptXmlMode == true)
-            {
-                var slideControl = _whiteboardManager.RenderPptXmlCurrentSlide();
-                if (slideControl != null)
-                {
-                    OnPptSlideControlReady(slideControl);
-                }
-            }
         }
 
         private void OnZoomChanged(object? sender, ZoomChangedEventArgs e)
@@ -1374,8 +1356,6 @@ namespace ShowWrite
             _cameraService.Dispose();
             _ocrCts?.Cancel();
 
-            // 清理PowerPoint资源
-            _whiteboardManager?.ClosePowerPointPresentation();
             _whiteboardManager?.Dispose();
 
             InkCanvasOverlay.Dispose();
@@ -1887,12 +1867,6 @@ namespace ShowWrite
         {
             if (_whiteboardManager == null) return;
 
-            // 关闭PowerPoint放映
-            if (_whiteboardManager.IsPowerPointMode)
-            {
-                _whiteboardManager.ClosePowerPointPresentation();
-            }
-
             var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
             var captureBtn = this.FindControl<Button>("CaptureBtn");
             var scanBtn = this.FindControl<Button>("ScanBtn");
@@ -1920,72 +1894,12 @@ namespace ShowWrite
 
         private void PrevPage_Click(object? sender, RoutedEventArgs e)
         {
-            // PowerPoint模式
-            if (_whiteboardManager?.IsPowerPointMode == true)
-            {
-                _whiteboardManager.PowerPointPreviousSlide();
-                return;
-            }
-
-            // PptXml模式
-            if (_whiteboardManager?.IsPptXmlMode == true)
-            {
-                _whiteboardManager.PrevPage_Click(sender, e);
-                return;
-            }
-
-            // Aspose模式
-            if (_whiteboardManager?.IsAsposePresentationOpen == true)
-            {
-                _whiteboardManager.AsposePreviousSlide();
-                var slideBitmap = _whiteboardManager.RenderAsposeCurrentSlide();
-                if (slideBitmap is not null)
-                {
-                    VideoImage.Source = slideBitmap;
-                    SetVideoContentSize(slideBitmap.Size.Width, slideBitmap.Size.Height);
-                    InkCanvasOverlay.SetPhotoMode(slideBitmap.Size.Width, slideBitmap.Size.Height);
-                    InkCanvasOverlay.ClearStrokes();
-                    CenterVideo();
-                }
-                return;
-            }
-
             // 白板模式
             _whiteboardManager?.PrevPage_Click(sender, e);
         }
 
         private void NextPage_Click(object? sender, RoutedEventArgs e)
         {
-            // PowerPoint模式
-            if (_whiteboardManager?.IsPowerPointMode == true)
-            {
-                _whiteboardManager.PowerPointNextSlide();
-                return;
-            }
-
-            // PptXml模式
-            if (_whiteboardManager?.IsPptXmlMode == true)
-            {
-                _whiteboardManager.NextPage_Click(sender, e);
-                return;
-            }
-
-            // Aspose模式
-            if (_whiteboardManager?.IsAsposePresentationOpen == true)
-            {
-                _whiteboardManager.AsposeNextSlide();
-                var slideBitmap = _whiteboardManager.RenderAsposeCurrentSlide();
-                if (slideBitmap is not null)
-                {
-                    VideoImage.Source = slideBitmap;
-                    SetVideoContentSize(slideBitmap.Size.Width, slideBitmap.Size.Height);
-                    InkCanvasOverlay.SetPhotoMode(slideBitmap.Size.Width, slideBitmap.Size.Height);
-                    InkCanvasOverlay.ClearStrokes();
-                    CenterVideo();
-                }
-                return;
-            }
-
             // 白板模式
             _whiteboardManager?.NextPage_Click(sender, e);
         }
@@ -2005,38 +1919,9 @@ namespace ShowWrite
             _whiteboardManager?.AddPageBtn_Click(sender, e);
         }
 
-        private async void ImportPptBtn_Click(object? sender, RoutedEventArgs e)
+        private async void ImportFileBtn_Click(object? sender, RoutedEventArgs e)
         {
             await OpenFilePickerAsync();
-        }
-
-        private async void OnImportPptRequested()
-        {
-            await OpenFilePickerAsync();
-        }
-
-        private void OnPptSlideControlReady(PptSlideControl slideControl)
-        {
-            // 找到WhiteboardBackground
-            var whiteboardBackground = this.FindControl<Border>("WhiteboardBackground");
-            if (whiteboardBackground != null)
-            {
-                // 将背景设置为透明，确保不覆盖PPT背景
-                whiteboardBackground.Background = Avalonia.Media.Brushes.Transparent;
-                // 清空WhiteboardBackground的子元素
-                whiteboardBackground.Child = null;
-                // 将幻灯片控件添加到WhiteboardBackground
-                whiteboardBackground.Child = slideControl;
-                // 设置幻灯片控件的拉伸模式
-                slideControl.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
-                slideControl.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
-                slideControl.Stretch = Avalonia.Media.Stretch.Uniform;
-            }
-
-            // 确保VideoImage不可见
-            VideoImage.Source = null;
-            _attachedVideoBitmap = null;
-            VideoAreaContainer.Children.Clear();
         }
 
         private async Task OpenFilePickerAsync()
@@ -2057,187 +1942,8 @@ namespace ShowWrite
             if (files.Count > 0)
             {
                 var filePaths = files.Select(f => f.Path.LocalPath).ToList();
-                // 区分 PPT 与普通图片/文件
-                var pptFiles = filePaths.Where(p => p.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".ppt", StringComparison.OrdinalIgnoreCase)).ToList();
-                var otherFiles = filePaths.Except(pptFiles).ToList();
-
-                // 处理 PPT 文件（使用 PPT XML 渲染）
-                foreach (var ppt in pptFiles)
-                {
-                    // 直接打开 PPT 并渲染为元素
-                    if (_whiteboardManager != null)
-                    {
-                        // 如果尚未进入板中板模式，先进入
-                        if (!_whiteboardManager.IsWhiteboardMode)
-                        {
-                            // 进入白板模式（调用已有的 EnterWhiteboardMode）
-                            var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
-                            var captureBtn = this.FindControl<Button>("CaptureBtn");
-                            var scanBtn = this.FindControl<Button>("ScanBtn");
-                            var connectDeviceBtn = this.FindControl<Button>("ConnectDeviceBtn");
-                            var pipBtn = this.FindControl<Button>("PipBtn");
-                            var normalRightButtons = this.FindControl<StackPanel>("NormalRightButtons");
-                            _whiteboardManager.EnterWhiteboardMode(normalBottomButtons!, captureBtn!, scanBtn!, connectDeviceBtn!, pipBtn!, normalRightButtons!);
-                        }
-                        // 打开 PPT XML
-                        _whiteboardManager.OpenPptXmlPresentation(ppt);
-                        var slideControl = _whiteboardManager.RenderPptXmlCurrentSlide();
-                        if (slideControl != null)
-                        {
-                            // 若当前 PPT 幻灯片定义了背景图片，先设置为白板背景
-                            var currentSlide = _whiteboardManager.CurrentPptSlide;
-                            if (currentSlide?.BackgroundImage != null)
-                            {
-                                _whiteboardManager.SetWhiteboardBackgroundFromPptImage(currentSlide.BackgroundImage);
-                            }
-                            _whiteboardManager.SetWhiteboardBackgroundFromPptControl(slideControl);
-                        }
-                    }
-                }
-
-                // 处理其他文件（图片、PDF 等）
-                if (otherFiles.Count > 0)
-                {
-                    await ImportFilesAsync(otherFiles);
-                }
+                await ImportFilesAsync(filePaths);
             }
-        }
-
-        private async Task LoadAndPlayPowerPoint(string filePath)
-        {
-            if (_whiteboardManager == null) return;
-
-            try
-            {
-                // 进入白板模式
-                if (!_whiteboardManager.IsWhiteboardMode)
-                {
-                    var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
-                    var captureBtn = this.FindControl<Button>("CaptureBtn");
-                    var scanBtn = this.FindControl<Button>("ScanBtn");
-                    var connectDeviceBtn = this.FindControl<Button>("ConnectDeviceBtn");
-                    var pipBtn = this.FindControl<Button>("PipBtn");
-                    var normalRightButtons = this.FindControl<StackPanel>("NormalRightButtons");
-
-                    _whiteboardManager.EnterWhiteboardMode(
-                        normalBottomButtons!,
-                        captureBtn!,
-                        scanBtn!,
-                        connectDeviceBtn!,
-                        pipBtn!,
-                        normalRightButtons!);
-                }
-
-                // 尝试使用PPT XML模式
-                if (filePath.EndsWith(".pptx", StringComparison.OrdinalIgnoreCase))
-                {
-                    await LoadAndPlayPptXml(filePath);
-                    return;
-                }
-
-                // 打开PPT文件
-                if (_whiteboardManager.OpenPowerPointPresentation(filePath))
-                {
-                    // 获取白板背景控件作为宿主窗口
-                    var whiteboardBackground = this.FindControl<Border>("WhiteboardBackground");
-                    if (whiteboardBackground != null)
-                    {
-                        // 获取窗口句柄
-                        var windowHandle = GetWindowHandle();
-
-                        // 获取白板区域大小
-                        var bounds = whiteboardBackground.Bounds;
-                        int width = (int)bounds.Width;
-                        int height = (int)bounds.Height;
-
-                        // 开始放映
-                        if (_whiteboardManager.StartPowerPointSlideShow(windowHandle, width, height))
-                        {
-                            StatusText.Inlines?.Clear();
-                            StatusText.Inlines?.Add(new Run($"已加载PPT: {System.IO.Path.GetFileName(filePath)}"));
-                            StatusText.IsVisible = true;
-                        }
-                        else
-                        {
-                            StatusText.Inlines?.Clear();
-                            StatusText.Inlines?.Add(new Run("PPT放映启动失败"));
-                            StatusText.IsVisible = true;
-                        }
-                    }
-                }
-                else
-                {
-                    StatusText.Inlines?.Clear();
-                    StatusText.Inlines?.Add(new Run("无法打开PPT文件"));
-                    StatusText.IsVisible = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusText.Inlines?.Clear();
-                StatusText.Inlines?.Add(new Run($"加载PPT失败: {ex.Message}"));
-                StatusText.IsVisible = true;
-            }
-        }
-
-        private async Task LoadAndPlayPptXml(string filePath)
-        {
-            if (_whiteboardManager == null) return;
-
-            try
-            {
-                // 打开PPT XML文件
-                _whiteboardManager.OpenPptXmlPresentation(filePath);
-
-                // 进入板中板模式
-                var normalBottomButtons = this.FindControl<StackPanel>("NormalBottomButtons");
-                var captureBtn = this.FindControl<Button>("CaptureBtn");
-                var scanBtn = this.FindControl<Button>("ScanBtn");
-                var connectDeviceBtn = this.FindControl<Button>("ConnectDeviceBtn");
-                var pipBtn = this.FindControl<Button>("PictureInPictureBtn");
-                var normalRightButtons = this.FindControl<StackPanel>("NormalRightButtons");
-
-                _whiteboardManager.EnterWhiteboardMode(
-                    normalBottomButtons,
-                    captureBtn,
-                    scanBtn,
-                    connectDeviceBtn,
-                    pipBtn,
-                    normalRightButtons);
-
-                // 渲染第一页
-                var slideControl = _whiteboardManager.RenderPptXmlCurrentSlide();
-                if (slideControl != null)
-                {
-                    // 设置幻灯片为白板背景
-                    _whiteboardManager.SetWhiteboardBackgroundFromPptControl(slideControl);
-
-                    // 更新状态栏显示
-                    int slideCount = _whiteboardManager.PptXmlSlideCount;
-                    StatusText.Inlines?.Clear();
-                    StatusText.Inlines?.Add(new Run($"已加载PPT (XML模式): {System.IO.Path.GetFileName(filePath)} - 共 {slideCount} 页"));
-                    StatusText.IsVisible = true;
-                }
-                else
-                {
-                    StatusText.Inlines?.Clear();
-                    StatusText.Inlines?.Add(new Run("无法渲染PPT内容"));
-                    StatusText.IsVisible = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusText.Inlines?.Clear();
-                StatusText.Inlines?.Add(new Run($"加载PPT XML失败: {ex.Message}"));
-                StatusText.IsVisible = true;
-            }
-        }
-
-        private IntPtr GetWindowHandle()
-        {
-            // 获取Avalonia窗口的本地句柄
-            var platformHandle = this.TryGetPlatformHandle();
-            return platformHandle?.Handle ?? IntPtr.Zero;
         }
 
         private bool _photoPanelOpen = false;
@@ -2701,34 +2407,37 @@ namespace ShowWrite
                         {
                             var imagePaths = PdfService.ConvertPdfToImages(path, customDpi: Config.Load().PdfImportDpi);
 
+                            // 缩略图解码/缩放较耗时，在后台线程预先做好，UI 线程只添加条目
+                            var imported = new List<(string ImagePath, byte[]? ThumbnailPng)>();
+                            foreach (var imagePath in imagePaths)
+                                imported.Add((imagePath, CreateThumbnailPng(imagePath)));
+
                             await Dispatcher.UIThread.InvokeAsync(() =>
                             {
-                                foreach (var imagePath in imagePaths)
+                                foreach (var (imagePath, thumbnailPng) in imported)
                                 {
-                                    var thumbnail = CreateThumbnail(imagePath);
-
                                     Photos.Add(new PhotoItem
                                     {
                                         Index = Photos.Count + 1,
                                         FilePath = imagePath,
                                         Timestamp = DateTime.Now,
-                                        Thumbnail = thumbnail
+                                        Thumbnail = CreateThumbnailFromPng(thumbnailPng)
                                     });
                                 }
                             });
                         }
                         else
                         {
+                            var thumbnailPng = CreateThumbnailPng(path);
+
                             await Dispatcher.UIThread.InvokeAsync(() =>
                             {
-                                var thumbnail = CreateThumbnail(path);
-
                                 Photos.Add(new PhotoItem
                                 {
                                     Index = Photos.Count + 1,
                                     FilePath = path,
                                     Timestamp = DateTime.Now,
-                                    Thumbnail = thumbnail
+                                    Thumbnail = CreateThumbnailFromPng(thumbnailPng)
                                 });
                             });
                         }
@@ -3091,30 +2800,7 @@ namespace ShowWrite
         {
             if (filePaths == null || filePaths.Count == 0) return;
 
-            var imageFiles = new List<string>();
-            string? pptFile = null;
-
-            foreach (var path in filePaths)
-            {
-                var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
-                if (ext == ".pptx" || ext == ".ppt")
-                {
-                    pptFile = path;
-                }
-                else
-                {
-                    imageFiles.Add(path);
-                }
-            }
-
-            if (pptFile != null)
-            {
-                await LoadAndPlayPowerPoint(pptFile);
-            }
-            else if (imageFiles.Count > 0)
-            {
-                await ImportFilesAsync(imageFiles);
-            }
+            await ImportFilesAsync(filePaths);
         }
 
         private async Task ImportFilesAsync(List<string> filePaths)
@@ -3131,9 +2817,14 @@ namespace ShowWrite
                         {
                             var imagePaths = PdfService.ConvertPdfToImages(path, customDpi: Config.Load().PdfImportDpi);
 
+                            // 缩略图解码/缩放较耗时，在后台线程预先做好，UI 线程只添加条目
+                            var imported = new List<(string ImagePath, byte[]? ThumbnailPng)>();
+                            foreach (var imagePath in imagePaths)
+                                imported.Add((imagePath, CreateThumbnailPng(imagePath)));
+
                             await Dispatcher.UIThread.InvokeAsync(() =>
                             {
-                                foreach (var imagePath in imagePaths)
+                                foreach (var (imagePath, thumbnailPng) in imported)
                                 {
                                     // 白板模式下，PDF图片作为图层导入
                                     if (_whiteboardManager?.IsWhiteboardMode == true)
@@ -3142,14 +2833,12 @@ namespace ShowWrite
                                     }
                                     else
                                     {
-                                        var thumbnail = CreateThumbnail(imagePath);
-
                                         Photos.Add(new PhotoItem
                                         {
                                             Index = Photos.Count + 1,
                                             FilePath = imagePath,
                                             Timestamp = DateTime.Now,
-                                            Thumbnail = thumbnail
+                                            Thumbnail = CreateThumbnailFromPng(thumbnailPng)
                                         });
                                     }
                                 }
@@ -3157,6 +2846,8 @@ namespace ShowWrite
                         }
                         else
                         {
+                            var thumbnailPng = CreateThumbnailPng(path);
+
                             await Dispatcher.UIThread.InvokeAsync(() =>
                             {
                                 // 白板模式下，图片作为图层导入
@@ -3166,14 +2857,12 @@ namespace ShowWrite
                                 }
                                 else
                                 {
-                                    var thumbnail = CreateThumbnail(path);
-
                                     Photos.Add(new PhotoItem
                                     {
                                         Index = Photos.Count + 1,
                                         FilePath = path,
                                         Timestamp = DateTime.Now,
-                                        Thumbnail = thumbnail
+                                        Thumbnail = CreateThumbnailFromPng(thumbnailPng)
                                     });
                                 }
                             });
@@ -3470,6 +3159,12 @@ namespace ShowWrite
         }
 
         private Bitmap? CreateThumbnail(string imagePath)
+            => CreateThumbnailFromPng(CreateThumbnailPng(imagePath));
+
+        /// <summary>
+        /// 解码并生成缩略图 PNG 字节。耗时较重，可在后台线程调用，避免阻塞 UI 与摄像头画面。
+        /// </summary>
+        private static byte[]? CreateThumbnailPng(string imagePath)
         {
             try
             {
@@ -3500,8 +3195,22 @@ namespace ShowWrite
                 using var image = SkiaSharp.SKImage.FromBitmap(resizedBitmap);
                 using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 80);
 
-                var ms = new MemoryStream(data.ToArray());
-                return new Bitmap(ms);
+                return data.ToArray();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>把后台生成的缩略图字节转为 Avalonia 位图（需在 UI 线程调用）。</summary>
+        private static Bitmap? CreateThumbnailFromPng(byte[]? png)
+        {
+            if (png == null || png.Length == 0) return null;
+
+            try
+            {
+                return new Bitmap(new MemoryStream(png));
             }
             catch
             {

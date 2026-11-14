@@ -6,7 +6,6 @@ using Avalonia.Styling;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Management;
 using System.Threading;
 
 namespace ShowWrite
@@ -27,7 +26,6 @@ namespace ShowWrite
         private NumericUpDown? _ratioChangeCoefficientInput;
         private CheckBox? _enablePalmEraserInput;
         private NumericUpDown? _palmEraserThresholdInput;
-        private TextBlock? _motherboardSerialText;
         private TextBlock? _uuidText;
         private ComboBox? _themeComboBox;
         private ComboBox? _defaultCameraComboBox;
@@ -40,6 +38,8 @@ namespace ShowWrite
         private TextBlock? _bootStatusText;
         private SplitView? _settingsSplitView;
         private List<int> _availableCameras = new();
+        private TextBlock? _imageAssocStatus;
+        private TextBlock? _pdfAssocStatus;
 
         private readonly CameraService? _cameraService;
 
@@ -86,7 +86,6 @@ namespace ShowWrite
             _ratioChangeCoefficientInput = this.FindControl<NumericUpDown>("RatioChangeCoefficientInput");
             _enablePalmEraserInput = this.FindControl<CheckBox>("EnablePalmEraserInput");
             _palmEraserThresholdInput = this.FindControl<NumericUpDown>("PalmEraserThresholdInput");
-            _motherboardSerialText = this.FindControl<TextBlock>("MotherboardSerialText");
             _uuidText = this.FindControl<TextBlock>("UuidText");
             _themeComboBox = this.FindControl<ComboBox>("ThemeComboBox");
             _defaultCameraComboBox = this.FindControl<ComboBox>("DefaultCameraComboBox");
@@ -98,6 +97,8 @@ namespace ShowWrite
             _bootLocalVersionText = this.FindControl<TextBlock>("BootLocalVersionText");
             _bootStatusText = this.FindControl<TextBlock>("BootStatusText");
             _settingsSplitView = this.FindControl<SplitView>("SettingsSplitView");
+            _imageAssocStatus = this.FindControl<TextBlock>("ImageAssocStatus");
+            _pdfAssocStatus = this.FindControl<TextBlock>("PdfAssocStatus");
 
             _enableOcrDirectoryInput = this.FindControl<CheckBox>("EnableOcrDirectoryInput");
             _ocrModelListPanel = this.FindControl<StackPanel>("OcrModelListPanel");
@@ -126,6 +127,7 @@ namespace ShowWrite
             LoadSystemInfo();
             LoadOcrSettings();
             RefreshOcrStatus();
+            RefreshFileAssociationStatus();
         }
 
         public SettingsWindow(CameraService cameraService) : this()
@@ -216,6 +218,78 @@ namespace ShowWrite
             if (_pdfImportDpiInput != null) _pdfImportDpiInput.Value = config.PdfImportDpi;
             if (_bootImageApiInput != null) _bootImageApiInput.Text = BootImageUpdater.GetApiUrl();
             if (_bootLocalVersionText != null) _bootLocalVersionText.Text = BootImageUpdater.GetLocalVersion() ?? "(未安装)";
+        }
+
+        // ---------- 文件打开方式注册 ----------
+
+        private void RegisterImageAssoc_Click(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                FileAssociation.RegisterImage();
+                SetAssocStatus(_imageAssocStatus, "已注册", true);
+            }
+            catch (Exception ex)
+            {
+                SetAssocStatus(_imageAssocStatus, $"注册失败: {ex.Message}", false);
+            }
+        }
+
+        private void UnregisterImageAssoc_Click(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                FileAssociation.UnregisterImage();
+                SetAssocStatus(_imageAssocStatus, "未注册", false);
+            }
+            catch (Exception ex)
+            {
+                SetAssocStatus(_imageAssocStatus, $"取消注册失败: {ex.Message}", false);
+            }
+        }
+
+        private void RegisterPdfAssoc_Click(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                FileAssociation.RegisterPdf();
+                SetAssocStatus(_pdfAssocStatus, "已注册", true);
+            }
+            catch (Exception ex)
+            {
+                SetAssocStatus(_pdfAssocStatus, $"注册失败: {ex.Message}", false);
+            }
+        }
+
+        private void UnregisterPdfAssoc_Click(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                FileAssociation.UnregisterPdf();
+                SetAssocStatus(_pdfAssocStatus, "未注册", false);
+            }
+            catch (Exception ex)
+            {
+                SetAssocStatus(_pdfAssocStatus, $"取消注册失败: {ex.Message}", false);
+            }
+        }
+
+        private void RefreshFileAssociationStatus()
+        {
+            SetAssocStatus(_imageAssocStatus,
+                FileAssociation.IsRegistered(FileAssociation.ProgIdImage) ? "已注册" : "未注册",
+                FileAssociation.IsRegistered(FileAssociation.ProgIdImage));
+            SetAssocStatus(_pdfAssocStatus,
+                FileAssociation.IsRegistered(FileAssociation.ProgIdPdf) ? "已注册" : "未注册",
+                FileAssociation.IsRegistered(FileAssociation.ProgIdPdf));
+        }
+
+        private static void SetAssocStatus(TextBlock? status, string text, bool registered)
+        {
+            if (status == null) return;
+            status.Text = text;
+            status.Foreground = Avalonia.Application.Current?.FindResource(
+                registered ? "ThemePrimary" : "ThemeTextTertiary") as Avalonia.Media.IBrush;
         }
 
         // ---------- 启动图 ----------
@@ -589,31 +663,6 @@ namespace ShowWrite
 
         private void LoadSystemInfo()
         {
-            try
-            {
-                var searcher = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    var serial = obj["SerialNumber"]?.ToString();
-                    if (!string.IsNullOrWhiteSpace(serial))
-                    {
-                        if (_motherboardSerialText != null)
-                            _motherboardSerialText.Text = serial;
-                        break;
-                    }
-                }
-                if (_motherboardSerialText != null && _motherboardSerialText.Text == "正在获取...")
-                {
-                    _motherboardSerialText.Text = "未获取到";
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[SettingsWindow] 获取主板序列号失败: {ex.Message}");
-                if (_motherboardSerialText != null)
-                    _motherboardSerialText.Text = "获取失败";
-            }
-
             var uuid = LicenseManager.Instance.CurrentUuid;
             if (_uuidText != null)
             {
@@ -623,16 +672,8 @@ namespace ShowWrite
                 }
                 else
                 {
-                    var motherboardSerial = LicenseManager.Instance.MotherboardSerial;
-                    if (!string.IsNullOrEmpty(motherboardSerial))
-                    {
-                        _uuidText.Text = "正在向服务器注册...";
-                        _ = TryGetUuidAsync();
-                    }
-                    else
-                    {
-                        _uuidText.Text = "未注册 (无法获取主板序列号)";
-                    }
+                    _uuidText.Text = "正在生成...";
+                    _ = TryGetUuidAsync();
                 }
             }
         }

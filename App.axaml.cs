@@ -134,9 +134,10 @@ namespace ShowWrite
                 desktop.MainWindow = mainWindow;
                 MainWindow = mainWindow;
 
-                if (Program.FilesToOpen.Count > 0)
+                var pendingFiles = Program.TakePendingFiles();
+                if (pendingFiles.Count > 0)
                 {
-                    mainWindow.OpenFiles(Program.FilesToOpen);
+                    mainWindow.OpenFiles(pendingFiles);
                 }
 
                 mainWindow.Show();

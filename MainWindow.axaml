@@ -733,17 +733,11 @@
             </Border.RenderTransform>
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 
-                <!-- PPT页数信息 -->
-                <Border Grid.Row="0" Background="Transparent" Padding="12,8">
-                    <TextBlock x:Name="PptPageInfo" Text="" FontSize="12" Foreground="{DynamicResource ThemeTextSecondary}" HorizontalAlignment="Center"/>
-                </Border>
-                
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="0">
                     <ScrollViewer AllowAutoHide="False">
                         <ItemsControl x:Name="PageList" ItemsSource="{Binding WhiteboardPageThumbnails}" x:CompileBindings="False" Margin="8">
                             <ItemsControl.ItemTemplate>
@@ -800,7 +794,7 @@
                     </Border>
                 </Grid>
                 
-                <Border Grid.Row="2" 
+                <Border Grid.Row="1" 
                         Background="Transparent" 
                         Padding="12,8">
                     <StackPanel Orientation="Vertical" 
@@ -817,7 +811,7 @@
                         </Button>
                         
                         <Button Classes="nav-btn"
-                                Click="ImportPptBtn_Click">
+                                Click="ImportFileBtn_Click">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Viewbox Width="18" Height="18">
                                     <Path Classes="icon-path" Data="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/>

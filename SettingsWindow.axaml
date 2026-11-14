@@ -215,6 +215,41 @@
                                         </Grid>
                                     </StackPanel>
                                 </Border>
+
+                                <TextBlock Text="文件打开方式" Classes="setting-title" Margin="0,16,0,0"/>
+
+                                <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="12">
+                                        <Grid ColumnDefinitions="Auto,*">
+                                            <TextBlock Grid.Column="0" Text="图片文件" Classes="setting-label" Width="140"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                                <Button Classes="reset-btn" Click="RegisterImageAssoc_Click" Padding="12,4" Margin="0">
+                                                    <TextBlock Text="注册为图片打开方式" FontSize="12" Foreground="{DynamicResource ThemeTextPrimary}" VerticalAlignment="Center"/>
+                                                </Button>
+                                                <Button Classes="reset-btn" Click="UnregisterImageAssoc_Click" Padding="12,4" Margin="0">
+                                                    <TextBlock Text="取消注册" FontSize="12" Foreground="{DynamicResource ThemeTextPrimary}" VerticalAlignment="Center"/>
+                                                </Button>
+                                                <TextBlock x:Name="ImageAssocStatus" Text="未注册" FontSize="11" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <Grid ColumnDefinitions="Auto,*">
+                                            <TextBlock Grid.Column="0" Text="PDF 文件" Classes="setting-label" Width="140"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                                <Button Classes="reset-btn" Click="RegisterPdfAssoc_Click" Padding="12,4" Margin="0">
+                                                    <TextBlock Text="注册为 PDF 打开方式" FontSize="12" Foreground="{DynamicResource ThemeTextPrimary}" VerticalAlignment="Center"/>
+                                                </Button>
+                                                <Button Classes="reset-btn" Click="UnregisterPdfAssoc_Click" Padding="12,4" Margin="0">
+                                                    <TextBlock Text="取消注册" FontSize="12" Foreground="{DynamicResource ThemeTextPrimary}" VerticalAlignment="Center"/>
+                                                </Button>
+                                                <TextBlock x:Name="PdfAssocStatus" Text="未注册" FontSize="11" Foreground="{DynamicResource ThemeTextTertiary}" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock Text="注册后可在资源管理器的“打开方式”中选择 ShowWrite（仅对当前用户生效，无需管理员权限）"
+                                                   FontSize="11" Foreground="{DynamicResource ThemeTextTertiary}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
 
                             <StackPanel x:Name="AppearancePage" IsVisible="False" Spacing="16">
@@ -464,10 +499,6 @@
                                 <Border Background="{DynamicResource ThemeSurface}" CornerRadius="8" Padding="16" Margin="0,16,0,0">
                                     <StackPanel Spacing="12">
                                         <TextBlock Text="系统信息" Foreground="{DynamicResource ThemeTextSecondary}" FontSize="14" FontWeight="Bold"/>
-                                        <Grid ColumnDefinitions="Auto,*">
-                                            <TextBlock Grid.Column="0" Text="主板序列号：" Classes="setting-label" Width="100"/>
-                                            <TextBlock x:Name="MotherboardSerialText" Grid.Column="1" Text="正在获取..." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13" TextWrapping="Wrap"/>
-                                        </Grid>
                                         <Grid ColumnDefinitions="Auto,*">
                                             <TextBlock Grid.Column="0" Text="UUID：" Classes="setting-label" Width="100"/>
                                             <TextBlock x:Name="UuidText" Grid.Column="1" Text="正在获取..." Foreground="{DynamicResource ThemeTextSecondary}" FontSize="13" TextWrapping="Wrap"/>

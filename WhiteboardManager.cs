@@ -1,4 +1,3 @@
-using Aspose.Slides;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -6,7 +5,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using DocumentFormat.OpenXml.Packaging;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
@@ -15,9 +13,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using D = DocumentFormat.OpenXml.Drawing;
 using IOPath = System.IO.Path;
-using P = DocumentFormat.OpenXml.Presentation;
 
 namespace ShowWrite
 {
@@ -62,46 +58,14 @@ namespace ShowWrite
         private double _initialX;
         private double _initialY;
 
-        // PptService fields
-        private PptService? _pptService;
-        private bool _isPowerPointMode = false;
-
-        // PptXmlService fields
-        private bool _isPptXmlMode = false;
-
-        // AsposeSlidesService fields
-        private Aspose.Slides.Presentation? _asposePresentation;
-        private int _asposeCurrentIndex;
-
         public bool IsWhiteboardMode => _isWhiteboardMode;
         public int CurrentPage => _whiteboardCurrentPage;
         public int TotalPages => _whiteboardTotalPages;
         public ObservableCollection<WhiteboardPageThumbnail> WhiteboardPageThumbnails => _whiteboardPageThumbnails;
 
-        // AsposeSlidesService properties
-        public bool IsAsposePresentationOpen => _asposePresentation != null;
-        public int AsposeSlideCount => _asposePresentation?.Slides.Count ?? 0;
-        public int AsposeCurrentIndex => _asposeCurrentIndex;
-
-        // PptService properties
-        public bool IsPowerPointMode => _isPowerPointMode;
-        public bool IsPowerPointOpen => _pptService?.IsOpen ?? false;
-        public int PowerPointSlideCount => _pptService?.SlideCount ?? 0;
-        public int PowerPointCurrentSlide => _pptService?.CurrentSlideIndex ?? 1;
-
-        // PptXmlService properties
-        public bool IsPptXmlMode => _isPptXmlMode;
-        public int PptXmlSlideCount => _pptService?.PptXmlSlideCount ?? 0;
-        public int PptXmlCurrentIndex => _pptService?.PptXmlCurrentIndex ?? 0;
-
         public event PropertyChangedEventHandler? PropertyChanged;
         public event Action? WhiteboardModeEntered;
         public event Action? WhiteboardModeExited;
-        public event Action? ImportPptRequested;
-        public event Action<PptSlideControl>? PptSlideControlReady;
-        private PptSlideControl? _pendingPptSlideControl;
-        public PptSlideControl? PendingPptSlideControl => _pendingPptSlideControl;
-        public PptService.PptSlide? CurrentPptSlide => _pptService?.GetCurrentPptSlide();
 
         public WhiteboardManager(
             InkCanvas inkCanvas,
@@ -322,19 +286,7 @@ namespace ShowWrite
 
         public void PrevPage_Click(object? sender, RoutedEventArgs e)
         {
-            if (_isPptXmlMode)
-            {
-                // PPT XML模式下切换幻灯片
-                PptXmlPreviousSlide();
-                var slideControl = RenderPptXmlCurrentSlide();
-                if (slideControl != null)
-                {
-                    SetWhiteboardBackgroundFromPptControl(slideControl);
-                }
-                // 更新页码信息
-                UpdatePageInfo();
-            }
-            else if (_whiteboardCurrentPage > 1)
+            if (_whiteboardCurrentPage > 1)
             {
                 // 普通白板模式下切换页面
                 _whiteboardPages[_whiteboardCurrentPage - 1] = _inkCanvas.GetStrokes();
@@ -351,19 +303,7 @@ namespace ShowWrite
 
         public void NextPage_Click(object? sender, RoutedEventArgs e)
         {
-            if (_isPptXmlMode)
-            {
-                // PPT XML模式下切换幻灯片
-                PptXmlNextSlide();
-                var slideControl = RenderPptXmlCurrentSlide();
-                if (slideControl != null)
-                {
-                    SetWhiteboardBackgroundFromPptControl(slideControl);
-                }
-                // 更新页码信息
-                UpdatePageInfo();
-            }
-            else if (_whiteboardCurrentPage == _whiteboardTotalPages)
+            if (_whiteboardCurrentPage == _whiteboardTotalPages)
             {
                 // 普通白板模式下添加新页
                 _whiteboardPages[_whiteboardCurrentPage - 1] = _inkCanvas.GetStrokes();
@@ -396,27 +336,12 @@ namespace ShowWrite
         {
             if (_pageInfoText != null)
             {
-                if (_isPptXmlMode)
-                {
-                    // PPT XML模式下显示PPT页码
-                    _pageInfoText.Text = $"{PptXmlCurrentIndex}/{PptXmlSlideCount}";
-                }
-                else
-                {
-                    // 普通白板模式下显示白板页码
-                    _pageInfoText.Text = $"{_whiteboardCurrentPage}/{_whiteboardTotalPages}";
-                }
+                _pageInfoText.Text = $"{_whiteboardCurrentPage}/{_whiteboardTotalPages}";
             }
 
             if (_nextPagePath != null && _nextPageText != null)
             {
-                if (_isPptXmlMode)
-                {
-                    // PPT XML模式下始终显示"下一页"
-                    _nextPagePath.IconName = "chevron-right";
-                    _nextPageText.Text = "下一页";
-                }
-                else if (_whiteboardCurrentPage == _whiteboardTotalPages)
+                if (_whiteboardCurrentPage == _whiteboardTotalPages)
                 {
                     _nextPagePath.IconName = "plus";
                     _nextPageText.Text = "加页";
@@ -550,125 +475,6 @@ namespace ShowWrite
             UpdatePageInfo();
             UpdatePageThumbnails();
             RefreshImageOverlays();
-        }
-
-        public void ImportPptBtn_Click(object? sender, RoutedEventArgs e)
-        {
-            ImportPptRequested?.Invoke();
-        }
-
-        public async void ImportPptSlides(List<string> slideImagePaths)
-        {
-            if (slideImagePaths == null || slideImagePaths.Count == 0)
-                return;
-
-            if (_importingOverlay != null)
-            {
-                _importingOverlay.IsVisible = true;
-            }
-
-            try
-            {
-                await Task.Run(async () =>
-                {
-                    foreach (var imagePath in slideImagePaths)
-                    {
-                        if (!File.Exists(imagePath)) continue;
-
-                        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-                        {
-                            if (_whiteboardCurrentPage - 1 < _whiteboardPages.Count)
-                            {
-                                _whiteboardPages[_whiteboardCurrentPage - 1] = _inkCanvas.GetStrokes();
-                            }
-                            _whiteboardPages.Add(new List<InkStroke>());
-                            _pageBackgrounds.Add(imagePath);
-                            _whiteboardTotalPages++;
-                            _whiteboardCurrentPage = _whiteboardTotalPages;
-                            _inkCanvas.SetStrokes(new List<InkStroke>());
-                            _inkCanvas.SetWhiteboardBackground(imagePath);
-                            UpdatePageInfo();
-                            UpdatePageThumbnails();
-                        });
-                    }
-                });
-            }
-            finally
-            {
-                if (_importingOverlay != null)
-                {
-                    _importingOverlay.IsVisible = false;
-                }
-            }
-        }
-
-        #region PptService Methods (Spire.Presentation)
-
-        public static List<string> ConvertPptToImages(string pptPath, string? outputDirectory = null)
-        {
-            var imagePaths = new List<string>();
-
-            if (!File.Exists(pptPath))
-            {
-                return imagePaths;
-            }
-
-            outputDirectory ??= IOPath.Combine(IOPath.GetTempPath(), "ShowWrite_PptImages", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(outputDirectory);
-
-            try
-            {
-                using var presentation = new Spire.Presentation.Presentation();
-                presentation.LoadFromFile(pptPath);
-
-                for (int i = 0; i < presentation.Slides.Count; i++)
-                {
-                    var slide = presentation.Slides[i];
-                    var fileName = $"Slide_{i + 1}.png";
-                    var outputPath = IOPath.Combine(outputDirectory, fileName);
-
-                    using var image = slide.SaveAsImage();
-                    if (image != null)
-                    {
-                        using var ms = new MemoryStream();
-                        image.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                        ms.Position = 0;
-
-                        using var skBitmap = SKBitmap.Decode(ms);
-                        if (skBitmap != null)
-                        {
-                            using var fileStream = File.OpenWrite(outputPath);
-                            skBitmap.Encode(fileStream, SKEncodedImageFormat.Png, 100);
-                            imagePaths.Add(outputPath);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-
-            }
-
-            return imagePaths;
-        }
-
-        public static int GetSlideCount(string pptPath)
-        {
-            if (!File.Exists(pptPath))
-            {
-                return 0;
-            }
-
-            try
-            {
-                using var presentation = new Spire.Presentation.Presentation();
-                presentation.LoadFromFile(pptPath);
-                return presentation.Slides.Count;
-            }
-            catch
-            {
-                return 0;
-            }
         }
 
         private void ImageOverlay_PointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -829,258 +635,6 @@ namespace ShowWrite
                 _activeHandle = null;
             }
         }
-
-        #endregion
-
-        #region AsposeSlidesService Methods
-
-        public void OpenAsposePresentation(string filePath)
-        {
-            CloseAsposePresentation();
-            _asposePresentation = new Aspose.Slides.Presentation(filePath);
-            _asposeCurrentIndex = 0;
-        }
-
-        public void CloseAsposePresentation()
-        {
-            _asposePresentation?.Dispose();
-            _asposePresentation = null;
-            _asposeCurrentIndex = 0;
-        }
-
-        public void AsposeNextSlide()
-        {
-            if (_asposePresentation == null) return;
-            if (_asposeCurrentIndex < _asposePresentation.Slides.Count - 1)
-            {
-                _asposeCurrentIndex++;
-            }
-        }
-
-        public void AsposePreviousSlide()
-        {
-            if (_asposePresentation == null) return;
-            if (_asposeCurrentIndex > 0)
-            {
-                _asposeCurrentIndex--;
-            }
-        }
-
-        public Bitmap? RenderAsposeCurrentSlide(int targetWidth = 1280, int targetHeight = 720)
-        {
-            if (_asposePresentation == null) return null;
-            var slide = _asposePresentation.Slides[_asposeCurrentIndex];
-
-            var slideSize = _asposePresentation.SlideSize.Size;
-            var scaleX = (float)targetWidth / slideSize.Width;
-            var scaleY = (float)targetHeight / slideSize.Height;
-            var scale = Math.Min(scaleX, scaleY);
-            if (scale <= 0) scale = 1f;
-
-            using Aspose.Slides.IImage image = slide.GetImage(scale, scale);
-            using var ms = new MemoryStream();
-            image.Save(ms, ImageFormat.Png);
-            ms.Position = 0;
-            return new Bitmap(ms);
-        }
-
-        #endregion
-
-        #region OpenXmlPptService Methods
-
-        public static List<string> ReadAllTextFromPpt(string filePath)
-        {
-            var result = new List<string>();
-            using var ppt = PresentationDocument.Open(filePath, false);
-            var presentationPart = ppt.PresentationPart;
-            if (presentationPart?.Presentation?.SlideIdList == null)
-                return result;
-
-            foreach (var slideId in presentationPart.Presentation.SlideIdList.Elements<P.SlideId>())
-            {
-                var slidePart = (SlidePart)presentationPart.GetPartById(slideId.RelationshipId);
-                var texts = slidePart.Slide.Descendants<D.Text>();
-                foreach (var t in texts)
-                {
-                    if (!string.IsNullOrWhiteSpace(t.Text))
-                    {
-                        result.Add(t.Text);
-                    }
-                }
-            }
-            return result;
-        }
-
-        #endregion
-
-        #region PowerPointService Methods
-
-        /// <summary>
-        /// 打开PowerPoint文件并准备放映
-        /// </summary>
-        public bool OpenPowerPointPresentation(string filePath)
-        {
-            try
-            {
-                ClosePowerPointPresentation();
-
-                _pptService = new PptService();
-
-                return _pptService.OpenPresentation(filePath);
-            }
-            catch (Exception ex)
-            {
-
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 开始PowerPoint放映
-        /// </summary>
-        public bool StartPowerPointSlideShow(IntPtr hostWindowHandle, int width, int height)
-        {
-            if (_pptService == null) return false;
-
-            try
-            {
-                _isPowerPointMode = true;
-                return _pptService.StartSlideShow(hostWindowHandle, width, height);
-            }
-            catch (Exception ex)
-            {
-
-                _isPowerPointMode = false;
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// PowerPoint下一页
-        /// </summary>
-        public void PowerPointNextSlide()
-        {
-            _pptService?.NextSlide();
-        }
-
-        /// <summary>
-        /// PowerPoint上一页
-        /// </summary>
-        public void PowerPointPreviousSlide()
-        {
-            _pptService?.PreviousSlide();
-        }
-
-        /// <summary>
-        /// 跳转到PowerPoint指定页
-        /// </summary>
-        public void PowerPointGoToSlide(int slideIndex)
-        {
-            _pptService?.GoToSlide(slideIndex);
-        }
-
-        /// <summary>
-        /// 停止PowerPoint放映
-        /// </summary>
-        public void StopPowerPointSlideShow()
-        {
-            _pptService?.StopSlideShow();
-            _isPowerPointMode = false;
-        }
-
-        /// <summary>
-        /// 关闭PowerPoint演示文稿
-        /// </summary>
-        public void ClosePowerPointPresentation()
-        {
-            if (_pptService != null)
-            {
-                _pptService.Dispose();
-                _pptService = null;
-            }
-            _isPowerPointMode = false;
-        }
-
-        private void OnPowerPointSlideChanged(int currentSlide, int totalSlides)
-        {
-            // 触发属性变更通知
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PowerPointCurrentSlide)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PowerPointSlideCount)));
-        }
-
-        private void OnPowerPointPresentationEnded()
-        {
-            _isPowerPointMode = false;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPowerPointMode)));
-        }
-
-        #endregion
-
-        #region PptXmlService Methods
-
-        public void OpenPptXmlPresentation(string filePath)
-        {
-            ClosePptXmlPresentation();
-            
-            _pptService = new PptService();
-            _pptService.OpenPptXmlPresentation(filePath);
-            _isPptXmlMode = true;
-        }
-
-        public void ClosePptXmlPresentation()
-        {
-            if (_pptService != null)
-            {
-                _pptService.Dispose();
-                _pptService = null;
-            }
-            _isPptXmlMode = false;
-        }
-
-        public void PptXmlNextSlide()
-        {
-            _pptService?.PptXmlNextSlide();
-        }
-
-        public void PptXmlPreviousSlide()
-        {
-            _pptService?.PptXmlPreviousSlide();
-        }
-
-        public PptSlideControl? RenderPptXmlCurrentSlide()
-        {
-            return _pptService?.RenderPptXmlCurrentSlide();
-        }
-
-        public void SetWhiteboardBackgroundFromPptControl(PptSlideControl slideControl)
-        {
-            if (_inkCanvas == null || slideControl == null) return;
-            
-            // 设置幻灯片控件的拉伸模式
-            slideControl.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
-            slideControl.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
-            slideControl.Stretch = Avalonia.Media.Stretch.Uniform;
-            
-            // 将幻灯片控件添加到VideoAreaContainer
-            // 这需要在主窗口中执行，暂时设置一个标记
-            _pendingPptSlideControl = slideControl;
-            
-            // 触发事件让主窗口处理
-            PptSlideControlReady?.Invoke(slideControl);
-            
-            // 更新页码信息
-            UpdatePageInfo();
-        }
-
-        // 设置 PPT 背景图片（如果 PPT 定义了背景图）
-        public void SetWhiteboardBackgroundFromPptImage(string imagePath)
-        {
-            if (string.IsNullOrEmpty(imagePath)) return;
-            // 使用 InkCanvas 已有的背景加载方式
-            _inkCanvas.SetWhiteboardBackground(imagePath);
-        }
-
-        #endregion
 
         #region 图片图层方法
 
@@ -1250,13 +804,11 @@ namespace ShowWrite
             DeselectImage();
         }
 
+        #endregion
+
         public void Dispose()
         {
-            CloseAsposePresentation();
-            ClosePowerPointPresentation();
-            ClosePptXmlPresentation();
             GC.SuppressFinalize(this);
         }
     }
 }
-    #endregion
